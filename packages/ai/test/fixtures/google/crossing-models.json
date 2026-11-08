@@ -1,0 +1,223 @@
+{
+	"source": "Built by hand on 2026-10-29 from Google's Interactions API reference (CreateModelInteraction, its steps, content blocks, Tool, GenerationConfig, StepStart, StepDelta, StepStop, InteractionCompletedEvent, Usage) and the function calling guide, with their REST examples. Replace it with a recording: bun scripts/record-google.ts",
+	"request": {
+		"model": "google/gemini-3.8-flash",
+		"tools": [
+			{
+				"type": "function",
+				"name": "get_weather",
+				"description": "The weather now in a city",
+				"parameters": {
+					"type": "object",
+					"properties": {
+						"city": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"city"
+					]
+				}
+			}
+		],
+		"input": [
+			{
+				"role": "user",
+				"content": "What is the weather in Paris?"
+			},
+			{
+				"type": "additional_tools",
+				"role": "developer",
+				"tools": [
+					{
+						"type": "function",
+						"name": "search",
+						"description": "Searches the notes",
+						"parameters": {
+							"type": "object",
+							"properties": {
+								"query": {
+									"type": "string"
+								}
+							}
+						}
+					}
+				]
+			},
+			{
+				"type": "configuration_update",
+				"reasoning": {
+					"effort": "high"
+				}
+			},
+			{
+				"type": "reasoning",
+				"id": "rs_claude",
+				"summary": [
+					{
+						"type": "summary_text",
+						"text": "I should call the weather tool."
+					}
+				],
+				"signature": "EqQBCkYIBRgCKkClaudeSignature",
+				"format": "anthropic-claude-v1",
+				"octoii": {
+					"model": "anthropic/claude-opus-5-5"
+				}
+			},
+			{
+				"role": "assistant",
+				"content": [
+					{
+						"type": "output_text",
+						"text": "I'll check the weather."
+					}
+				],
+				"octoii": {
+					"model": "anthropic/claude-opus-5-5",
+					"provider_metadata": {
+						"anthropic": {
+							"citations": []
+						}
+					}
+				}
+			},
+			{
+				"type": "function_call",
+				"call_id": "toolu_01A9xQ",
+				"name": "get_weather",
+				"arguments": "{\"city\":\"Paris\"}",
+				"octoii": {
+					"model": "anthropic/claude-opus-5-5",
+					"provider_metadata": {
+						"anthropic": {
+							"caller": {
+								"type": "direct"
+							}
+						}
+					}
+				}
+			},
+			{
+				"type": "function_call_output",
+				"call_id": "toolu_01A9xQ",
+				"output": "18 °C and sunny"
+			},
+			{
+				"role": "developer",
+				"content": "Answer in French."
+			}
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+				"body": {
+					"model": "gemini-3.8-flash",
+					"input": [
+						{
+							"type": "user_input",
+							"content": [
+								{
+									"type": "text",
+									"text": "What is the weather in Paris?"
+								}
+							]
+						},
+						{
+							"type": "model_output",
+							"content": [
+								{
+									"type": "text",
+									"text": "I'll check the weather."
+								}
+							]
+						},
+						{
+							"type": "function_call",
+							"id": "toolu_01A9xQ",
+							"name": "get_weather",
+							"arguments": {
+								"city": "Paris"
+							}
+						},
+						{
+							"type": "function_result",
+							"call_id": "toolu_01A9xQ",
+							"name": "get_weather",
+							"result": [
+								{
+									"type": "text",
+									"text": "18 °C and sunny"
+								}
+							]
+						},
+						{
+							"type": "user_input",
+							"content": [
+								{
+									"type": "text",
+									"text": "<system-update>\nAnswer in French.\n</system-update>"
+								}
+							]
+						}
+					],
+					"tools": [
+						{
+							"type": "function",
+							"name": "get_weather",
+							"description": "The weather now in a city",
+							"parameters": {
+								"type": "object",
+								"properties": {
+									"city": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"city"
+								]
+							}
+						},
+						{
+							"type": "function",
+							"name": "search",
+							"description": "Searches the notes",
+							"parameters": {
+								"type": "object",
+								"properties": {
+									"query": {
+										"type": "string"
+									}
+								}
+							}
+						}
+					],
+					"generation_config": {
+						"thinking_level": "high"
+					},
+					"store": false,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"event: interaction.created\ndata: {\"event_type\":\"interaction.created\",\"interaction\":{\"id\":\"v1_ChdpbnRlcmFjdGlvbi10ZXN0LTEyMzQ\",\"status\":\"in_progress\",\"object\":\"interaction\",\"model\":\"gemini-3.8-flash\",\"created\":\"2026-10-29T12:00:00Z\"}}\n\n",
+					"event: step.start\ndata: {\"event_type\":\"step.start\",\"index\":0,\"step\":{\"type\":\"thought\"}}\n\n",
+					"event: step.delta\ndata: {\"event_type\":\"step.delta\",\"index\":0,\"delta\":{\"type\":\"thought_signature\",\"signature\":\"CiQBCrossingThoughtSignature\"}}\n\n",
+					"event: step.stop\ndata: {\"event_type\":\"step.stop\",\"index\":0}\n\n",
+					"event: step.start\ndata: {\"event_type\":\"step.start\",\"index\":1,\"step\":{\"type\":\"model_output\",\"content\":[{\"type\":\"text\",\"text\":\"Il fait 18 °C et beau à Paris.\"}]}}\n\n",
+					"event: step.stop\ndata: {\"event_type\":\"step.stop\",\"index\":1}\n\n",
+					"event: interaction.completed\ndata: {\"event_type\":\"interaction.completed\",\"interaction\":{\"id\":\"v1_ChdpbnRlcmFjdGlvbi10ZXN0LTEyMzQ\",\"status\":\"completed\",\"usage\":{\"total_tokens\":180,\"total_input_tokens\":120,\"total_cached_tokens\":0,\"total_output_tokens\":12,\"total_thought_tokens\":48},\"object\":\"interaction\",\"model\":\"gemini-3.8-flash\",\"created\":\"2026-10-29T12:00:00Z\",\"updated\":\"2026-10-29T12:00:02Z\"}}\n\n",
+					"event: done\ndata: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

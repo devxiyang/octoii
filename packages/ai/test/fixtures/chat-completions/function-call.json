@@ -1,0 +1,95 @@
+{
+	"source": "Built by hand from OpenAI's Chat Completions API reference on 2026-10-29: its request, its streamed chunks with stream_options.include_usage and its errors, with reasoning_content as servers write it. Replace it with a recording: bun scripts/record-chat-completions.ts",
+	"request": {
+		"model": "local/qwen3.6-27b",
+		"input": [
+			{
+				"role": "user",
+				"content": "Search for Paris and for Lyon."
+			}
+		],
+		"tools": [
+			{
+				"type": "function",
+				"name": "search",
+				"description": "Searches the web",
+				"parameters": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"query"
+					]
+				},
+				"strict": true
+			}
+		],
+		"tool_choice": "required",
+		"parallel_tool_calls": true
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "http://127.0.0.1:8080/v1/chat/completions",
+				"body": {
+					"model": "qwen3.6-27b",
+					"messages": [
+						{
+							"role": "user",
+							"content": "Search for Paris and for Lyon."
+						}
+					],
+					"tools": [
+						{
+							"type": "function",
+							"function": {
+								"name": "search",
+								"description": "Searches the web",
+								"parameters": {
+									"type": "object",
+									"properties": {
+										"query": {
+											"type": "string"
+										}
+									},
+									"required": [
+										"query"
+									]
+								},
+								"strict": true
+							}
+						}
+					],
+					"tool_choice": "required",
+					"parallel_tool_calls": true,
+					"stream_options": {
+						"include_usage": true
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"id\":\"chatcmpl-local-2\",\"object\":\"chat.completion.chunk\",\"created\":1761760800,\"model\":\"qwen3.6-27b\",\"system_fingerprint\":\"b6080-local\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+					"data: {\"id\":\"chatcmpl-local-2\",\"object\":\"chat.completion.chunk\",\"created\":1761760800,\"model\":\"qwen3.6-27b\",\"system_fingerprint\":\"b6080-local\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning\":\"Two searches.\"},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+					"data: {\"id\":\"chatcmpl-local-2\",\"object\":\"chat.completion.chunk\",\"created\":1761760800,\"model\":\"qwen3.6-27b\",\"system_fingerprint\":\"b6080-local\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_0\",\"type\":\"function\",\"function\":{\"name\":\"search\",\"arguments\":\"\"}}]},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+					"data: {\"id\":\"chatcmpl-local-2\",\"object\":\"chat.completion.chunk\",\"created\":1761760800,\"model\":\"qwen3.6-27b\",\"system_fingerprint\":\"b6080-local\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"query\\\":\"}}]},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+					"data: {\"id\":\"chatcmpl-local-2\",\"object\":\"chat.completion.chunk\",\"created\":1761760800,\"model\":\"qwen3.6-27b\",\"system_fingerprint\":\"b6080-local\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":1,\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"search\",\"arguments\":\"{\\\"query\\\":\"}}]},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+					"data: {\"id\":\"chatcmpl-local-2\",\"object\":\"chat.completion.chunk\",\"created\":1761760800,\"model\":\"qwen3.6-27b\",\"system_fingerprint\":\"b6080-local\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"Paris\\\"}\"}}]},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+					"data: {\"id\":\"chatcmpl-local-2\",\"object\":\"chat.completion.chunk\",\"created\":1761760800,\"model\":\"qwen3.6-27b\",\"system_fingerprint\":\"b6080-local\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":1,\"function\":{\"arguments\":\"\\\"Lyon\\\"}\"}}]},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+					"data: {\"id\":\"chatcmpl-local-2\",\"object\":\"chat.completion.chunk\",\"created\":1761760800,\"model\":\"qwen3.6-27b\",\"system_fingerprint\":\"b6080-local\",\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"tool_calls\"}]}\n\n",
+					"data: {\"id\":\"chatcmpl-local-2\",\"object\":\"chat.completion.chunk\",\"created\":1761760800,\"model\":\"qwen3.6-27b\",\"system_fingerprint\":\"b6080-local\",\"choices\":[],\"usage\":{\"prompt_tokens\":96,\"completion_tokens\":40,\"total_tokens\":136,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":4,\"audio_tokens\":0,\"accepted_prediction_tokens\":0,\"rejected_prediction_tokens\":0}}}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

@@ -1,0 +1,33 @@
+{
+	"source": "Built by hand from OpenAI's API documentation on 2026-10-29: its error codes and rate limits guides and the headers its official SDK reads. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "openai/gpt-6-luna",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/responses",
+				"body": {
+					"model": "gpt-6-luna",
+					"input": "Hello",
+					"stream": true,
+					"store": false
+				}
+			},
+			"response": {
+				"status": 503,
+				"headers": {
+					"content-type": "application/json",
+					"retry-after-ms": "1500",
+					"x-should-retry": "true"
+				},
+				"chunks": [
+					"{\"error\":{\"message\":\"The server is overloaded, please try again later.\",\"type\":\"server_error\",\"param\":null,\"code\":\"server_is_overloaded\"}}"
+				]
+			}
+		}
+	]
+}

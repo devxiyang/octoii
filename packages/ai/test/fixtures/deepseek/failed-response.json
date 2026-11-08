@@ -1,0 +1,42 @@
+{
+	"source": "Built by hand from DeepSeek's API documentation on 2026-10-29: its error codes page and the Responses API guide; the wording of the message and the body in OpenAI's form are a sample. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "deepseek/deepseek-flash",
+		"input": "Hello",
+		"reasoning": {
+			"effort": "none"
+		}
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.deepseek.com/responses",
+				"body": {
+					"model": "deepseek-flash",
+					"input": "Hello",
+					"stream": true,
+					"reasoning": {
+						"effort": "none"
+					}
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					": keep-alive\n\n",
+					"event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_c3b2a1f0e9d8\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"deepseek-flash\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"error\":null,\"store\":false},\"sequence_number\":0}\n\n",
+					"event: response.in_progress\ndata: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_c3b2a1f0e9d8\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"deepseek-flash\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"error\":null,\"store\":false},\"sequence_number\":1}\n\n",
+					"event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"message\",\"id\":\"msg_c3b2a1f0e9d9\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[]},\"sequence_number\":2}\n\n",
+					"event: response.content_part.added\ndata: {\"type\":\"response.content_part.added\",\"item_id\":\"msg_c3b2a1f0e9d9\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"\",\"annotations\":[]},\"sequence_number\":3}\n\n",
+					"event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_c3b2a1f0e9d9\",\"output_index\":0,\"content_index\":0,\"delta\":\"Hello! How\",\"logprobs\":[],\"sequence_number\":4}\n\n",
+					"event: response.failed\ndata: {\"type\":\"response.failed\",\"response\":{\"id\":\"resp_c3b2a1f0e9d8\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"deepseek-flash\",\"status\":\"failed\",\"output\":[],\"usage\":{\"input_tokens\":9,\"input_tokens_details\":{\"cached_tokens\":0},\"output_tokens\":3,\"output_tokens_details\":{\"reasoning_tokens\":0},\"total_tokens\":12},\"incomplete_details\":null,\"error\":{\"code\":\"server_error\",\"message\":\"The server had an error while processing your request.\"},\"store\":false},\"sequence_number\":5}\n\n"
+				]
+			}
+		}
+	]
+}

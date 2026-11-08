@@ -1,0 +1,85 @@
+name: Check
+
+# Pushes to main, and pull requests into it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/setup-bun
+      - run: bun run check
+      # Pushes to main run the checks only; pull requests also build what the workspace builds.
+      - if: github.event_name == 'pull_request'
+        run: bun run build
+
+  node:
+    # The check above runs the tests on Node 24 as well as on Bun; this runs them on the newest Node too.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/setup-bun
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "26"
+      - run: node --version
+      - run: bun run test:node
+
+  zig:
+    # The Zig packages that build on their own — foundation and ai — checked in Debug, and their tests run again in
+    # ReleaseSafe. Siphon and the node link Beak, whose library this repository does not hold.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        with:
+          version: 0.17.1
+      - run: zig build check && zig build test -Doptimize=ReleaseSafe
+        working-directory: packages/foundation
+      - run: zig build check && zig build test -Doptimize=ReleaseSafe
+        working-directory: packages/ai
+
+  tsan:
+    # The same tests under ThreadSanitizer, which finds data races.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        with:
+          version: 0.17.1
+      - run: zig build test -Dsanitize-thread=true
+        working-directory: packages/foundation
+      - run: zig build test -Dsanitize-thread=true
+        working-directory: packages/ai
+
+  fuzz:
+    # The decoders of what comes from outside — JSON, event streams, WebSocket frames, a provider's responses — fuzzed a
+    # while: whatever bytes they are given, each decodes them whole or refuses them.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        with:
+          version: 0.17.1
+      - run: zig build test --fuzz=500K
+        working-directory: packages/foundation
+      - run: zig build test --fuzz=200K
+        working-directory: packages/ai
+

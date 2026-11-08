@@ -1,0 +1,44 @@
+{
+	"source": "Built by hand on 2026-10-29 from Google's Interactions API reference (CreateModelInteraction, its steps, content blocks, Tool, GenerationConfig, StepStart, StepDelta, StepStop, InteractionCompletedEvent, Usage) and the API errors guide and the streaming guide; the live API cannot be asked for a failure in its stream. Replace it with a recording: bun scripts/record-google.ts",
+	"recordable": false,
+	"request": {
+		"model": "google/gemini-3.8-flash",
+		"input": "Hi"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+				"body": {
+					"model": "gemini-3.8-flash",
+					"input": [
+						{
+							"type": "user_input",
+							"content": [
+								{
+									"type": "text",
+									"text": "Hi"
+								}
+							]
+						}
+					],
+					"store": false,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"event: interaction.created\ndata: {\"event_type\":\"interaction.created\",\"interaction\":{\"id\":\"v1_ChdpbnRlcmFjdGlvbi10ZXN0LTEyMzQ\",\"status\":\"in_progress\",\"object\":\"interaction\",\"model\":\"gemini-3.8-flash\",\"created\":\"2026-10-29T12:00:00Z\"}}\n\n",
+					"event: step.start\ndata: {\"event_type\":\"step.start\",\"index\":0,\"step\":{\"type\":\"model_output\"}}\n\n",
+					"event: step.delta\ndata: {\"event_type\":\"step.delta\",\"index\":0,\"delta\":{\"type\":\"text\",\"text\":\"Hello! How\"}}\n\n",
+					"event: error\ndata: {\"event_type\":\"error\",\"error\":{\"code\":\"api_error\",\"message\":\"An internal error has occurred. Please retry.\"}}\n\n"
+				]
+			}
+		}
+	]
+}

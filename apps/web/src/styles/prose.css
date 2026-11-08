@@ -1,0 +1,154 @@
+/*
+ * Markdown as an assistant writes it: blocks spaced evenly, headings a step up, lists nested by marker, links blue
+ * with a dotted line on hover, code within a line on a faint tint; and a reply drawn a block at a time spaced as one
+ * text.
+ */
+
+.prose-chat {
+	line-height: 1.65;
+	overflow-wrap: anywhere;
+}
+
+.prose-chat > :first-child {
+	margin-top: 0;
+}
+
+.prose-chat > :last-child {
+	margin-bottom: 0;
+}
+
+.prose-chat :is(p, ul, ol, blockquote, pre, table) {
+	margin: 0.65rem 0;
+}
+
+.prose-chat :is(h1, h2, h3, h4, h5, h6) {
+	margin: 1.25rem 0 0.5rem;
+	font-weight: 600;
+	line-height: 1.3;
+	color: var(--foreground);
+}
+
+.prose-chat h1 {
+	font-size: 1.25rem;
+}
+
+.prose-chat h2 {
+	font-size: 1.125rem;
+}
+
+.prose-chat h3 {
+	font-size: 1rem;
+}
+
+.prose-chat :is(h4, h5, h6) {
+	font-size: 0.875rem;
+}
+
+.prose-chat h6 {
+	color: var(--muted-foreground);
+}
+
+.prose-chat ul {
+	padding-inline-start: 1.25rem;
+	list-style-type: disc;
+}
+
+.prose-chat ol {
+	padding-inline-start: 1.25rem;
+	list-style-type: decimal;
+}
+
+.prose-chat ol > li::marker {
+	font-variant-numeric: tabular-nums;
+}
+
+.prose-chat ul ul {
+	list-style-type: circle;
+}
+
+.prose-chat ul ul ul {
+	list-style-type: square;
+}
+
+.prose-chat ol ol {
+	list-style-type: lower-alpha;
+}
+
+.prose-chat li + li {
+	margin-top: 0.25rem;
+}
+
+/* GitHub's task lists: the checkbox takes the marker's place. */
+.prose-chat li.task-list-item {
+	list-style-type: none;
+}
+
+.prose-chat li.task-list-item input[type="checkbox"] {
+	margin-block: 0 0.15em;
+	margin-inline: -1.25rem 0.35em;
+	vertical-align: middle;
+}
+
+.prose-chat img {
+	display: inline-block;
+}
+
+/* A link, to a page or to a path of the machine the app opens itself: blue, a dotted line under it on hover. */
+.prose-chat :is(a, [data-link]) {
+	color: var(--info-foreground);
+	text-decoration: none;
+}
+
+.prose-chat :is(a, [data-link]):is(:hover, :focus-visible) {
+	background-image: radial-gradient(circle, currentcolor 0.75px, transparent 1px);
+	background-position: left bottom;
+	background-repeat: repeat-x;
+	background-size: 4px 2px;
+}
+
+.prose-chat blockquote {
+	border-inline-start: 2px solid color-mix(in srgb, currentcolor 35%, transparent);
+	padding-inline-start: 0.8rem;
+}
+
+.prose-chat strong {
+	font-weight: 600;
+}
+
+/* Code within a line: in the code face on a faint tint of the words' own colour — quiet enough for a reply that names
+   files and commands often, still set apart from the words around it. */
+.prose-chat :not(pre) > code {
+	border-radius: 0.25rem;
+	box-decoration-break: clone;
+	background: color-mix(in srgb, currentColor 5%, transparent);
+	padding: 0.1em 0.3em;
+	font-size: 0.85em;
+}
+
+.prose-chat table {
+	border-collapse: collapse;
+	font-size: 0.9em;
+}
+
+.prose-chat :is(th, td) {
+	border-bottom: 1px solid var(--border);
+	padding: 0.35em 0.75em 0.35em 0;
+	text-align: left;
+}
+
+.prose-chat th {
+	font-weight: 600;
+}
+
+.prose-chat hr {
+	border-color: var(--border);
+}
+
+/* A reply drawn a block at a time, each block a box of its own: the first's top and the last's bottom its edges, as one text's. */
+.prose-chat > .prose-block:first-child > :first-child {
+	margin-top: 0;
+}
+
+.prose-chat > .prose-block:last-child > :last-child {
+	margin-bottom: 0;
+}

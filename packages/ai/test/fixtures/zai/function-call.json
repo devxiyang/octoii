@@ -1,0 +1,88 @@
+{
+	"source": "Built by hand from Z.ai's API documentation on 2026-10-29: the Chat Completion reference (its request, response and streaming), the thinking mode and stream tool call guides, and the error codes page. Replace it with a recording: bun scripts/record-zai.ts",
+	"request": {
+		"model": "zai/glm-5.3",
+		"input": [
+			{
+				"role": "user",
+				"content": "What is the weather in Paris?"
+			}
+		],
+		"tools": [
+			{
+				"type": "function",
+				"name": "get_weather",
+				"description": "The weather now in a city",
+				"parameters": {
+					"type": "object",
+					"properties": {
+						"city": {
+							"type": "string",
+							"description": "City Name"
+						}
+					},
+					"required": [
+						"city"
+					]
+				}
+			}
+		],
+		"temperature": 0.3
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.z.ai/api/paas/v4/chat/completions",
+				"body": {
+					"model": "glm-5.3",
+					"messages": [
+						{
+							"role": "user",
+							"content": "What is the weather in Paris?"
+						}
+					],
+					"tools": [
+						{
+							"type": "function",
+							"function": {
+								"name": "get_weather",
+								"description": "The weather now in a city",
+								"parameters": {
+									"type": "object",
+									"properties": {
+										"city": {
+											"type": "string",
+											"description": "City Name"
+										}
+									},
+									"required": [
+										"city"
+									]
+								}
+							}
+						}
+					],
+					"thinking": {
+						"type": "enabled",
+						"clear_thinking": false
+					},
+					"temperature": 0.3,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"id\":\"2026102918000012346\",\"created\":1761760800,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning_content\":\"I need the weather tool.\"}}]}\n\n",
+					"data: {\"id\":\"2026102918000012346\",\"created\":1761760800,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"tool_calls\":[{\"id\":\"call_0\",\"index\":0,\"type\":\"function\",\"function\":{\"name\":\"get_weather\",\"arguments\":\"{\\\"city\\\":\\\"Paris\\\"}\"}}]}}]}\n\n",
+					"data: {\"id\":\"2026102918000012346\",\"created\":1761760800,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":160,\"completion_tokens\":24,\"total_tokens\":184,\"prompt_tokens_details\":{\"cached_tokens\":0}}}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

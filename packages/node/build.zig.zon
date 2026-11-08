@@ -1,0 +1,19 @@
+.{
+    .name = .octoii_node,
+    .version = "0.0.0",
+    // Generated once by the toolchain, never changed: the package's identity.
+    .fingerprint = 0x195274483336c37d,
+    .minimum_zig_version = "0.17.1",
+    .dependencies = .{
+        .siphon = .{ .path = "../siphon" },
+        .tunnel = .{
+            .url = "git+https://github.com/octoii-works/octoii-tunnel#acf3fa7c48e1f2b823144e62ab0424217921f51c",
+            .hash = "octoii_tunnel-0.0.0-mZcPJF6_BQDhJKCu5zQTyGvkTEAt3lTFpH14gy-IrYHq",
+        },
+        .qrcodegen = .{
+            .url = "git+https://github.com/nayuki/QR-Code-generator#bcfe1b018cec5f1f91b5705eca5bb4cdd34e9f8d",
+            .hash = "N-V-__8AAJsNCgAsvfGaTW1SL8mGH0hspSGM_BBOsNACWbVy",
+        },
+    },
+    .paths = .{ "build.zig", "build.zig.zon", "src" },
+}

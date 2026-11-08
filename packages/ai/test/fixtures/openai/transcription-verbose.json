@@ -1,0 +1,70 @@
+{
+	"source": "Built by hand from OpenAI's API documentation on 2026-10-29: the transcription reference's word timestamps example of whisper-1 in verbose_json, a model a host passes, its usage in seconds, and its recording at an address, which ai fetches first. Replace it with a recording: bun scripts/record-openai.ts",
+	"kind": "transcription",
+	"request": {
+		"model": "openai/whisper-1",
+		"input_audio": {
+			"url": "https://example.com/hello.mp3"
+		},
+		"response_format": "verbose_json",
+		"timestamp_granularities": [
+			"word"
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://example.com/hello.mp3"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "audio/mpeg"
+				},
+				"chunks": [
+					{
+						"base64": "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYxLjcuMTAwAAAAAAAAAAAAAAD/+0DAAAAAAAAAAAAAAAAAAAAAAAA="
+					}
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/audio/transcriptions",
+				"body": {
+					"multipart": [
+						{
+							"name": "file",
+							"filename": "audio.mp3",
+							"content_type": "audio/mpeg",
+							"base64": "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYxLjcuMTAwAAAAAAAAAAAAAAD/+0DAAAAAAAAAAAAAAAAAAAAAAAA="
+						},
+						{
+							"name": "model",
+							"value": "whisper-1"
+						},
+						{
+							"name": "response_format",
+							"value": "verbose_json"
+						},
+						{
+							"name": "timestamp_granularities[]",
+							"value": "word"
+						}
+					]
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"task\": \"transcribe\", \"language\": \"english\", \"duration\": 0.5, \"text\": \"Hello.\", \"words\": [{\"word\": \"Hello\", \"start\": 0.0, \"end\": 0.5}], \"usage\": {\"type\": \"duration\", \"seconds\": 1}}"
+				]
+			}
+		}
+	]
+}

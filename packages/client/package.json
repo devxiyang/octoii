@@ -1,0 +1,35 @@
+{
+	"$schema": "https://json.schemastore.org/package.json",
+	"name": "@octoii-works/octoii-client",
+	"version": "0.0.1",
+	"private": true,
+	"description": "Octoii's client: one WebSocket to a node, speaking its protocol — threads followed from where their readers stood after a lost connection, a person's operations done once — with the protocol's types and schemas, and hooks for React",
+	"homepage": "https://github.com/octoii-works/octoii/tree/main/packages/client#readme",
+	"license": "MIT",
+	"author": "Elian Yang (https://elianyang.com)",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/octoii-works/octoii.git",
+		"directory": "packages/client"
+	},
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./react": "./src/react/index.ts"
+	},
+	"scripts": {
+		"typecheck": "bun check",
+		"test": "bun test --timeout=60000 --no-env-file --no-install ./test"
+	},
+	"dependencies": {
+		"typebox": "catalog:"
+	},
+	"devDependencies": {
+		"@types/bun": "catalog:",
+		"@types/react": "catalog:",
+		"react": "catalog:"
+	},
+	"peerDependencies": {
+		"react": ">=19"
+	}
+}

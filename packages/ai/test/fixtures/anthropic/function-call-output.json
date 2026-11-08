@@ -1,0 +1,151 @@
+{
+	"source": "Built by hand from Anthropic's API documentation on 2026-10-29: the Messages API reference and its pages on streaming, extended and adaptive thinking, tool use, web search, tool search, prompt caching, stop reasons and errors. Replace it with a recording: bun scripts/record-anthropic.ts",
+	"request": {
+		"model": "anthropic/claude-opus-5-5",
+		"input": [
+			{
+				"type": "message",
+				"role": "user",
+				"content": "What is the weather in Paris?"
+			},
+			{
+				"type": "reasoning",
+				"id": "rs_msg_014p7gG3wDgGV9EUtLvnow3U_0",
+				"summary": [],
+				"signature": "EqQBCkgIBhABGAIiQLbk6pJ0QmZ2aS0rYb3F5Vt8HwXcU1nDq4eK7sLmP9oTgR2jBhZyAvNfE6WcIxQuJdM8lGt3sKe5rYo2pBn0SDP7wHq3EwDkL9xGiRxoMvR0p2yT8uK4nZqLmIjBe",
+				"format": "anthropic-claude-v1",
+				"status": "completed",
+				"octoii": {
+					"model": "anthropic/claude-opus-5-5"
+				}
+			},
+			{
+				"type": "function_call",
+				"id": "fc_toolu_01T1x1fJ34qAmk2tNTrN7Up6",
+				"call_id": "toolu_01T1x1fJ34qAmk2tNTrN7Up6",
+				"name": "get_weather",
+				"arguments": "{\"city\": \"Paris\"}",
+				"status": "completed",
+				"octoii": {
+					"model": "anthropic/claude-opus-5-5"
+				}
+			},
+			{
+				"type": "function_call_output",
+				"call_id": "toolu_01T1x1fJ34qAmk2tNTrN7Up6",
+				"output": "18 °C and sunny"
+			}
+		],
+		"tools": [
+			{
+				"type": "function",
+				"name": "get_weather",
+				"description": "The weather now in a city",
+				"parameters": {
+					"type": "object",
+					"properties": {
+						"city": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"city"
+					],
+					"additionalProperties": false
+				},
+				"strict": true
+			}
+		],
+		"max_output_tokens": 2048
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.anthropic.com/v1/messages",
+				"headers": {
+					"anthropic-version": "2026-10-21"
+				},
+				"body": {
+					"model": "claude-opus-5-5",
+					"max_tokens": 2048,
+					"messages": [
+						{
+							"role": "user",
+							"content": [
+								{
+									"type": "text",
+									"text": "What is the weather in Paris?"
+								}
+							]
+						},
+						{
+							"role": "assistant",
+							"content": [
+								{
+									"type": "thinking",
+									"thinking": "",
+									"signature": "EqQBCkgIBhABGAIiQLbk6pJ0QmZ2aS0rYb3F5Vt8HwXcU1nDq4eK7sLmP9oTgR2jBhZyAvNfE6WcIxQuJdM8lGt3sKe5rYo2pBn0SDP7wHq3EwDkL9xGiRxoMvR0p2yT8uK4nZqLmIjBe"
+								},
+								{
+									"type": "tool_use",
+									"id": "toolu_01T1x1fJ34qAmk2tNTrN7Up6",
+									"name": "get_weather",
+									"input": {
+										"city": "Paris"
+									}
+								}
+							]
+						},
+						{
+							"role": "user",
+							"content": [
+								{
+									"type": "tool_result",
+									"tool_use_id": "toolu_01T1x1fJ34qAmk2tNTrN7Up6",
+									"content": "18 °C and sunny"
+								}
+							]
+						}
+					],
+					"tools": [
+						{
+							"name": "get_weather",
+							"description": "The weather now in a city",
+							"input_schema": {
+								"type": "object",
+								"properties": {
+									"city": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"city"
+								],
+								"additionalProperties": false
+							},
+							"strict": true
+						}
+					],
+					"cache_control": {
+						"type": "ephemeral"
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_01Aq9w938a90dw8q5q9dqwh7\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"output_tok",
+					"ens\":1,\"service_tier\":\"standard\",\"input_tokens\":560,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+					"event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"It is 18 °C\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\" and sunny in Paris.\"}}\n\n",
+					"event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":14}}\n\n",
+					"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+				]
+			}
+		}
+	]
+}

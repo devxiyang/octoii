@@ -1,0 +1,43 @@
+{
+	"source": "Built by hand on 2026-10-29 from Google's Interactions API reference (CreateModelInteraction, its steps, content blocks, Tool, GenerationConfig, StepStart, StepDelta, StepStop, InteractionCompletedEvent, Usage) and the safety settings and streaming guides; blocked content is not asked for on purpose. Replace it with a recording: bun scripts/record-google.ts",
+	"recordable": false,
+	"request": {
+		"model": "google/gemini-3.8-flash",
+		"input": "Describe the scene."
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+				"body": {
+					"model": "gemini-3.8-flash",
+					"input": [
+						{
+							"type": "user_input",
+							"content": [
+								{
+									"type": "text",
+									"text": "Describe the scene."
+								}
+							]
+						}
+					],
+					"store": false,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"event: interaction.created\ndata: {\"event_type\":\"interaction.created\",\"interaction\":{\"id\":\"v1_ChdpbnRlcmFjdGlvbi10ZXN0LTEyMzQ\",\"status\":\"in_progress\",\"object\":\"interaction\",\"model\":\"gemini-3.8-flash\",\"created\":\"2026-10-29T12:00:00Z\"}}\n\n",
+					"event: step.start\ndata: {\"event_type\":\"step.start\",\"index\":0,\"step\":{\"type\":\"model_output\",\"content\":[{\"type\":\"text\",\"text\":\"The scene shows\"}]}}\n\n",
+					"event: error\ndata: {\"event_type\":\"error\",\"error\":{\"code\":\"prohibited_content\",\"message\":\"Response blocked due to prohibited content.\"}}\n\n"
+				]
+			}
+		}
+	]
+}

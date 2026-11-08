@@ -1,0 +1,35 @@
+{
+	"source": "Built by hand from xAI's API documentation on 2026-10-29: its debugging page's status codes and the Responses API reference; the wording of the message is a sample. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "xai/grok-4.7",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.x.ai/v1/responses",
+				"body": {
+					"model": "grok-4.7",
+					"input": "Hello",
+					"store": false,
+					"include": [
+						"reasoning.encrypted_content"
+					],
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 429,
+				"headers": {
+					"content-type": "application/json",
+					"retry-after": "30"
+				},
+				"chunks": [
+					"{\"code\":\"Some resource has been exhausted\",\"error\":\"You have reached the rate limit for grok-4.7.\"}"
+				]
+			}
+		}
+	]
+}

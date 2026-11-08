@@ -1,0 +1,187 @@
+{
+	"source": "Built by hand from OpenAI's Chat Completions API reference on 2026-10-29: its request, its streamed chunks with stream_options.include_usage and its errors, with reasoning_content as servers write it. Replace it with a recording: bun scripts/record-chat-completions.ts",
+	"request": {
+		"model": "local/qwen3.6-27b",
+		"input": [
+			{
+				"role": "user",
+				"content": "Search for Paris and for Lyon."
+			},
+			{
+				"type": "reasoning",
+				"id": "rs_2",
+				"summary": [],
+				"content": [
+					{
+						"type": "reasoning_text",
+						"text": "Two searches."
+					}
+				],
+				"status": "completed",
+				"octoii": {
+					"model": "local/qwen3.6-27b"
+				}
+			},
+			{
+				"type": "function_call",
+				"id": "fc_a",
+				"call_id": "call_9f1d",
+				"name": "search",
+				"arguments": "{\"query\":\"Paris\"}",
+				"status": "completed",
+				"octoii": {
+					"model": "local/qwen3.6-27b"
+				}
+			},
+			{
+				"type": "function_call",
+				"id": "fc_b",
+				"call_id": "call_77ce",
+				"name": "search",
+				"arguments": "{\"query\":\"Lyon\"}",
+				"status": "completed",
+				"octoii": {
+					"model": "local/qwen3.6-27b"
+				}
+			},
+			{
+				"type": "function_call_output",
+				"call_id": "call_9f1d",
+				"output": [
+					{
+						"type": "input_text",
+						"text": "Paris: the capital."
+					},
+					{
+						"type": "input_image",
+						"detail": "low",
+						"image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+					}
+				]
+			},
+			{
+				"type": "function_call_output",
+				"call_id": "call_77ce",
+				"output": "Lyon: on the Rhône."
+			}
+		],
+		"tools": [
+			{
+				"type": "function",
+				"name": "search",
+				"description": "Searches the web",
+				"parameters": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"query"
+					]
+				},
+				"strict": true
+			}
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "http://127.0.0.1:8080/v1/chat/completions",
+				"body": {
+					"model": "qwen3.6-27b",
+					"messages": [
+						{
+							"role": "user",
+							"content": "Search for Paris and for Lyon."
+						},
+						{
+							"role": "assistant",
+							"content": "",
+							"reasoning_content": "Two searches.",
+							"tool_calls": [
+								{
+									"id": "call_9f1d",
+									"type": "function",
+									"function": {
+										"name": "search",
+										"arguments": "{\"query\":\"Paris\"}"
+									}
+								},
+								{
+									"id": "call_77ce",
+									"type": "function",
+									"function": {
+										"name": "search",
+										"arguments": "{\"query\":\"Lyon\"}"
+									}
+								}
+							]
+						},
+						{
+							"role": "tool",
+							"tool_call_id": "call_9f1d",
+							"content": "Paris: the capital."
+						},
+						{
+							"role": "tool",
+							"tool_call_id": "call_77ce",
+							"content": "Lyon: on the Rhône."
+						},
+						{
+							"role": "user",
+							"content": [
+								{
+									"type": "image_url",
+									"image_url": {
+										"url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+										"detail": "low"
+									}
+								}
+							]
+						}
+					],
+					"tools": [
+						{
+							"type": "function",
+							"function": {
+								"name": "search",
+								"description": "Searches the web",
+								"parameters": {
+									"type": "object",
+									"properties": {
+										"query": {
+											"type": "string"
+										}
+									},
+									"required": [
+										"query"
+									]
+								},
+								"strict": true
+							}
+						}
+					],
+					"stream_options": {
+						"include_usage": true
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"id\":\"chatcmpl-local-3\",\"object\":\"chat.completion.chunk\",\"created\":1761760800,\"model\":\"qwen3.6-27b\",\"system_fingerprint\":\"b6080-local\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Paris is the capital; Lyon is on the Rhône.\"},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+					"data: {\"id\":\"chatcmpl-local-3\",\"object\":\"chat.completion.chunk\",\"created\":1761760800,\"model\":\"qwen3.6-27b\",\"system_fingerprint\":\"b6080-local\",\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"stop\"}]}\n\n",
+					"data: {\"id\":\"chatcmpl-local-3\",\"object\":\"chat.completion.chunk\",\"created\":1761760800,\"model\":\"qwen3.6-27b\",\"system_fingerprint\":\"b6080-local\",\"choices\":[],\"usage\":{\"prompt_tokens\":180,\"completion_tokens\":14,\"total_tokens\":194,\"prompt_tokens_details\":{\"cached_tokens\":96,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"audio_tokens\":0,\"accepted_prediction_tokens\":0,\"rejected_prediction_tokens\":0}}}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

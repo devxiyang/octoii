@@ -1,0 +1,43 @@
+{
+	"source": "Built by hand from Google's Gemini API documentation on 2026-10-29: the Nano Banana image generation guide (its REST requests, response_format with aspect_ratio and image_size, and the thought images of its thinking mode) and the Interactions API reference (CreateInteraction, ImageResponseFormat, ImageDelta, ThoughtSummaryDelta, StepStart, StepDelta, InteractionCompletedEvent and Usage). Replace it with a recording: bun scripts/record-google.ts",
+	"kind": "image",
+	"request": {
+		"model": "google/gemini-nano-banana-2.1",
+		"prompt": "A nano banana dish in a fancy restaurant",
+		"resolution": "2K",
+		"aspect_ratio": "16:9"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+				"body": {
+					"model": "gemini-nano-banana-2.1",
+					"input": [
+						{
+							"type": "text",
+							"text": "A nano banana dish in a fancy restaurant"
+						}
+					],
+					"response_format": {
+						"type": "image",
+						"image_size": "2K",
+						"aspect_ratio": "16:9"
+					},
+					"store": false,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"event_type\":\"interaction.created\",\"interaction\":{\"id\":\"v1_int_1\",\"created\":\"2026-10-29T12:00:00Z\",\"status\":\"in_progress\"}}\n\ndata: {\"event_type\":\"step.start\",\"index\":0,\"step\":{\"type\":\"thought\"}}\n\ndata: {\"event_type\":\"step.delta\",\"index\":0,\"delta\":{\"type\":\"thought_summary\",\"content\":{\"type\":\"text\",\"text\":\"Composing a plated banana under warm light.\"}}}\n\ndata: {\"event_type\":\"step.delta\",\"index\":0,\"delta\":{\"type\":\"thought_summary\",\"content\":{\"type\":\"image\",\"data\":\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==\",\"mime_type\":\"image/png\"}}}\n\ndata: {\"event_type\":\"step.stop\",\"index\":0}\n\ndata: {\"event_type\":\"step.start\",\"index\":1,\"step\":{\"type\":\"model_output\"}}\n\ndata: {\"event_type\":\"step.delta\",\"index\":1,\"delta\":{\"type\":\"image\",\"data\":\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==\",\"mime_type\":\"image/png\"}}\n\ndata: {\"event_type\":\"step.stop\",\"index\":1}\n\ndata: {\"event_type\":\"interaction.completed\",\"interaction\":{\"id\":\"v1_int_1\",\"status\":\"completed\",\"usage\":{\"total_input_tokens\":12,\"input_tokens_by_modality\":[{\"modality\":\"text\",\"tokens\":12}],\"total_cached_tokens\":0,\"total_output_tokens\":1120,\"output_tokens_by_modality\":[{\"modality\":\"image\",\"tokens\":1120}],\"total_thought_tokens\":180,\"total_tokens\":1312}}}\n\n"
+				]
+			}
+		}
+	]
+}

@@ -1,0 +1,41 @@
+{
+	"source": "Built by hand from Z.ai's API documentation on 2026-10-29: the error codes page and the Chat Completion reference's finish reasons. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "zai/glm-5.2",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.z.ai/api/paas/v4/chat/completions",
+				"body": {
+					"model": "glm-5.2",
+					"messages": [
+						{
+							"role": "user",
+							"content": "Hello"
+						}
+					],
+					"thinking": {
+						"type": "enabled",
+						"clear_thinking": false
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"id\":\"2026102918000012352\",\"created\":1761760800,\"model\":\"glm-5.2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"I\"}}]}\n\n",
+					"data: {\"id\":\"2026102918000012352\",\"created\":1761760800,\"model\":\"glm-5.2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":\"sensitive\"}],\"usage\":{\"prompt_tokens\":6,\"completion_tokens\":1,\"total_tokens\":7,\"prompt_tokens_details\":{\"cached_tokens\":0}}}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

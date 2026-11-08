@@ -1,0 +1,44 @@
+{
+	"source": "Built by hand from OpenRouter's API documentation on 2026-10-28: its errors and debugging page and the Responses API's error handling. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "openrouter/openai/gpt-6-luna",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/responses",
+				"body": {
+					"model": "openai/gpt-6-luna",
+					"provider": {
+						"require_parameters": true
+					},
+					"input": "Hello",
+					"cache_control": {
+						"type": "ephemeral"
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					": OPENROUTER PROCESSING\n\n",
+					"data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_0193a1c4e810\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"openai/gpt-6-luna\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"error\":null,\"incomplete_details\":null},\"sequence_number\":0}\n\n",
+					"data: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_0193a1c4e810\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"openai/gpt-6-luna\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"error\":null,\"incomplete_details\":null},\"sequence_number\":1}\n\n",
+					"data: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"message\",\"id\":\"msg_0193a1c4e811\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[]},\"sequence_number\":2}\n\n",
+					"data: {\"type\":\"response.content_part.added\",\"item_id\":\"msg_0193a1c4e811\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"\",\"annotations\":[]},\"sequence_number\":3}\n\n",
+					"data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_0193a1c4e811\",\"output_index\":0,\"content_index\":0,\"delta\":\"Hello! How\",\"logprobs\":[],\"sequence_number\":4}\n\n",
+					"data: {\"type\":\"error\",\"error\":{\"code\":\"server_error\",\"message\":\"Provider disconnected unexpectedly\"},\"sequence_number\":5}\n\n",
+					"data: {\"type\":\"response.failed\",\"response\":{\"id\":\"resp_0193a1c4e810\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"openai/gpt-6-luna\",\"status\":\"failed\",\"output\":[],\"usage\":{\"input_tokens\":9,\"input_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0},\"output_tokens\":3,\"output_tokens_details\":{\"reasoning_tokens\":0},\"total_tokens\":12,\"cost\":2.4e-06,\"is_byok\":false,\"cost_details\":{\"upstream_inference_cost\":null,\"upstream_inference_input_cost\":9.6e-07,\"upstream_inference_output_cost\":1.44e-06}},\"error\":{\"code\":\"server_error\",\"message\":\"Provider disconnected unexpectedly\"},\"incomplete_details\":null,\"error_type\":\"provider_unavailable\"},\"sequence_number\":6}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

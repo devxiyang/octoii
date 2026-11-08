@@ -1,0 +1,137 @@
+{
+	"source": "Built by hand from Z.ai's API documentation on 2026-10-29: the Chat Completion reference (its request, response and streaming), the thinking mode and stream tool call guides, and the error codes page. Replace it with a recording: bun scripts/record-zai.ts",
+	"request": {
+		"model": "zai/glm-5.3",
+		"input": [
+			{
+				"role": "user",
+				"content": "What is the weather in Paris?"
+			},
+			{
+				"type": "reasoning",
+				"id": "rs_1",
+				"summary": [],
+				"content": [
+					{
+						"type": "reasoning_text",
+						"text": "I need the weather tool."
+					}
+				],
+				"status": "completed",
+				"octoii": {
+					"model": "zai/glm-5.3"
+				}
+			},
+			{
+				"type": "function_call",
+				"id": "fc_1",
+				"call_id": "call_5b2c",
+				"name": "get_weather",
+				"arguments": "{\"city\":\"Paris\"}",
+				"status": "completed",
+				"octoii": {
+					"model": "zai/glm-5.3"
+				}
+			},
+			{
+				"type": "function_call_output",
+				"call_id": "call_5b2c",
+				"output": "18 °C and sunny"
+			}
+		],
+		"tools": [
+			{
+				"type": "function",
+				"name": "get_weather",
+				"description": "The weather now in a city",
+				"parameters": {
+					"type": "object",
+					"properties": {
+						"city": {
+							"type": "string",
+							"description": "City Name"
+						}
+					},
+					"required": [
+						"city"
+					]
+				}
+			}
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.z.ai/api/paas/v4/chat/completions",
+				"body": {
+					"model": "glm-5.3",
+					"messages": [
+						{
+							"role": "user",
+							"content": "What is the weather in Paris?"
+						},
+						{
+							"role": "assistant",
+							"content": "",
+							"reasoning_content": "I need the weather tool.",
+							"tool_calls": [
+								{
+									"id": "call_5b2c",
+									"type": "function",
+									"function": {
+										"name": "get_weather",
+										"arguments": "{\"city\":\"Paris\"}"
+									}
+								}
+							]
+						},
+						{
+							"role": "tool",
+							"tool_call_id": "call_5b2c",
+							"content": "18 °C and sunny"
+						}
+					],
+					"tools": [
+						{
+							"type": "function",
+							"function": {
+								"name": "get_weather",
+								"description": "The weather now in a city",
+								"parameters": {
+									"type": "object",
+									"properties": {
+										"city": {
+											"type": "string",
+											"description": "City Name"
+										}
+									},
+									"required": [
+										"city"
+									]
+								}
+							}
+						}
+					],
+					"thinking": {
+						"type": "enabled",
+						"clear_thinking": false
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"id\":\"2026102918000012347\",\"created\":1761760800,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning_content\":\"The tool answered.\"}}]}\n\n",
+					"data: {\"id\":\"2026102918000012347\",\"created\":1761760800,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"It is 18 °C and sunny in Paris.\"}}]}\n\n",
+					"data: {\"id\":\"2026102918000012347\",\"created\":1761760800,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":210,\"completion_tokens\":30,\"total_tokens\":240,\"prompt_tokens_details\":{\"cached_tokens\":160}}}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

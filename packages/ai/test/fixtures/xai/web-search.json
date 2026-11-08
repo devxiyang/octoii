@@ -1,0 +1,91 @@
+{
+	"source": "Built by hand from xAI's API documentation on 2026-10-29: the Responses API reference and its response example, the reasoning, streaming, web search, tool usage, cost tracking, prompt caching and image understanding guides, and its debugging page; the shapes of the events are OpenAI's, which xAI's Responses API follows. Replace it with a recording: bun scripts/record-xai.ts",
+	"request": {
+		"model": "xai/grok-4.7",
+		"input": [
+			{
+				"type": "message",
+				"role": "user",
+				"content": [
+					{
+						"type": "input_text",
+						"text": "What is SpaceXSI?"
+					}
+				]
+			}
+		],
+		"tools": [
+			{
+				"type": "web_search",
+				"filters": {
+					"allowed_domains": [
+						"grokipedia.com"
+					]
+				}
+			}
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.x.ai/v1/responses",
+				"body": {
+					"model": "grok-4.7",
+					"input": [
+						{
+							"type": "message",
+							"role": "user",
+							"content": [
+								{
+									"type": "input_text",
+									"text": "What is SpaceXSI?"
+								}
+							]
+						}
+					],
+					"tools": [
+						{
+							"type": "web_search",
+							"filters": {
+								"allowed_domains": [
+									"grokipedia.com"
+								]
+							}
+						}
+					],
+					"store": false,
+					"include": [
+						"reasoning.encrypted_content"
+					],
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_0b5e7d6c4a21\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"grok-4.7\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"store\":false},\"sequence_number\":0}\n\n",
+					"data: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_0b5e7d6c4a21\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"grok-4.7\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"store\":false},\"sequence_number\":1}\n\n",
+					"data: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"web_search_call\",\"id\":\"ws_0b5e7d6c4a22\",\"status\":\"in_progress\"},\"sequence_number\":2}\n\n",
+					"data: {\"type\":\"response.web_search_call.in_progress\",\"item_id\":\"ws_0b5e7d6c4a22\",\"output_index\":0,\"sequence_number\":3}\n\n",
+					"data: {\"type\":\"response.web_search_call.searching\",\"item_id\":\"ws_0b5e7d6c4a22\",\"output_index\":0,\"sequence_number\":4}\n\n",
+					"data: {\"type\":\"response.web_search_call.completed\",\"item_id\":\"ws_0b5e7d6c4a22\",\"output_index\":0,\"sequence_number\":5}\n\n",
+					"data: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"web_search_call\",\"id\":\"ws_0b5e7d6c4a22\",\"status\":\"completed\",\"action\":{\"type\":\"search\",\"query\":\"SpaceXSI\",\"sources\":[{\"type\":\"url\",\"url\":\"https://grokipedia.com/page/SpaceXSI\"}]}},\"sequence_number\":6}\n\n",
+					"data: {\"type\":\"response.output_item.added\",\"output_index\":1,\"item\":{\"type\":\"message\",\"id\":\"msg_0b5e7d6c4a23\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[]},\"sequence_number\":7}\n\n",
+					"data: {\"type\":\"response.content_part.added\",\"item_id\":\"msg_0b5e7d6c4a23\",\"output_index\":1,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"\",\"annotations\":[]},\"sequence_number\":8}\n\n",
+					"data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_0b5e7d6c4a23\",\"output_index\":1,\"content_index\":0,\"delta\":\"SpaceXSI builds Grok and its API,\",\"logprobs\":[],\"sequence_number\":9}\n\n",
+					"data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_0b5e7d6c4a23\",\"output_index\":1,\"content_index\":0,\"delta\":\" the models behind it.\",\"logprobs\":[],\"sequence_number\":10}\n\n",
+					"data: {\"type\":\"response.output_text.annotation.added\",\"item_id\":\"msg_0b5e7d6c4a23\",\"output_index\":1,\"content_index\":0,\"annotation_index\":0,\"annotation\":{\"type\":\"url_citation\",\"url\":\"https://grokipedia.com/page/SpaceXSI\",\"title\":\"SpaceXSI - Grokipedia\",\"start_index\":0,\"end_index\":39},\"sequence_number\":11}\n\n",
+					"data: {\"type\":\"response.output_text.done\",\"item_id\":\"msg_0b5e7d6c4a23\",\"output_index\":1,\"content_index\":0,\"text\":\"SpaceXSI builds Grok and its API, the models behind it.\",\"logprobs\":[],\"sequence_number\":12}\n\n",
+					"data: {\"type\":\"response.content_part.done\",\"item_id\":\"msg_0b5e7d6c4a23\",\"output_index\":1,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"SpaceXSI builds Grok and its API, the models behind it.\",\"annotations\":[{\"type\":\"url_citation\",\"url\":\"https://grokipedia.com/page/SpaceXSI\",\"title\":\"SpaceXSI - Grokipedia\",\"start_index\":0,\"end_index\":39}],\"logprobs\":null},\"sequence_number\":13}\n\n",
+					"data: {\"type\":\"response.output_item.done\",\"output_index\":1,\"item\":{\"type\":\"message\",\"id\":\"msg_0b5e7d6c4a23\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"SpaceXSI builds Grok and its API, the models behind it.\",\"annotations\":[{\"type\":\"url_citation\",\"url\":\"https://grokipedia.com/page/SpaceXSI\",\"title\":\"SpaceXSI - Grokipedia\",\"start_index\":0,\"end_index\":39}],\"logprobs\":null}]},\"sequence_number\":14}\n\n",
+					"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_0b5e7d6c4a21\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"grok-4.7\",\"status\":\"completed\",\"output\":[{\"type\":\"web_search_call\",\"id\":\"ws_0b5e7d6c4a22\",\"status\":\"completed\",\"action\":{\"type\":\"search\",\"query\":\"SpaceXSI\",\"sources\":[{\"type\":\"url\",\"url\":\"https://grokipedia.com/page/SpaceXSI\"}]}},{\"type\":\"message\",\"id\":\"msg_0b5e7d6c4a23\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"SpaceXSI builds Grok and its API, the models behind it.\",\"annotations\":[{\"type\":\"url_citation\",\"url\":\"https://grokipedia.com/page/SpaceXSI\",\"title\":\"SpaceXSI - Grokipedia\",\"start_index\":0,\"end_index\":39}],\"logprobs\":null}]}],\"usage\":{\"input_tokens\":4210,\"input_tokens_details\":{\"cached_tokens\":1980},\"output_tokens\":27,\"output_tokens_details\":{\"reasoning_tokens\":140},\"total_tokens\":4377,\"num_sources_used\":1,\"num_server_side_tools_used\":1,\"cost_in_usd_ticks\":13380000,\"context_details\":{\"input_tokens\":2230,\"output_tokens\":97},\"server_side_tool_usage_details\":{\"code_interpreter_calls\":0,\"document_search_calls\":0,\"file_search_calls\":0,\"image_generation_calls\":0,\"mcp_calls\":0,\"web_search_calls\":1,\"x_posts_fetched\":0,\"x_search_calls\":0,\"x_users_fetched\":0}},\"incomplete_details\":null,\"store\":false},\"sequence_number\":15}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

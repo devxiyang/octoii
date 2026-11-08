@@ -1,0 +1,55 @@
+{
+	"source": "Built by hand from Z.ai's API documentation on 2026-10-29: the Chat Completion reference (its request, response and streaming), the thinking mode and stream tool call guides, and the error codes page. Replace it with a recording: bun scripts/record-zai.ts",
+	"request": {
+		"model": "zai/glm-5.2",
+		"instructions": "Answer in one sentence.",
+		"input": "What is the capital of France?",
+		"reasoning": {
+			"effort": "high",
+			"summary": "auto"
+		},
+		"max_output_tokens": 1000
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.z.ai/api/paas/v4/chat/completions",
+				"body": {
+					"model": "glm-5.2",
+					"messages": [
+						{
+							"role": "system",
+							"content": "Answer in one sentence."
+						},
+						{
+							"role": "user",
+							"content": "What is the capital of France?"
+						}
+					],
+					"thinking": {
+						"type": "enabled",
+						"clear_thinking": false
+					},
+					"reasoning_effort": "high",
+					"max_tokens": 1000,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"id\":\"2026102918000012345\",\"created\":1761760800,\"model\":\"glm-5.2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning_content\":\"The user asks for\"}}]}\n\n",
+					"data: {\"id\":\"2026102918000012345\",\"created\":1761760800,\"model\":\"glm-5.2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning_content\":\" France's capital: Paris.\"}}]}\n\n",
+					"data: {\"id\":\"2026102918000012345\",\"created\":1761760800,\"model\":\"glm-5.2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"The capital\"}}]}\n\n",
+					"data: {\"id\":\"2026102918000012345\",\"created\":1761760800,\"model\":\"glm-5.2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\" of France is Paris.\"}}]}\n\n",
+					"data: {\"id\":\"2026102918000012345\",\"created\":1761760800,\"model\":\"glm-5.2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":22,\"completion_tokens\":31,\"total_tokens\":53,\"prompt_tokens_details\":{\"cached_tokens\":8}}}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

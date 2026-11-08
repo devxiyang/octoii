@@ -1,0 +1,232 @@
+{
+	"source": "Recorded from OpenRouter's live API on 2026-10-28 by scripts/record-openrouter.ts; the video's bytes are replaced by a few, and the signed address's account and signature redacted, to keep the fixture small and free of the account.",
+	"kind": "video",
+	"request": {
+		"model": "openrouter/alibaba/wan-3.0",
+		"prompt": "a slow push-in on a neon sign in the rain",
+		"duration": 5,
+		"resolution": "720p",
+		"aspect_ratio": "16:9"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/videos",
+				"body": {
+					"model": "alibaba/wan-3.0",
+					"prompt": "a slow push-in on a neon sign in the rain",
+					"duration": 5,
+					"resolution": "720p",
+					"aspect_ratio": "16:9"
+				}
+			},
+			"response": {
+				"status": 202,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"status\":\"pending\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"generation_id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"status\":\"pending\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"generation_id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"status\":\"pending\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"generation_id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"status\":\"pending\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"generation_id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"status\":\"pending\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"generation_id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"status\":\"pending\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"generation_id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"status\":\"pending\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"generation_id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"status\":\"pending\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"generation_id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"status\":\"pending\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"generation_id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"status\":\"pending\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"generation_id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"status\":\"pending\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"generation_id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"status\":\"pending\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"generation_id\":\"gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz\",\"status\":\"completed\",\"unsigned_urls\":[\"https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz/content?index=0\"],\"urls\":[\"https://storage.googleapis.com/openrouter-generated-media-us/v1/user_redacted/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz/0?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=redacted&X-Goog-Date=20261028T230540Z&X-Goog-Expires=86400&X-Goog-SignedHeaders=host&X-Goog-Signature=redacted\"],\"usage\":{\"cost\":0.425,\"is_byok\":false},\"expires_at\":1793315140}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://openrouter.ai/api/v1/videos/gen-vid-1793228614-2DmcG0nLVZneR0I54Lzz/content?index=0"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "video/mp4"
+				},
+				"chunks": [
+					{
+						"base64": "AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQ=="
+					}
+				]
+			}
+		}
+	]
+}

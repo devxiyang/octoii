@@ -1,0 +1,40 @@
+{
+	"source": "Built by hand from xAI's API documentation on 2026-10-29: its debugging page's status codes and the Responses API reference; the wording of the message is a sample. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "xai/grok-4.7",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.x.ai/v1/responses",
+				"body": {
+					"model": "grok-4.7",
+					"input": "Hello",
+					"store": false,
+					"include": [
+						"reasoning.encrypted_content"
+					],
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_f0e1d2c3b4a5\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"grok-4.7\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"store\":false},\"sequence_number\":0}\n\n",
+					"data: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_f0e1d2c3b4a5\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"grok-4.7\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"store\":false},\"sequence_number\":1}\n\n",
+					"data: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"message\",\"id\":\"msg_f0e1d2c3b4a6\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[]},\"sequence_number\":2}\n\n",
+					"data: {\"type\":\"response.content_part.added\",\"item_id\":\"msg_f0e1d2c3b4a6\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"\",\"annotations\":[]},\"sequence_number\":3}\n\n",
+					"data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_f0e1d2c3b4a6\",\"output_index\":0,\"content_index\":0,\"delta\":\"Hello! How\",\"logprobs\":[],\"sequence_number\":4}\n\n",
+					"data: {\"type\":\"error\",\"code\":\"internal_error\",\"message\":\"The stream was interrupted.\",\"param\":null,\"sequence_number\":5}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

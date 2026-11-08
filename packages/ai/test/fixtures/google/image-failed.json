@@ -1,0 +1,40 @@
+{
+	"source": "Built by hand on 2026-10-29 from Google's Interactions API reference (the Interaction resource's status and errors, and InteractionCompletedEvent) and the API errors guide (invalid_request); the live API cannot be asked for a failed interaction on purpose. Replace it with a recording: bun scripts/record-google.ts",
+	"recordable": false,
+	"kind": "image",
+	"request": {
+		"model": "google/gemini-nano-banana-2.1",
+		"prompt": "A banana"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+				"body": {
+					"model": "gemini-nano-banana-2.1",
+					"input": [
+						{
+							"type": "text",
+							"text": "A banana"
+						}
+					],
+					"response_format": {
+						"type": "image"
+					},
+					"store": false,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"event_type\":\"interaction.created\",\"interaction\":{\"id\":\"v1_int_1\",\"created\":\"2026-10-29T12:00:00Z\",\"status\":\"in_progress\"}}\n\ndata: {\"event_type\":\"interaction.completed\",\"interaction\":{\"id\":\"v1_int_1\",\"status\":\"failed\",\"errors\":[{\"code\":\"invalid_request\",\"message\":\"The prompt could not be processed.\"}]}}\n\n"
+				]
+			}
+		}
+	]
+}

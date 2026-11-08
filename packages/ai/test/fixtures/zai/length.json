@@ -1,0 +1,42 @@
+{
+	"source": "Built by hand from Z.ai's API documentation on 2026-10-29: the Chat Completion reference (its request, response and streaming), the thinking mode and stream tool call guides, and the error codes page. Replace it with a recording: bun scripts/record-zai.ts",
+	"request": {
+		"model": "zai/glm-5.2",
+		"input": "Count to a thousand.",
+		"max_output_tokens": 8
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.z.ai/api/paas/v4/chat/completions",
+				"body": {
+					"model": "glm-5.2",
+					"messages": [
+						{
+							"role": "user",
+							"content": "Count to a thousand."
+						}
+					],
+					"thinking": {
+						"type": "enabled",
+						"clear_thinking": false
+					},
+					"max_tokens": 8,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"id\":\"2026102918000012350\",\"created\":1761760800,\"model\":\"glm-5.2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"1, 2, 3, 4\"}}]}\n\n",
+					"data: {\"id\":\"2026102918000012350\",\"created\":1761760800,\"model\":\"glm-5.2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":\"length\"}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":8,\"total_tokens\":20,\"prompt_tokens_details\":{\"cached_tokens\":0}}}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-hosted/
+.secrets/
+.env.local
+.DS_Store
+.claude/worktrees/
+packages/code/bin/
+packages/code/app/
+apps/desktop/out/
+.ui-reference/

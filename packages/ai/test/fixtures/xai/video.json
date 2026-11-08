@@ -1,0 +1,97 @@
+{
+	"source": "Built by hand from xAI's documentation on 2026-10-29: the Videos API reference (POST /v1/videos/generations, /v1/videos/edits and /v1/videos/extensions, and GET /v1/videos/{request_id} with its statuses, progress, video and usage in ticks) and the Video Generation guide (polling, its statuses and error codes). Replace it with a recording: bun scripts/record-xai.ts",
+	"kind": "video",
+	"request": {
+		"model": "xai/grok-imagine-video-1.5",
+		"prompt": "A serene lake at sunrise with mist rolling over the water",
+		"duration": 5,
+		"resolution": "720p",
+		"aspect_ratio": "16:9"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.x.ai/v1/videos/generations",
+				"body": {
+					"model": "grok-imagine-video-1.5",
+					"prompt": "A serene lake at sunrise with mist rolling over the water",
+					"duration": 5,
+					"resolution": "720p",
+					"aspect_ratio": "16:9"
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"request_id\":\"a3d1008e-4544-40d4-d075-11527e794e4a\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://api.x.ai/v1/videos/a3d1008e-4544-40d4-d075-11527e794e4a"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"status\":\"pending\",\"progress\":45}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://api.x.ai/v1/videos/a3d1008e-4544-40d4-d075-11527e794e4a"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"status\":\"done\",\"progress\":100,\"model\":\"grok-imagine-video-1.5\",\"video\":{\"url\":\"https://vidgen.x.ai/xai-vidgen-bucket/xai-video-a3d1008e-4544-40d4-d075-11527e794e4a.mp4\",\"duration\":5,\"respect_moderation\":true},\"usage\":{\"cost_in_usd_ticks\":4000000000}}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://api.x.ai/v1/videos/a3d1008e-4544-40d4-d075-11527e794e4a"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"status\":\"done\",\"progress\":100,\"model\":\"grok-imagine-video-1.5\",\"video\":{\"url\":\"https://vidgen.x.ai/xai-vidgen-bucket/xai-video-a3d1008e-4544-40d4-d075-11527e794e4a.mp4\",\"duration\":5,\"respect_moderation\":true},\"usage\":{\"cost_in_usd_ticks\":4000000000}}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://vidgen.x.ai/xai-vidgen-bucket/xai-video-a3d1008e-4544-40d4-d075-11527e794e4a.mp4"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "video/mp4"
+				},
+				"chunks": [
+					{
+						"base64": "AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQ=="
+					}
+				]
+			}
+		}
+	]
+}

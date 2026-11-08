@@ -1,0 +1,95 @@
+/*
+ * The surfaces: a panel of the page, a card on the shell's canvas; those that float — the page's own glass, a menu's, a
+ * dialog's and the veil behind a dialog, each falling back to its plain colour where the browser blurs nothing; the
+ * shimmer of work that goes on, still where the person asks for less motion; and code as the views draw it.
+ */
+
+/* A scroller whose bar is not drawn: it scrolls by the wheel, a touch or the keys alone. */
+@utility scrollbar-none {
+	scrollbar-width: none;
+	&::-webkit-scrollbar {
+		display: none;
+	}
+}
+
+@utility panel {
+	background-color: var(--background);
+	border-width: 1px;
+	border-style: solid;
+	border-color: color-mix(in oklab, var(--border) 80%, transparent);
+	border-radius: calc(var(--radius) + 4px);
+	box-shadow: var(--shadow-panel);
+}
+
+@utility surface-glass {
+	background-color: color-mix(in srgb, var(--background) var(--glass-opacity), transparent);
+	-webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+	backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+
+	@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+		background-color: var(--background);
+	}
+}
+
+@utility menu-glass {
+	background-color: color-mix(in srgb, var(--popover) 18%, color-mix(in srgb, var(--popover) var(--glass-opacity), transparent));
+	-webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+	backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+	border-width: 1px;
+	border-style: solid;
+	border-color: var(--glass-border);
+	box-shadow: var(--shadow-floating);
+
+	@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+		background-color: var(--popover);
+	}
+}
+
+@utility dialog-glass {
+	background-color: color-mix(in srgb, var(--background) var(--glass-opacity), transparent);
+	-webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+	backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+	border-width: 1px;
+	border-style: solid;
+	border-color: var(--glass-border);
+	box-shadow: var(--shadow-dialog);
+
+	@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+		background-color: var(--popover);
+	}
+}
+
+@utility dialog-backdrop {
+	background-color: color-mix(in srgb, var(--background) 60%, transparent);
+	-webkit-backdrop-filter: blur(4px);
+	backdrop-filter: blur(4px);
+
+	@variant dark {
+		background-color: color-mix(in srgb, var(--background) 64%, transparent);
+	}
+}
+
+/* Text whose work goes on: a light that sweeps across it. */
+/* A band of the text dimmed sweeps across it, by a mask, so the text keeps its own colour. */
+@utility shimmer {
+	-webkit-mask-image: linear-gradient(90deg, #000 40%, rgb(0 0 0 / 0.35) 50%, #000 60%);
+	mask-image: linear-gradient(90deg, #000 40%, rgb(0 0 0 / 0.35) 50%, #000 60%);
+	-webkit-mask-size: 200% 100%;
+	mask-size: 200% 100%;
+	animation: var(--animate-shimmer);
+
+	@media (prefers-reduced-motion: reduce) {
+		-webkit-mask-image: none;
+		mask-image: none;
+		animation: none;
+	}
+}
+
+/* Code as the diff view draws it, through the library that draws it: the page's monospace, small; its headers' words in
+ * the page's own face. */
+@utility code-view {
+	--diffs-font-family: var(--font-mono);
+	--diffs-header-font-family: var(--font-sans);
+	--diffs-font-size: 12px;
+	--diffs-line-height: 18px;
+}

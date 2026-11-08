@@ -1,0 +1,87 @@
+{
+	"source": "Built by hand from OpenAI's documentation on 2026-10-29: the Realtime transcription guide (\"The Realtime API rejects the session update if a keyword contains one of these characters\") and the Realtime API reference's error event (type, code, message, param, event_id). Replace it with a recording: bun scripts/record-openai.ts",
+	"kind": "realtime-transcription",
+	"request": {
+		"type": "transcription",
+		"audio": {
+			"input": {
+				"transcription": {
+					"model": "openai/gpt-live-transcribe",
+					"keywords": [
+						"<AC-42>"
+					]
+				},
+				"turn_detection": null
+			}
+		}
+	},
+	"events": [],
+	"sockets": [
+		{
+			"url": "wss://api.openai.com/v1/realtime?intent=transcription",
+			"steps": [
+				{
+					"server": {
+						"type": "session.created",
+						"event_id": "event_B1aYc0",
+						"session": {
+							"type": "transcription",
+							"id": "sess_C9mZ1",
+							"object": "realtime.transcription_session",
+							"expires_at": 1793275200,
+							"audio": {
+								"input": {
+									"format": {
+										"type": "audio/pcm",
+										"rate": 24000
+									},
+									"transcription": null,
+									"noise_reduction": null,
+									"turn_detection": {
+										"type": "server_vad",
+										"threshold": 0.5,
+										"prefix_padding_ms": 300,
+										"silence_duration_ms": 500
+									}
+								}
+							},
+							"include": null
+						}
+					}
+				},
+				{
+					"client": {
+						"type": "session.update",
+						"session": {
+							"type": "transcription",
+							"audio": {
+								"input": {
+									"transcription": {
+										"model": "gpt-live-transcribe",
+										"keywords": [
+											"<AC-42>"
+										]
+									},
+									"turn_detection": null
+								}
+							}
+						}
+					}
+				},
+				{
+					"server": {
+						"type": "error",
+						"event_id": "event_B1aYd0",
+						"error": {
+							"type": "invalid_request_error",
+							"code": "invalid_value",
+							"message": "Invalid keyword: a keyword may not contain '<', '>', a carriage return or a line feed.",
+							"param": "session.audio.input.transcription.keywords",
+							"event_id": null
+						}
+					}
+				}
+			]
+		}
+	]
+}

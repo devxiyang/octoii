@@ -1,0 +1,31 @@
+{
+	"source": "Built by hand from DeepSeek's API documentation on 2026-10-29: its error codes page and the Responses API guide; the wording of the message and the body in OpenAI's form are a sample. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "deepseek/deepseek-flash",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.deepseek.com/responses",
+				"body": {
+					"model": "deepseek-flash",
+					"input": "Hello",
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 429,
+				"headers": {
+					"content-type": "application/json",
+					"retry-after": "5"
+				},
+				"chunks": [
+					"{\"error\":{\"message\":\"Rate Limit Reached\",\"type\":\"rate_limit_error\",\"param\":null,\"code\":\"rate_limit_exceeded\"}}"
+				]
+			}
+		}
+	]
+}

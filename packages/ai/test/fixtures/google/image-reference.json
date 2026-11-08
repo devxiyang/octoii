@@ -1,0 +1,54 @@
+{
+	"source": "Built by hand from Google's Gemini API documentation on 2026-10-29: the Nano Banana image generation guide (its image editing request, an image input inline as base64 with its mime_type) and the Interactions API reference (ImageContent, ImageDelta, InteractionCompletedEvent and Usage). Replace it with a recording: bun scripts/record-google.ts",
+	"kind": "image",
+	"request": {
+		"model": "google/gemini-3.1-flash-lite-image",
+		"prompt": "My cat eating a nano banana",
+		"aspect_ratio": "1:1",
+		"input_references": [
+			{
+				"type": "image_url",
+				"image_url": {
+					"url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+				}
+			}
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+				"body": {
+					"model": "gemini-3.1-flash-lite-image",
+					"input": [
+						{
+							"type": "text",
+							"text": "My cat eating a nano banana"
+						},
+						{
+							"type": "image",
+							"data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+							"mime_type": "image/png"
+						}
+					],
+					"response_format": {
+						"type": "image",
+						"aspect_ratio": "1:1"
+					},
+					"store": false,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"event_type\":\"interaction.created\",\"interaction\":{\"id\":\"v1_int_1\",\"created\":\"2026-10-29T12:00:00Z\",\"status\":\"in_progress\"}}\n\ndata: {\"event_type\":\"step.start\",\"index\":0,\"step\":{\"type\":\"model_output\"}}\n\ndata: {\"event_type\":\"step.delta\",\"index\":0,\"delta\":{\"type\":\"text\",\"text\":\"Here is your cat.\"}}\n\ndata: {\"event_type\":\"step.delta\",\"index\":0,\"delta\":{\"type\":\"image\",\"data\":\"/9j/4AAAAAAAAAAAAAAAAP/Z\",\"mime_type\":\"image/jpeg\"}}\n\ndata: {\"event_type\":\"step.stop\",\"index\":0}\n\ndata: {\"event_type\":\"interaction.completed\",\"interaction\":{\"id\":\"v1_int_1\",\"status\":\"completed\",\"usage\":{\"total_input_tokens\":270,\"input_tokens_by_modality\":[{\"modality\":\"text\",\"tokens\":12},{\"modality\":\"image\",\"tokens\":258}],\"total_output_tokens\":1295,\"output_tokens_by_modality\":[{\"modality\":\"text\",\"tokens\":5},{\"modality\":\"image\",\"tokens\":1290}],\"total_thought_tokens\":0,\"total_tokens\":1565}}}\n\n"
+				]
+			}
+		}
+	]
+}

@@ -1,0 +1,12 @@
+/*
+ * The interface's styles: Tailwind, the design's tokens and their theme, the floating surfaces, the design's language —
+ * the patterns every surface is made of — Markdown, and the page's ground. A theme changes the tokens alone.
+ */
+@import "tailwindcss";
+@import "./styles/tokens.css";
+@import "./styles/themes.css";
+@import "./styles/theme.css";
+@import "./styles/surfaces.css";
+@import "./styles/language.css";
+@import "./styles/prose.css";
+@import "./styles/base.css";

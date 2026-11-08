@@ -1,0 +1,38 @@
+{
+	"source": "Built by hand from OpenRouter's API documentation on 2026-10-28: its errors and debugging page and the Responses API's error handling. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "openrouter/openai/gpt-6-luna",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/responses",
+				"body": {
+					"model": "openai/gpt-6-luna",
+					"provider": {
+						"require_parameters": true
+					},
+					"input": "Hello",
+					"cache_control": {
+						"type": "ephemeral"
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					": OPENROUTER PROCESSING\n\n",
+					"data: {\"type\":\"response.error\",\"error\":{\"code\":\"rate_limit_exceeded\",\"message\":\"Rate limit exceeded\"},\"sequence_number\":0}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

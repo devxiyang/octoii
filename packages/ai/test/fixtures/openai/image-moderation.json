@@ -1,0 +1,31 @@
+{
+	"source": "Built by hand on 2026-10-29: the refusal OpenAI's image API answers a prompt its safety system blocks with, its code moderation_blocked, in the error shape of OpenAI's API reference. A refusal the live API is not asked for on purpose is not recorded.",
+	"recordable": false,
+	"kind": "image",
+	"request": {
+		"model": "openai/gpt-image-2.5-sunburst",
+		"prompt": "Something the safety system blocks"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/images/generations",
+				"body": {
+					"prompt": "Something the safety system blocks",
+					"model": "gpt-image-2.5-sunburst",
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 400,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"error\": {\"message\": \"Your request was rejected by the safety system.\", \"type\": \"image_generation_user_error\", \"param\": null, \"code\": \"moderation_blocked\"}}"
+				]
+			}
+		}
+	]
+}

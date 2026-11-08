@@ -1,0 +1,63 @@
+{
+	"source": "Built by hand from DeepSeek's API documentation on 2026-10-29: the Responses API guide (its fields, items, tools, images and its stream, which ends with its terminal event and no [DONE]), the thinking mode, vision and pricing guides; the shapes of the events are OpenAI's, which DeepSeek's Responses API follows. Replace it with a recording: bun scripts/record-deepseek.ts",
+	"request": {
+		"model": "deepseek/deepseek-flash",
+		"instructions": "You are a helpful assistant.",
+		"input": "9.11 and 9.8, which is greater?",
+		"reasoning": {
+			"effort": "high",
+			"summary": "auto"
+		},
+		"prompt_cache_key": "conversation-1",
+		"safety_identifier": "user-7f3a",
+		"metadata": {
+			"purpose": "test"
+		},
+		"user": "user-7f3a"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.deepseek.com/responses",
+				"body": {
+					"model": "deepseek-flash",
+					"instructions": "You are a helpful assistant.",
+					"input": "9.11 and 9.8, which is greater?",
+					"reasoning": {
+						"effort": "high"
+					},
+					"user": "user-7f3a",
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					": keep-alive\n\n",
+					"event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_4b8e2f6a9c10\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"deepseek-flash\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"error\":null,\"store\":false},\"sequence_number\":0}\n\n",
+					"event: response.in_progress\ndata: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_4b8e2f6a9c10\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"deepseek-flash\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"error\":null,\"store\":false},\"sequence_number\":1}\n\n",
+					"event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"reasoning\",\"id\":\"rs_4b8e2f6a9c11\",\"summary\":[],\"content\":[],\"status\":\"in_progress\"},\"sequence_number\":2}\n\n",
+					"event: response.content_part.added\ndata: {\"type\":\"response.content_part.added\",\"item_id\":\"rs_4b8e2f6a9c11\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"reasoning_text\",\"text\":\"\"},\"sequence_number\":3}\n\n",
+					"event: response.reasoning_text.delta\ndata: {\"type\":\"response.reasoning_text.delta\",\"item_id\":\"rs_4b8e2f6a9c11\",\"output_index\":0,\"content_index\":0,\"delta\":\"9.11 and 9.8: compare the tenths. \",\"sequence_number\":4}\n\n",
+					"event: response.reasoning_text.delta\ndata: {\"type\":\"response.reasoning_text.delta\",\"item_id\":\"rs_4b8e2f6a9c11\",\"output_index\":0,\"content_index\":0,\"delta\":\"8 is more than 1, so 9.8 is greater.\",\"sequence_number\":5}\n\n",
+					"event: response.reasoning_text.done\ndata: {\"type\":\"response.reasoning_text.done\",\"item_id\":\"rs_4b8e2f6a9c11\",\"output_index\"",
+					":0,\"content_index\":0,\"text\":\"9.11 and 9.8: compare the tenths. 8 is more than 1, so 9.8 is greater.\",\"sequence_number\":6}\n\n",
+					"event: response.content_part.done\ndata: {\"type\":\"response.content_part.done\",\"item_id\":\"rs_4b8e2f6a9c11\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"reasoning_text\",\"text\":\"9.11 and 9.8: compare the tenths. 8 is more than 1, so 9.8 is greater.\"},\"sequence_number\":7}\n\n",
+					"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"reasoning\",\"id\":\"rs_4b8e2f6a9c11\",\"summary\":[],\"content\":[{\"type\":\"reasoning_text\",\"text\":\"9.11 and 9.8: compare the tenths. 8 is more than 1, so 9.8 is greater.\"}],\"status\":\"completed\"},\"sequence_number\":8}\n\n",
+					"event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":1,\"item\":{\"type\":\"message\",\"id\":\"msg_4b8e2f6a9c12\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[]},\"sequence_number\":9}\n\n",
+					"event: response.content_part.added\ndata: {\"type\":\"response.content_part.added\",\"item_id\":\"msg_4b8e2f6a9c12\",\"output_index\":1,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"\",\"annotations\":[]},\"sequence_number\":10}\n\n",
+					"event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_4b8e2f6a9c12\",\"output_index\":1,\"content_index\":0,\"delta\":\"9.8 is greater\",\"logprobs\":[],\"sequence_number\":11}\n\n",
+					"event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_4b8e2f6a9c12\",\"output_index\":1,\"content_index\":0,\"delta\":\" than 9.11.\",\"logprobs\":[],\"sequence_number\":12}\n\n",
+					"event: response.output_text.done\ndata: {\"type\":\"response.output_text.done\",\"item_id\":\"msg_4b8e2f6a9c12\",\"output_index\":1,\"content_index\":0,\"text\":\"9.8 is greater than 9.11.\",\"logprobs\":[],\"sequence_number\":13}\n\n",
+					"event: response.content_part.done\ndata: {\"type\":\"response.content_part.done\",\"item_id\":\"msg_4b8e2f6a9c12\",\"output_index\":1,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"9.8 is greater than 9.11.\",\"annotations\":[]},\"sequence_number\":14}\n\n",
+					"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":1,\"item\":{\"type\":\"message\",\"id\":\"msg_4b8e2f6a9c12\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"9.8 is greater than 9.11.\",\"annotations\":[]}]},\"sequence_number\":15}\n\n",
+					"event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_4b8e2f6a9c10\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"deepseek-flash\",\"status\":\"completed\",\"output\":[{\"type\":\"reasoning\",\"id\":\"rs_4b8e2f6a9c11\",\"summary\":[],\"content\":[{\"type\":\"reasoning_text\",\"text\":\"9.11 and 9.8: compare the tenths. 8 is more than 1, so 9.8 is greater.\"}],\"status\":\"completed\"},{\"type\":\"message\",\"id\":\"msg_4b8e2f6a9c12\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"9.8 is greater than 9.11.\",\"annotations\":[]}]}],\"usage\":{\"input_tokens\":24,\"input_tokens_details\":{\"cached_tokens\":0},\"output_tokens\":46,\"output_tokens_details\":{\"reasoning_tokens\":38},\"total_tokens\":70},\"incomplete_details\":null,\"error\":null,\"store\":false},\"sequence_number\":16}\n\n"
+				]
+			}
+		}
+	]
+}

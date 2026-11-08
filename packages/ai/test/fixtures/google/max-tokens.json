@@ -1,0 +1,53 @@
+{
+	"source": "Built by hand on 2026-10-29 from Google's Interactions API reference (CreateModelInteraction, its steps, content blocks, Tool, GenerationConfig, StepStart, StepDelta, StepStop, InteractionCompletedEvent, Usage) and the text generation and streaming guides, with their REST examples. Replace it with a recording: bun scripts/record-google.ts",
+	"request": {
+		"model": "google/gemini-3.8-flash",
+		"input": "Count from 1 to 100.",
+		"max_output_tokens": 40
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+				"body": {
+					"model": "gemini-3.8-flash",
+					"input": [
+						{
+							"type": "user_input",
+							"content": [
+								{
+									"type": "text",
+									"text": "Count from 1 to 100."
+								}
+							]
+						}
+					],
+					"generation_config": {
+						"max_output_tokens": 40
+					},
+					"store": false,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"event: interaction.created\ndata: {\"event_type\":\"interaction.created\",\"interaction\":{\"id\":\"v1_ChdpbnRlcmFjdGlvbi10ZXN0LTEyMzQ\",\"status\":\"in_progress\",\"object\":\"interaction\",\"model\":\"gemini-3.8-flash\",\"created\":\"2026-10-29T12:00:00Z\"}}\n\n",
+					"event: step.start\ndata: {\"event_type\":\"step.start\",\"index\":0,\"step\":{\"type\":\"thought\"}}\n\n",
+					"event: step.delta\ndata: {\"event_type\":\"step.delta\",\"index\":0,\"delta\":{\"type\":\"thought_signature\",\"signature\":\"CiQBCountThoughtSignature\"}}\n\n",
+					"event: step.stop\ndata: {\"event_type\":\"step.stop\",\"index\":0}\n\n",
+					"event: step.start\ndata: {\"event_type\":\"step.start\",\"index\":1,\"step\":{\"type\":\"model_output\"}}\n\n",
+					"event: step.delta\ndata: {\"event_type\":\"step.delta\",\"index\":1,\"delta\":{\"type\":\"text\",\"text\":\"1, 2, 3, 4, 5, 6, \"}}\n\n",
+					"event: step.delta\ndata: {\"event_type\":\"step.delta\",\"index\":1,\"delta\":{\"type\":\"text\",\"text\":\"7, 8, 9, 10, 11, 12, 13,\"}}\n\n",
+					"event: step.stop\ndata: {\"event_type\":\"step.stop\",\"index\":1}\n\n",
+					"event: interaction.completed\ndata: {\"event_type\":\"interaction.completed\",\"interaction\":{\"id\":\"v1_ChdpbnRlcmFjdGlvbi10ZXN0LTEyMzQ\",\"status\":\"incomplete\",\"usage\":{\"total_tokens\":51,\"total_input_tokens\":11,\"total_cached_tokens\":0,\"total_output_tokens\":12,\"total_thought_tokens\":28},\"object\":\"interaction\",\"model\":\"gemini-3.8-flash\",\"created\":\"2026-10-29T12:00:00Z\",\"updated\":\"2026-10-29T12:00:02Z\"}}\n\n",
+					"event: done\ndata: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

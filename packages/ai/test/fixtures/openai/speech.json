@@ -1,0 +1,39 @@
+{
+	"source": "Built by hand from OpenAI's API documentation on 2026-10-29: the Create speech reference (its parameters, a voice made for the account as its id, stream_format and its events) and the custom voices guide; gpt-4o-mini-tts is a model a host passes, as the catalogue lists no speech model of OpenAI's from 2026. Replace it with a recording: bun scripts/record-openai.ts",
+	"kind": "speech",
+	"request": {
+		"model": "openai/gpt-4o-mini-tts",
+		"input": "The quick brown fox jumped over the lazy dog.",
+		"voice": {
+			"id": "voice_1234"
+		},
+		"instructions": "Speak warmly."
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/audio/speech",
+				"body": {
+					"input": "The quick brown fox jumped over the lazy dog.",
+					"voice": {
+						"id": "voice_1234"
+					},
+					"instructions": "Speak warmly.",
+					"model": "gpt-4o-mini-tts",
+					"stream_format": "sse"
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"type\":\"speech.audio.delta\",\"audio\":\"SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYxLjcuMTAwAAAAAAAAAAAAAAD/+0DAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n\n",
+					"data: {\"type\":\"speech.audio.done\",\"usage\":{\"input_tokens\":14,\"output_tokens\":101,\"total_tokens\":115}}\n\n"
+				]
+			}
+		}
+	]
+}

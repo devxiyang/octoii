@@ -1,0 +1,79 @@
+{
+	"source": "Built by hand from xAI's documentation on 2026-10-29: the Videos API reference (POST /v1/videos/generations, /v1/videos/edits and /v1/videos/extensions, and GET /v1/videos/{request_id} with its statuses, progress, video and usage in ticks) and the Video Generation guide (polling, its statuses and error codes). An address no longer kept answers 403, as storage refuses an address that expired; its body is a sample. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"kind": "video",
+	"request": {
+		"model": "xai/grok-imagine-video",
+		"prompt": "Waves on a pebble beach",
+		"duration": 3,
+		"resolution": "480p"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.x.ai/v1/videos/generations",
+				"body": {
+					"model": "grok-imagine-video",
+					"prompt": "Waves on a pebble beach",
+					"duration": 3,
+					"resolution": "480p"
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"request_id\":\"e14f7b53-0a6d-4cbc-ad94-5f8b3cafce46\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://api.x.ai/v1/videos/e14f7b53-0a6d-4cbc-ad94-5f8b3cafce46"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"status\":\"done\",\"progress\":100,\"model\":\"grok-imagine-video\",\"video\":{\"url\":\"https://vidgen.x.ai/xai-vidgen-bucket/xai-video-e14f7b53-0a6d-4cbc-ad94-5f8b3cafce46.mp4\",\"duration\":3,\"respect_moderation\":true},\"usage\":{\"cost_in_usd_ticks\":1500000000}}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://api.x.ai/v1/videos/e14f7b53-0a6d-4cbc-ad94-5f8b3cafce46"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"status\":\"done\",\"progress\":100,\"model\":\"grok-imagine-video\",\"video\":{\"url\":\"https://vidgen.x.ai/xai-vidgen-bucket/xai-video-e14f7b53-0a6d-4cbc-ad94-5f8b3cafce46.mp4\",\"duration\":3,\"respect_moderation\":true},\"usage\":{\"cost_in_usd_ticks\":1500000000}}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://vidgen.x.ai/xai-vidgen-bucket/xai-video-e14f7b53-0a6d-4cbc-ad94-5f8b3cafce46.mp4"
+			},
+			"response": {
+				"status": 403,
+				"headers": {
+					"content-type": "application/xml"
+				},
+				"chunks": [
+					"<Error><Code>AccessDenied</Code><Message>Request has expired</Message></Error>"
+				]
+			}
+		}
+	]
+}

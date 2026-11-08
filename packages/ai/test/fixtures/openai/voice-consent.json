@@ -1,0 +1,50 @@
+{
+	"source": "Built by hand from OpenAI's API documentation on 2026-10-29: the voices and voice consents references (their multipart requests and the Voice, VoiceConsent and VoiceDeleted objects) and the custom voices guide. Its recordings are no person's: a recording takes a real consent and sample in their place. Replace it with a recording: bun scripts/record-openai.ts",
+	"kind": "voice-consent",
+	"request": {
+		"name": "Consent of the narrator",
+		"language": "en-US",
+		"recording": {
+			"data": "UklGRiQAAABXQVZFZm10IBAAAAABAAEAwF0AAIC7AAACABAAZGF0YQAAAAA=",
+			"format": "wav"
+		},
+		"octoii": {
+			"provider": "openai"
+		}
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/audio/voice_consents",
+				"body": {
+					"multipart": [
+						{
+							"name": "name",
+							"value": "Consent of the narrator"
+						},
+						{
+							"name": "language",
+							"value": "en-US"
+						},
+						{
+							"name": "recording",
+							"filename": "audio.wav",
+							"content_type": "audio/wav",
+							"base64": "UklGRiQAAABXQVZFZm10IBAAAAABAAEAwF0AAIC7AAACABAAZGF0YQAAAAA="
+						}
+					]
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\": \"cons_1234\", \"object\": \"audio.voice_consent\", \"name\": \"Consent of the narrator\", \"language\": \"en-US\", \"created_at\": 1793275200}"
+				]
+			}
+		}
+	]
+}

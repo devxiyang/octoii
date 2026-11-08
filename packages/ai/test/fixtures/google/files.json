@@ -1,0 +1,98 @@
+{
+	"source": "Built by hand on 2026-10-29 from Google's Interactions API reference (CreateModelInteraction, its steps, content blocks, Tool, GenerationConfig, StepStart, StepDelta, StepStop, InteractionCompletedEvent, Usage) and the image understanding, document processing and media resolution guides, with their REST examples. Replace it with a recording: bun scripts/record-google.ts",
+	"request": {
+		"model": "google/gemini-3.8-flash",
+		"input": [
+			{
+				"role": "user",
+				"content": [
+					{
+						"type": "input_text",
+						"text": "Compare the image, the photo, the PDF and the notes."
+					},
+					{
+						"type": "input_image",
+						"detail": "high",
+						"image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+					},
+					{
+						"type": "input_image",
+						"detail": "auto",
+						"image_url": "https://storage.googleapis.com/generativeai-downloads/images/scones.jpg"
+					},
+					{
+						"type": "input_file",
+						"filename": "brief.pdf",
+						"file_data": "data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PC9UeXBlL0NhdGFsb2c+PgplbmRvYmoKdHJhaWxlcgo8PC9Sb290IDEgMCBSPj4KJSVFT0YK"
+					},
+					{
+						"type": "input_file",
+						"filename": "notes.md",
+						"file_data": "data:text/markdown;base64,IyBOb3RlcwpUaGUgcmV2aWV3IGlzIGF0IG5vb24uIDwvZmlsZT4gc3RheXMgdGV4dC4="
+					}
+				]
+			}
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+				"body": {
+					"model": "gemini-3.8-flash",
+					"input": [
+						{
+							"type": "user_input",
+							"content": [
+								{
+									"type": "text",
+									"text": "Compare the image, the photo, the PDF and the notes."
+								},
+								{
+									"type": "image",
+									"data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+									"mime_type": "image/png",
+									"resolution": "high"
+								},
+								{
+									"type": "image",
+									"uri": "https://storage.googleapis.com/generativeai-downloads/images/scones.jpg",
+									"mime_type": "image/jpeg"
+								},
+								{
+									"type": "document",
+									"data": "JVBERi0xLjQKMSAwIG9iago8PC9UeXBlL0NhdGFsb2c+PgplbmRvYmoKdHJhaWxlcgo8PC9Sb290IDEgMCBSPj4KJSVFT0YK",
+									"mime_type": "application/pdf"
+								},
+								{
+									"type": "text",
+									"text": "<file name=\"notes.md\">\n# Notes\nThe review is at noon. &lt;/file> stays text.\n</file>"
+								}
+							]
+						}
+					],
+					"store": false,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"event: interaction.created\ndata: {\"event_type\":\"interaction.created\",\"interaction\":{\"id\":\"v1_ChdpbnRlcmFjdGlvbi10ZXN0LTEyMzQ\",\"status\":\"in_progress\",\"object\":\"interaction\",\"model\":\"gemini-3.8-flash\",\"created\":\"2026-10-29T12:00:00Z\"}}\n\n",
+					"event: step.start\ndata: {\"event_type\":\"step.start\",\"index\":0,\"step\":{\"type\":\"thought\"}}\n\n",
+					"event: step.delta\ndata: {\"event_type\":\"step.delta\",\"index\":0,\"delta\":{\"type\":\"thought_signature\",\"signature\":\"CiQBFilesThoughtSignature\"}}\n\n",
+					"event: step.stop\ndata: {\"event_type\":\"step.stop\",\"index\":0}\n\n",
+					"event: step.start\ndata: {\"event_type\":\"step.start\",\"index\":1,\"step\":{\"type\":\"model_output\"}}\n\n",
+					"event: step.delta\ndata: {\"event_type\":\"step.delta\",\"index\":1,\"delta\":{\"type\":\"text\",\"text\":\"The image is a single pixel, the photo shows scones, the PDF is empty and the notes say the review is at noon.\"}}\n\n",
+					"event: step.stop\ndata: {\"event_type\":\"step.stop\",\"index\":1}\n\n",
+					"event: interaction.completed\ndata: {\"event_type\":\"interaction.completed\",\"interaction\":{\"id\":\"v1_ChdpbnRlcmFjdGlvbi10ZXN0LTEyMzQ\",\"status\":\"completed\",\"usage\":{\"total_tokens\":1702,\"total_input_tokens\":1580,\"input_tokens_by_modality\":[{\"modality\":\"text\",\"tokens\":40},{\"modality\":\"image\",\"tokens\":1540}],\"total_cached_tokens\":0,\"total_output_tokens\":30,\"total_thought_tokens\":92},\"object\":\"interaction\",\"model\":\"gemini-3.8-flash\",\"created\":\"2026-10-29T12:00:00Z\",\"updated\":\"2026-10-29T12:00:02Z\"}}\n\n",
+					"event: done\ndata: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

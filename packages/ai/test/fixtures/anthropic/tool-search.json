@@ -1,0 +1,173 @@
+{
+	"source": "Built by hand from Anthropic's API documentation on 2026-10-29: the Messages API reference and its pages on streaming, extended and adaptive thinking, tool use, web search, tool search, prompt caching, stop reasons and errors. Replace it with a recording: bun scripts/record-anthropic.ts",
+	"request": {
+		"model": "anthropic/claude-opus-5-5",
+		"input": "What is the weather in San Francisco?",
+		"tools": [
+			{
+				"type": "openrouter:tool_search"
+			},
+			{
+				"type": "function",
+				"name": "read_file",
+				"description": "Reads a file",
+				"parameters": {
+					"type": "object",
+					"properties": {
+						"path": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"path"
+					]
+				}
+			},
+			{
+				"type": "function",
+				"name": "get_weather",
+				"description": "The weather now in a city",
+				"parameters": {
+					"type": "object",
+					"properties": {
+						"city": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"city"
+					],
+					"additionalProperties": false
+				},
+				"strict": true,
+				"defer_loading": true
+			},
+			{
+				"type": "function",
+				"name": "search_files",
+				"description": "Search through files in the workspace",
+				"parameters": {
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"query"
+					]
+				},
+				"defer_loading": true
+			}
+		],
+		"deferred_tools": {
+			"protocol": "v1",
+			"profile": "portable",
+			"validation": "runtime",
+			"search": {
+				"type": "regex"
+			}
+		},
+		"max_output_tokens": 2048
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.anthropic.com/v1/messages",
+				"headers": {
+					"anthropic-version": "2026-10-21"
+				},
+				"body": {
+					"model": "claude-opus-5-5",
+					"max_tokens": 2048,
+					"messages": [
+						{
+							"role": "user",
+							"content": [
+								{
+									"type": "text",
+									"text": "What is the weather in San Francisco?"
+								}
+							]
+						}
+					],
+					"tools": [
+						{
+							"type": "tool_search_tool_regex_20251119",
+							"name": "tool_search_tool_regex"
+						},
+						{
+							"name": "read_file",
+							"description": "Reads a file",
+							"input_schema": {
+								"type": "object",
+								"properties": {
+									"path": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"path"
+								]
+							}
+						},
+						{
+							"name": "get_weather",
+							"description": "The weather now in a city",
+							"input_schema": {
+								"type": "object",
+								"properties": {
+									"city": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"city"
+								],
+								"additionalProperties": false
+							},
+							"strict": true,
+							"defer_loading": true
+						},
+						{
+							"name": "search_files",
+							"description": "Search through files in the workspace",
+							"input_schema": {
+								"type": "object",
+								"properties": {
+									"query": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"query"
+								]
+							},
+							"defer_loading": true
+						}
+					],
+					"cache_control": {
+						"type": "ephemeral"
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_01ToolSearchAnswer000001\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"output_tokens\":1,\"service_tier\":\"standard\",\"",
+					"input_tokens\":820,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"server_tool_use\",\"id\":\"srvtoolu_01ABC123\",\"name\":\"tool_search_tool_regex\",\"input\":{}}}\n\n",
+					"event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"pattern\\\": \\\"weather\\\"}\"}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+					"event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"tool_search_tool_result\",\"tool_use_id\":\"srvtoolu_01ABC123\",\"content\":{\"type\":\"tool_search_tool_search_result\",\"tool_references\":[{\"type\":\"tool_reference\",\"tool_name\":\"get_weather\"}]}}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":1}\n\n",
+					"event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":2,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_01XYZ789\",\"name\":\"get_weather\",\"input\":{}}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":2,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"city\\\": \\\"San Francisco\\\"}\"}}\n\n",
+					"event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":2}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":70}}\n\n",
+					"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+				]
+			}
+		}
+	]
+}

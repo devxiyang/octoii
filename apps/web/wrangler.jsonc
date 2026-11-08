@@ -1,0 +1,8 @@
+{
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	// The page any browser opens at the app's address: files alone, every path answered by the page.
+	"name": "octoii-app",
+	"compatibility_date": "2026-11-01",
+	"assets": { "directory": "./dist-hosted", "not_found_handling": "single-page-application" },
+	"routes": [{ "pattern": "app.octoii.com", "custom_domain": true }],
+}

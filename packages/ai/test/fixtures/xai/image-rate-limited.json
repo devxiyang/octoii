@@ -1,0 +1,32 @@
+{
+	"source": "Built by hand from xAI's documentation on 2026-10-29: its debugging page's status codes and the Images API reference; the wording of the message is a sample. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"kind": "image",
+	"request": {
+		"model": "xai/grok-imagine-image",
+		"prompt": "A lighthouse at dawn"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.x.ai/v1/images/generations",
+				"body": {
+					"model": "grok-imagine-image",
+					"prompt": "A lighthouse at dawn",
+					"response_format": "b64_json"
+				}
+			},
+			"response": {
+				"status": 429,
+				"headers": {
+					"content-type": "application/json",
+					"retry-after": "20"
+				},
+				"chunks": [
+					"{\"code\":\"Some resource has been exhausted\",\"error\":\"You have reached the rate limit for grok-imagine-image.\"}"
+				]
+			}
+		}
+	]
+}

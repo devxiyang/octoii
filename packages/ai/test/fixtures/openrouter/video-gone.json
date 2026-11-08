@@ -1,0 +1,51 @@
+{
+	"source": "Built by hand from OpenRouter's API documentation on 2026-10-29: the Video Generation guide (submitting, polling and downloading, its job statuses and webhooks) and the API references to submit a video generation request, poll its status and download its content. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"kind": "video",
+	"request": {
+		"model": "openrouter/alibaba/wan-3.0",
+		"prompt": "a slow push-in on a neon sign in the rain",
+		"duration": 5,
+		"resolution": "720p",
+		"aspect_ratio": "16:9"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/videos",
+				"body": {
+					"model": "alibaba/wan-3.0",
+					"prompt": "a slow push-in on a neon sign in the rain",
+					"duration": 5,
+					"resolution": "720p",
+					"aspect_ratio": "16:9"
+				}
+			},
+			"response": {
+				"status": 202,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\":\"gen-vid-1793275200-Ab3dEf9hIjKlMnOpQrSt\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793275200-Ab3dEf9hIjKlMnOpQrSt\",\"status\":\"completed\",\"unsigned_urls\":[\"https://openrouter.ai/api/v1/videos/gen-vid-1793275200-Ab3dEf9hIjKlMnOpQrSt/content?index=0\"]}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://openrouter.ai/api/v1/videos/gen-vid-1793275200-Ab3dEf9hIjKlMnOpQrSt/content?index=0"
+			},
+			"response": {
+				"status": 410,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"error\":{\"code\":410,\"message\":\"The video content has expired\"}}"
+				]
+			}
+		}
+	]
+}

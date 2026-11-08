@@ -1,0 +1,38 @@
+{
+	"source": "Built by hand from OpenAI's Chat Completions API reference on 2026-10-29: its error responses and streamed errors. A failure a server cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "local/qwen3.6-27b",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "http://127.0.0.1:8080/v1/chat/completions",
+				"body": {
+					"model": "qwen3.6-27b",
+					"messages": [
+						{
+							"role": "user",
+							"content": "Hello"
+						}
+					],
+					"stream_options": {
+						"include_usage": true
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"id\":\"chatcmpl-local-6\",\"object\":\"chat.completion.chunk\",\"created\":1761760800,\"model\":\"qwen3.6-27b\",\"system_fingerprint\":\"b6080-local\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Hello! How\"},\"logprobs\":null,\"finish_reason\":null}]}\n\n"
+				]
+			}
+		}
+	]
+}

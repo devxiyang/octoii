@@ -1,0 +1,20 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "oxlint-plugin-octoii"
+    },
+    {
+      "path": "packages/terminal"
+    },
+    {
+      "path": "packages/client"
+    },
+    {
+      "path": "apps/web"
+    },
+    {
+      "path": "tsconfig.json"
+    }
+  ]
+}

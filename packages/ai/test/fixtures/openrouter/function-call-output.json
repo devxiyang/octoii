@@ -1,0 +1,132 @@
+{
+	"source": "Recorded from OpenRouter's live API on 2026-10-28 by scripts/record-openrouter.ts.",
+	"request": {
+		"model": "openrouter/deepseek/deepseek-v4.1-flash-1017",
+		"input": [
+			{
+				"type": "message",
+				"role": "user",
+				"content": [
+					{
+						"type": "input_text",
+						"text": "What is the weather in Paris?"
+					}
+				]
+			},
+			{
+				"type": "function_call",
+				"id": "fc_0193a1c4e7c1",
+				"call_id": "call_k2Jx8VqTzP4mN7rB",
+				"name": "get_weather",
+				"arguments": "{\"city\":\"Paris\"}",
+				"status": "completed",
+				"octoii": {
+					"model": "openrouter/openai/gpt-6-luna"
+				}
+			},
+			{
+				"type": "function_call_output",
+				"call_id": "call_k2Jx8VqTzP4mN7rB",
+				"output": "{\"temperature_c\":18,\"sky\":\"sunny\"}",
+				"octoii": {
+					"is_error": false
+				}
+			}
+		],
+		"tools": [
+			{
+				"type": "function",
+				"name": "get_weather",
+				"description": "The weather now in a city",
+				"parameters": {
+					"type": "object",
+					"properties": {
+						"city": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"city"
+					],
+					"additionalProperties": false
+				},
+				"strict": true
+			}
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/responses",
+				"body": {
+					"model": "deepseek/deepseek-v4.1-flash-1017",
+					"tools": [
+						{
+							"type": "function",
+							"name": "get_weather",
+							"description": "The weather now in a city",
+							"parameters": {
+								"type": "object",
+								"properties": {
+									"city": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"city"
+								],
+								"additionalProperties": false
+							},
+							"strict": true
+						}
+					],
+					"input": [
+						{
+							"type": "message",
+							"role": "user",
+							"content": [
+								{
+									"type": "input_text",
+									"text": "What is the weather in Paris?"
+								}
+							]
+						},
+						{
+							"type": "function_call",
+							"id": "fc_0193a1c4e7c1",
+							"call_id": "call_k2Jx8VqTzP4mN7rB",
+							"name": "get_weather",
+							"arguments": "{\"city\":\"Paris\"}",
+							"status": "completed"
+						},
+						{
+							"type": "function_call_output",
+							"call_id": "call_k2Jx8VqTzP4mN7rB",
+							"output": "{\"temperature_c\":18,\"sky\":\"sunny\"}"
+						}
+					],
+					"provider": {
+						"require_parameters": true
+					},
+					"cache_control": {
+						"type": "ephemeral"
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"type\":\"response.created\",\"response\":{\"id\":\"gen-1793231290-fla0YfB89GRC4H7o2njw\",\"object\":\"response\",\"created_at\":1793231290,\"model\":\"deepseek/deepseek-v4.1-flash-1017\",\"status\":\"in_progress\",\"completed_at\":null,\"output\":[],\"error\":null,\"incomplete_details\":null,\"tools\":[{\"type\":\"function\",\"name\":\"get_weather\",\"description\":\"The weather now in a city\",\"strict\":true,\"parameters\":{\"type\":\"object\",\"properties\":{\"city\":{\"type\":\"string\"}},\"required\":[\"city\"],\"additionalProperties\":false}}],\"tool_choice\":\"auto\",\"parallel_tool_calls\":true,\"max_output_tokens\":null,\"temperature\":1,\"top_p\":1,\"presence_penalty\":0,\"frequency_penalty\":0,\"top_logprobs\":0,\"max_tool_calls\":null,\"metadata\":{},\"background\":false,\"previous_response_id\":null,\"service_tier\":\"auto\",\"truncation\":\"disabled\",\"store\":false,\"instructions\":null,\"text\":{\"format\":{\"type\":\"text\"}},\"reasoning\":null,\"safety_identifier\":null,\"prompt_cache_key\":null,\"prompt_cache_options\":null,\"usage\":null},\"sequence_number\":0}\n\ndata: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"gen-1793231290-fla0YfB89GRC4H7o2njw\",\"object\":\"response\",\"created_at\":1793231290,\"model\":\"deepseek/deepseek-v4.1-flash-1017\",\"status\":\"in_progress\",\"completed_at\":null,\"output\":[],\"error\":null,\"incomplete_details\":null,\"tools\":[{\"type\":\"function\",\"name\":\"get_weather\",\"description\":\"The weather now in a city\",\"strict\":true,\"parameters\":{\"type\":\"object\",\"properties\":{\"city\":{\"type\":\"string\"}},\"required\":[\"city\"],\"additionalProperties\":false}}],\"tool_choice\":\"auto\",\"parallel_tool_calls\":true,\"max_output_tokens\":null,\"temperature\":1,\"top_p\":1,\"presence_penalty\":0,\"frequency_penalty\":0,\"top_logprobs\":0,\"max_tool_calls\":null,\"metadata\":{},\"background\":false,\"previous_response_id\":null,\"service_tier\":\"auto\",\"truncation\":\"disabled\",\"store\":false,\"instructions\":null,\"text\":{\"format\":{\"type\":\"text\"}},\"reasoning\":null,\"safety_identifier\":null,\"prompt_cache_key\":null,\"prompt_cache_options\":null,\"usage\":null},\"sequence_number\":1}\n\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"id\":\"msg_tmp_lmwp30szv3\",\"type\":\"message\",\"status\":\"in_progress\",\"role\":\"assistant\",\"content\":[]},\"sequence_number\":2}\n\ndata: {\"type\":\"response.content_part.added\",\"output_index\":0,\"item_id\":\"msg_tmp_lmwp30szv3\",\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"\",\"annotations\":[],\"logprobs\":[]},\"sequence_number\":3}\n\ndata: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"item_id\":\"msg_tmp_lmwp30szv3\",\"content_index\":0,\"delta\":\"It\",\"logprobs\":[],\"sequence_number\":4}\n\ndata: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"item_id\":\"msg_tmp_lmwp30szv3\",\"content_index\":0,\"delta\":\"'s currently **\",\"logprobs\":[],\"sequence_number\":5}\n\ndata: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"item_id\":\"msg_tmp_lmwp30szv3\",\"content_index\":0,\"delta\":\"18°C and\",\"logprobs\":[],\"sequence_number\":6}\n\ndata: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"item_id\":\"msg_tmp_lmwp30szv3\",\"content_index\":0,\"delta\":\" sunny** in Paris —\",\"logprobs\":[],\"sequence_number\":7}\n\ndata: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"item_id\":\"msg_tmp_lmwp30szv3\",\"content_index\":0,\"delta\":\" a lovely\",\"logprobs\":[],\"sequence_number\":8}\n\ndata: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"item_id\":\"msg_tmp_lmwp30szv3\",\"content_index\":0,\"delta\":\" day to\",\"logprobs\":[],\"sequence_number\":9}\n\ndata: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"item_id\":\"msg_tmp_lmwp30szv3\",\"content_index\":0,\"delta\":\" be outside\",\"logprobs\":[],\"sequence_number\":10}\n\ndata: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"item_id\":\"msg_tmp_lmwp30szv3\",\"content_index\":0,\"delta\":\"!\",\"logprobs\":[],\"sequence_number\":11}\n\ndata: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"item_id\":\"msg_tmp_lmwp30szv3\",\"content_index\":0,\"delta\":\" ☀️\",\"logprobs\":[],\"sequence_number\":12}\n\n",
+					"data: {\"type\":\"response.output_text.done\",\"output_index\":0,\"item_id\":\"msg_tmp_lmwp30szv3\",\"content_index\":0,\"text\":\"It's currently **18°C and sunny** in Paris — a lovely day to be outside! ☀️\",\"logprobs\":[],\"sequence_number\":13}\n\n",
+					"data: {\"type\":\"response.content_part.done\",\"output_index\":0,\"item_id\":\"msg_tmp_lmwp30szv3\",\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"It's currently **18°C and sunny** in Paris — a lovely day to be outside! ☀️\",\"annotations\":[],\"logprobs\":[]},\"sequence_number\":14}\n\n",
+					"data: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"id\":\"msg_tmp_lmwp30szv3\",\"type\":\"message\",\"status\":\"completed\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"It's currently **18°C and sunny** in Paris — a lovely day to be outside! ☀️\",\"annotations\":[],\"logprobs\":[]}]},\"sequence_number\":15}\n\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"gen-1793231290-fla0YfB89GRC4H7o2njw\",\"object\":\"response\",\"created_at\":1793231290,\"model\":\"deepseek/deepseek-v4.1-flash-1017\",\"status\":\"completed\",\"completed_at\":1793231290,\"output\":[{\"id\":\"msg_tmp_lmwp30szv3\",\"type\":\"message\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"It's currently **18°C and sunny** in Paris — a lovely day to be outside! ☀️\",\"annotations\":[],\"logprobs\":[]}]}],\"error\":null,\"incomplete_details\":null,\"tools\":[{\"type\":\"function\",\"name\":\"get_weather\",\"description\":\"The weather now in a city\",\"strict\":true,\"parameters\":{\"type\":\"object\",\"properties\":{\"city\":{\"type\":\"string\"}},\"required\":[\"city\"],\"additionalProperties\":false}}],\"tool_choice\":\"auto\",\"parallel_tool_calls\":true,\"max_output_tokens\":null,\"temperature\":1,\"top_p\":1,\"presence_penalty\":0,\"frequency_penalty\":0,\"top_logprobs\":0,\"max_tool_calls\":null,\"metadata\":{},\"background\":false,\"previous_response_id\":null,\"service_tier\":\"auto\",\"truncation\":\"disabled\",\"store\":false,\"instructions\":null,\"text\":{\"format\":{\"type\":\"text\"}},\"reasoning\":{\"effort\":\"high\"},\"safety_identifier\":null,\"prompt_cache_key\":null,\"prompt_cache_options\":null,\"usage\":{\"input_tokens\":368,\"input_tokens_details\":{\"cached_tokens\":0},\"output_tokens\":25,\"output_tokens_details\":{\"reasoning_tokens\":0},\"total_tokens\":393,\"cost\":0.00003826,\"is_byok\":false,\"cost_details\":{\"upstream_inference_cost\":0.00003826,\"upstream_inference_input_cost\":0.00002576,\"upstream_inference_output_cost\":0.0000125}}},\"sequence_number\":16}\n\ndata: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

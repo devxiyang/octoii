@@ -1,0 +1,43 @@
+{
+	"source": "Built by hand from Z.ai's API documentation on 2026-10-29: the error codes page and the Chat Completion reference's finish reasons. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "zai-coding-plan/glm-5.3",
+		"input": "Write hello world in Python.",
+		"reasoning": {
+			"effort": "medium"
+		}
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.z.ai/api/coding/paas/v4/chat/completions",
+				"body": {
+					"model": "glm-5.3",
+					"messages": [
+						{
+							"role": "user",
+							"content": "Write hello world in Python."
+						}
+					],
+					"thinking": {
+						"type": "enabled",
+						"clear_thinking": false
+					},
+					"reasoning_effort": "low",
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 429,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"error\":{\"code\":\"1310\",\"message\":\"Weekly/Monthly Limit Exhausted. Your limit will reset at 2026-11-01 00:00:00\"}}"
+				]
+			}
+		}
+	]
+}

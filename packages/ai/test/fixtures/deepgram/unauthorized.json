@@ -1,0 +1,32 @@
+{
+	"source": "Built by hand from Deepgram's documentation on 2026-10-29: the Errors page (401 Incorrect API key, INVALID_AUTH); a recording holds a good key. Replace it with a recording: bun scripts/record-deepgram.ts",
+	"recordable": false,
+	"kind": "transcription",
+	"request": {
+		"model": "deepgram/nova-3-pharma",
+		"input_audio": {
+			"url": "https://dpgr.am/spacewalk.wav"
+		},
+		"language": "en"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.deepgram.com/v1/listen?model=nova-3-pharma&smart_format=true&language=en",
+				"body": {
+					"url": "https://dpgr.am/spacewalk.wav"
+				}
+			},
+			"response": {
+				"status": 401,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"err_code\":\"INVALID_AUTH\",\"err_msg\":\"Invalid credentials.\",\"request_id\":\"uuid\"}"
+				]
+			}
+		}
+	]
+}

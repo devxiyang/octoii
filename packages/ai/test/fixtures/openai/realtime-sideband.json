@@ -1,0 +1,80 @@
+{
+	"source": "Built by hand from OpenAI's documentation on 2026-10-29: the Realtime server controls guide (the sideband at wss://api.openai.com/v1/realtime?call_id=, the call's id from the Location of /v1/realtime/calls) and the Realtime API reference's transcription events; the guides do not show a sideband of a transcription session, so its first event is assumed to be session.created, as on a session's own connection. Replace it with a recording of a call a client made: bun scripts/record-openai.ts",
+	"kind": "realtime-transcription",
+	"request": {
+		"model": "openai/gpt-live-transcribe",
+		"call_id": "rtc_u1_9c6574da8b8a41a18da9308f4ad974ce"
+	},
+	"events": [],
+	"sockets": [
+		{
+			"url": "wss://api.openai.com/v1/realtime?call_id=rtc_u1_9c6574da8b8a41a18da9308f4ad974ce",
+			"steps": [
+				{
+					"server": {
+						"type": "session.created",
+						"event_id": "event_C2bZd0",
+						"session": {
+							"type": "transcription",
+							"id": "sess_C9mZ1",
+							"object": "realtime.transcription_session",
+							"expires_at": 1793275200,
+							"audio": {
+								"input": {
+									"format": {
+										"type": "audio/pcm",
+										"rate": 24000
+									},
+									"transcription": {
+										"model": "gpt-live-transcribe",
+										"prompt": "A support call about account AC-42.",
+										"keywords": [
+											"AC-42"
+										],
+										"languages": [
+											"en"
+										],
+										"delay": "low"
+									},
+									"noise_reduction": null,
+									"turn_detection": null
+								}
+							},
+							"include": null
+						}
+					}
+				},
+				{
+					"server": {
+						"type": "input_audio_buffer.committed",
+						"event_id": "event_C2bZd1",
+						"item_id": "item_010",
+						"previous_item_id": null
+					}
+				},
+				{
+					"server": {
+						"type": "conversation.item.input_audio_transcription.delta",
+						"event_id": "event_C2bZd2",
+						"item_id": "item_010",
+						"content_index": 0,
+						"delta": "Call me back."
+					}
+				},
+				{
+					"server": {
+						"type": "conversation.item.input_audio_transcription.completed",
+						"event_id": "event_C2bZd3",
+						"item_id": "item_010",
+						"content_index": 0,
+						"transcript": "Call me back.",
+						"usage": {
+							"type": "duration",
+							"seconds": 1.4
+						}
+					}
+				}
+			]
+		}
+	]
+}

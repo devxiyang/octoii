@@ -1,0 +1,47 @@
+{
+	"source": "Built by hand from OpenRouter's API documentation on 2026-10-29: the Video Generation guide (submitting, polling and downloading, its job statuses and webhooks) and the API references to submit a video generation request, poll its status and download its content. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"kind": "video",
+	"request": {
+		"model": "openrouter/minimax/hailuo-3",
+		"prompt": "a crowd at a stadium",
+		"duration": 5
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/videos",
+				"body": {
+					"model": "minimax/hailuo-3",
+					"prompt": "a crowd at a stadium",
+					"duration": 5
+				}
+			},
+			"response": {
+				"status": 202,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\":\"gen-vid-1793275260-Zz9yXw8vUt7sRq6pOn5m\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793275260-Zz9yXw8vUt7sRq6pOn5m\",\"status\":\"pending\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://openrouter.ai/api/v1/videos/gen-vid-1793275260-Zz9yXw8vUt7sRq6pOn5m"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\":\"gen-vid-1793275260-Zz9yXw8vUt7sRq6pOn5m\",\"generation_id\":\"gen-vid-1793275260-Zz9yXw8vUt7sRq6pOn5m\",\"polling_url\":\"https://openrouter.ai/api/v1/videos/gen-vid-1793275260-Zz9yXw8vUt7sRq6pOn5m\",\"status\":\"failed\",\"error\":\"Content policy violation\"}"
+				]
+			}
+		}
+	]
+}

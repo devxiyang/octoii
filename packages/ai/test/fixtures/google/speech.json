@@ -1,0 +1,60 @@
+{
+	"source": "Built by hand from Google's Gemini API documentation on 2026-10-29: the speech generation guide (its single-speaker and streaming REST requests, speech_metadata with its style, and its audio output formats: headerless audio/l16 at 24 kHz when streaming) and the Interactions API reference (AudioResponseFormat, AudioDelta, InteractionCompletedEvent and Usage). Replace it with a recording: bun scripts/record-google.ts",
+	"kind": "speech",
+	"request": {
+		"model": "google/gemini-3.8-flash-tts",
+		"input": "Have a wonderful day!",
+		"voice": "Kore",
+		"instructions": "cheerful and friendly"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+				"body": {
+					"model": "gemini-3.8-flash-tts",
+					"input": [
+						{
+							"type": "user_input",
+							"content": [
+								{
+									"type": "text",
+									"text": "Have a wonderful day!",
+									"annotations": [
+										{
+											"type": "speech_metadata",
+											"style": "cheerful and friendly"
+										}
+									]
+								}
+							]
+						}
+					],
+					"response_format": {
+						"type": "audio",
+						"mime_type": "audio/l16"
+					},
+					"generation_config": {
+						"speech_config": [
+							{
+								"voice": "Kore"
+							}
+						]
+					},
+					"store": false,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"event_type\":\"interaction.created\",\"interaction\":{\"id\":\"v1_int_1\",\"created\":\"2026-10-29T12:00:00Z\",\"status\":\"in_progress\"}}\n\ndata: {\"event_type\":\"step.start\",\"index\":0,\"step\":{\"type\":\"model_output\"}}\n\ndata: {\"event_type\":\"step.delta\",\"index\":0,\"delta\":{\"type\":\"audio\",\"data\":\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4v\",\"mime_type\":\"audio/l16\",\"sample_rate\":24000,\"channels\":1}}\n\ndata: {\"event_type\":\"step.delta\",\"index\":0,\"delta\":{\"type\":\"audio\",\"data\":\"MDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5f\",\"mime_type\":\"audio/l16\",\"sample_rate\":24000,\"channels\":1}}\n\ndata: {\"event_type\":\"step.stop\",\"index\":0}\n\ndata: {\"event_type\":\"interaction.completed\",\"interaction\":{\"id\":\"v1_int_1\",\"status\":\"completed\",\"usage\":{\"total_input_tokens\":9,\"input_tokens_by_modality\":[{\"modality\":\"text\",\"tokens\":9}],\"total_output_tokens\":75,\"output_tokens_by_modality\":[{\"modality\":\"audio\",\"tokens\":75}],\"total_tokens\":84}}}\n\n"
+				]
+			}
+		}
+	]
+}

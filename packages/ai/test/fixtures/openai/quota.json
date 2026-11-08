@@ -1,0 +1,32 @@
+{
+	"source": "Built by hand from OpenAI's API documentation on 2026-10-29: its error codes and rate limits guides and the headers its official SDK reads. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "openai/gpt-6-luna",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/responses",
+				"body": {
+					"model": "gpt-6-luna",
+					"input": "Hello",
+					"stream": true,
+					"store": false
+				}
+			},
+			"response": {
+				"status": 429,
+				"headers": {
+					"content-type": "application/json",
+					"x-should-retry": "false"
+				},
+				"chunks": [
+					"{\"error\":{\"message\":\"You exceeded your current quota, please check your plan and billing details.\",\"type\":\"insufficient_quota\",\"param\":null,\"code\":\"credit_balance_exhausted\"}}"
+				]
+			}
+		}
+	]
+}

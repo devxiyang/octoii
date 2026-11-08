@@ -1,0 +1,39 @@
+{
+	"source": "Built by hand from OpenRouter's API documentation on 2026-10-29: the Image Generation guide (its streaming events, response format and billing) and the Generate an image API reference (ImageGenerationRequest, ImageGenerationResponse, ImageGenerationUsage and the stream's events). Replace it with a recording: bun scripts/record-openrouter.ts",
+	"kind": "image",
+	"request": {
+		"model": "openrouter/openai/gpt-image-2",
+		"prompt": "a red panda astronaut floating in space, studio lighting",
+		"quality": "high",
+		"aspect_ratio": "16:9",
+		"n": 1
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/images",
+				"body": {
+					"model": "openai/gpt-image-2",
+					"prompt": "a red panda astronaut floating in space, studio lighting",
+					"quality": "high",
+					"aspect_ratio": "16:9",
+					"n": 1,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					": OPENROUTER PROCESSING\n\n",
+					"data: {\"type\":\"image_generation.partial_image\",\"partial_image_index\":0,\"b64_json\":\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==\"}\n\n",
+					"data: {\"type\":\"image_generation.completed\",\"b64_json\":\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==\",\"media_type\":\"image/png\",\"created\":1793275200,\"usage\":{\"prompt_tokens\":16,\"completion_tokens\":4160,\"total_tokens\":4176,\"completion_tokens_details\":{\"image_tokens\":4160},\"cost\":0.124928}}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

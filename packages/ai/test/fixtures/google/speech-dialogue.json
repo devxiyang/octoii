@@ -1,0 +1,89 @@
+{
+	"source": "Built by hand from Google's Gemini API documentation on 2026-10-29: the speech generation guide (its multi-speaker REST request: a speech_metadata speaker and style on every turn, and speech_config speakers) and the Interactions API reference (AudioResponseFormat with audio/mp3, AudioDelta, InteractionCompletedEvent and Usage). Replace it with a recording: bun scripts/record-google.ts",
+	"kind": "speech",
+	"request": {
+		"model": "google/gemini-3.8-flash-lite-tts",
+		"response_format": "mp3",
+		"instructions": "calm and relaxed",
+		"input": [
+			{
+				"text": "How's it going today Jane?",
+				"voice": "Puck",
+				"instructions": "cheerful and friendly"
+			},
+			{
+				"text": "Not too bad, how about you?",
+				"voice": "Kore"
+			}
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+				"body": {
+					"model": "gemini-3.8-flash-lite-tts",
+					"input": [
+						{
+							"type": "user_input",
+							"content": [
+								{
+									"type": "text",
+									"text": "How's it going today Jane?",
+									"annotations": [
+										{
+											"type": "speech_metadata",
+											"speaker": "Speaker 1",
+											"style": "cheerful and friendly"
+										}
+									]
+								},
+								{
+									"type": "text",
+									"text": "Not too bad, how about you?",
+									"annotations": [
+										{
+											"type": "speech_metadata",
+											"speaker": "Speaker 2",
+											"style": "calm and relaxed"
+										}
+									]
+								}
+							]
+						}
+					],
+					"response_format": {
+						"type": "audio",
+						"mime_type": "audio/mp3"
+					},
+					"generation_config": {
+						"speech_config": {
+							"speakers": [
+								{
+									"speaker": "Speaker 1",
+									"voice": "Puck"
+								},
+								{
+									"speaker": "Speaker 2",
+									"voice": "Kore"
+								}
+							]
+						}
+					},
+					"store": false,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"event_type\":\"interaction.created\",\"interaction\":{\"id\":\"v1_int_1\",\"created\":\"2026-10-29T12:00:00Z\",\"status\":\"in_progress\"}}\n\ndata: {\"event_type\":\"step.start\",\"index\":0,\"step\":{\"type\":\"model_output\"}}\n\ndata: {\"event_type\":\"step.delta\",\"index\":0,\"delta\":{\"type\":\"audio\",\"data\":\"SUQzBAAAAAAAAP/7kAAAAAAAAAAAAAAAAAAAAAAAAAA=\",\"mime_type\":\"audio/mp3\"}}\n\ndata: {\"event_type\":\"step.stop\",\"index\":0}\n\ndata: {\"event_type\":\"interaction.completed\",\"interaction\":{\"id\":\"v1_int_1\",\"status\":\"completed\",\"usage\":{\"total_input_tokens\":21,\"total_output_tokens\":160,\"output_tokens_by_modality\":[{\"modality\":\"audio\",\"tokens\":160}],\"total_tokens\":181}}}\n\n"
+				]
+			}
+		}
+	]
+}

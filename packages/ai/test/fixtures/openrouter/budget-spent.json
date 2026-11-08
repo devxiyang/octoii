@@ -1,0 +1,36 @@
+{
+	"source": "Built by hand from OpenRouter's API documentation on 2026-10-28: its errors and debugging page and the Responses API's error handling. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "openrouter/openai/gpt-6-luna",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/responses",
+				"body": {
+					"model": "openai/gpt-6-luna",
+					"provider": {
+						"require_parameters": true
+					},
+					"input": "Hello",
+					"cache_control": {
+						"type": "ephemeral"
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 403,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"error\":{\"code\":403,\"message\":\"Budget limit exceeded (weekly limit). Contact your org admin. $52.00 of $50.00 used; resets 2026-11-02T00:00:00.000Z.\",\"metadata\":{\"limit_source\":\"openrouter_guardrail_budget\",\"scope\":\"workspace_default_member\",\"limit_usd\":50,\"spend_usd\":52,\"resets_at\":\"2026-11-02T00:00:00.000Z\"}}}"
+				]
+			}
+		}
+	]
+}

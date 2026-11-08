@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@octoii-works/octoii-terminal",
+  "version": "0.0.1",
+  "description": "Octoii's terminal in the browser: libghostty-vt in WebAssembly reads the program's output, a canvas draws it, and the page's keys, mouse and clipboard go back to the program",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "author": "Elian Yang (https://elianyang.com)",
+  "homepage": "https://github.com/octoii-works/octoii/tree/main/packages/terminal#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/octoii-works/octoii.git",
+    "directory": "packages/terminal"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "bun check",
+    "test": "bun test --timeout=60000 --no-env-file --no-install ./test"
+  },
+  "dependencies": {
+    "typebox": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  }
+}

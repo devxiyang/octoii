@@ -1,0 +1,71 @@
+{
+	"source": "Built by hand from DeepSeek's API documentation on 2026-10-29: the Responses API guide (its fields, items, tools, images and its stream, which ends with its terminal event and no [DONE]), the thinking mode, vision and pricing guides; the shapes of the events are OpenAI's, which DeepSeek's Responses API follows. Replace it with a recording: bun scripts/record-deepseek.ts",
+	"request": {
+		"model": "deepseek/deepseek-v4-pro",
+		"input": [
+			{
+				"type": "message",
+				"role": "user",
+				"content": "Change milk to oat milk in notes.md."
+			}
+		],
+		"tools": [
+			{
+				"type": "custom",
+				"name": "apply_patch",
+				"description": "Apply a patch to the files."
+			}
+		],
+		"reasoning": {
+			"effort": "none"
+		},
+		"temperature": 0.2
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.deepseek.com/responses",
+				"body": {
+					"model": "deepseek-v4-pro",
+					"input": [
+						{
+							"type": "message",
+							"role": "user",
+							"content": "Change milk to oat milk in notes.md."
+						}
+					],
+					"tools": [
+						{
+							"type": "custom",
+							"name": "apply_patch",
+							"description": "Apply a patch to the files."
+						}
+					],
+					"reasoning": {
+						"effort": "none"
+					},
+					"temperature": 0.2,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					": keep-alive\n\n",
+					"event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_6c1d3e5f7a60\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"deepseek-v4-pro\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"error\":null,\"store\":false},\"sequence_number\":0}\n\n",
+					"event: response.in_progress\ndata: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_6c1d3e5f7a60\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"deepseek-v4-pro\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"error\":null,\"store\":false},\"sequence_number\":1}\n\n",
+					"event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"custom_tool_call\",\"id\":\"ctc_6c1d3e5f7a61\",\"call_id\":\"call_00_Zp4Rt7Wq\",\"name\":\"apply_patch\",\"input\":\"\",\"status\":\"in_progress\"},\"sequence_number\":2}\n\n",
+					"event: response.custom_tool_call_input.delta\ndata: {\"type\":\"response.custom_tool_call_input.delta\",\"item_id\":\"ctc_6c1d3e5f7a61\",\"output_index\":0,\"delta\":\"*** Begin Patch\\n*** Update File: notes.m\",\"sequence_number\":3}\n\n",
+					"event: response.custom_tool_call_input.delta\ndata: {\"type\":\"response.custom_tool_call_input.delta\",\"item_id\":\"ctc_6c1d3e5f7a61\",\"output_index\":0,\"delta\":\"d\\n@@\\n-Buy milk.\\n+Buy oat milk.\\n*** End Patch\",\"sequence_number\":4}\n\n",
+					"event: response.custom_tool_call_input.done\ndata: {\"type\":\"response.custom_tool_call_input.done\",\"item_id\":\"ctc_6c1d3e5f7a61\",\"output_index\":0,\"input\":\"*** Begin Patch\\n*** Update File: notes.md\\n@@\\n-Buy milk.\\n+Buy oat milk.\\n*** End Patch\",\"sequence_number\":5}\n\n",
+					"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"custom_tool_call\",\"id\":\"ctc_6c1d3e5f7a61\",\"call_id\":\"call_00_Zp4Rt7Wq\",\"name\":\"apply_patch\",\"input\":\"*** Begin Patch\\n*** Update File: notes.md\\n@@\\n-Buy milk.\\n+Buy oat milk.\\n*** End Patch\",\"status\":\"completed\"},\"sequence_number\":6}\n\n",
+					"event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_6c1d3e5f7a60\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"deepseek-v4-pro\",\"status\":\"completed\",\"output\":[{\"type\":\"custom_tool_call\",\"id\":\"ctc_6c1d3e5f7a61\",\"call_id\":\"call_00_Zp4Rt7Wq\",\"name\":\"apply_patch\",\"input\":\"*** Begin Patch\\n*** Update File: notes.md\\n@@\\n-Buy milk.\\n+Buy oat milk.\\n*** End Patch\",\"status\":\"completed\"}],\"usage\":{\"input_tokens\":402,\"input_tokens_details\":{\"cached_tokens\":0},\"output_tokens\":58,\"output_tokens_details\":{\"reasoning_tokens\":0},\"total_tokens\":460},\"incomplete_details\":null,\"error\":null,\"store\":false},\"sequence_number\":7}\n\n"
+				]
+			}
+		}
+	]
+}

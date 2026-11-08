@@ -1,0 +1,37 @@
+{
+	"source": "Built by hand from OpenRouter's API documentation on 2026-10-29: the Speech-to-Text guide (its request parameters, verbose transcripts and response fields) and the Create transcription API reference (STTRequest, STTResponse, STTUsage). Replace it with a recording: bun scripts/record-openrouter.ts",
+	"kind": "transcription",
+	"request": {
+		"model": "openrouter/openai/gpt-transcribe",
+		"input_audio": {
+			"data": "UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=",
+			"format": "wav"
+		},
+		"language": "en"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/audio/transcriptions",
+				"body": {
+					"model": "openai/gpt-transcribe",
+					"input_audio": {
+						"data": "UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=",
+						"format": "wav"
+					},
+					"language": "en"
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"text\":\"Hello, this is a test of speech-to-text transcription.\",\"usage\":{\"seconds\":9.2,\"total_tokens\":113,\"input_tokens\":83,\"output_tokens\":30,\"cost\":0.00069}}"
+				]
+			}
+		}
+	]
+}

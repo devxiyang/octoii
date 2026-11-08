@@ -1,0 +1,48 @@
+{
+	"source": "Built by hand from OpenAI's API documentation on 2026-10-29: its error codes and rate limits guides. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"kind": "transcription",
+	"request": {
+		"model": "openai/gpt-transcribe",
+		"input_audio": {
+			"data": "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYxLjcuMTAwAAAAAAAAAAAAAAD/+0DAAAAAAAAAAAAAAAAAAAAAAAA=",
+			"format": "mp3"
+		}
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/audio/transcriptions",
+				"body": {
+					"multipart": [
+						{
+							"name": "file",
+							"filename": "audio.mp3",
+							"content_type": "audio/mpeg",
+							"base64": "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYxLjcuMTAwAAAAAAAAAAAAAAD/+0DAAAAAAAAAAAAAAAAAAAAAAAA="
+						},
+						{
+							"name": "model",
+							"value": "gpt-transcribe"
+						},
+						{
+							"name": "stream",
+							"value": "true"
+						}
+					]
+				}
+			},
+			"response": {
+				"status": 429,
+				"headers": {
+					"content-type": "application/json",
+					"retry-after-ms": "1500"
+				},
+				"chunks": [
+					"{\"error\": {\"message\": \"Rate limit reached for gpt-transcribe on requests per min (RPM): Limit 5000, Used 5000, Requested 1.\", \"type\": \"requests\", \"param\": null, \"code\": \"rate_limit_exceeded\"}}"
+				]
+			}
+		}
+	]
+}

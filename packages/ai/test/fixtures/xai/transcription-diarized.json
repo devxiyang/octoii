@@ -1,0 +1,66 @@
+{
+	"source": "Built by hand from xAI's documentation on 2026-10-29: the Speech to Text guide (POST /v1/stt as multipart/form-data with a url, diarize, a keyterm and an option, and its response's words with their confidence and speaker) and the Voice API reference for /v1/stt. The recording's address is a sample, which a recording replaces with one it can fetch. Replace it with a recording: bun scripts/record-xai.ts",
+	"kind": "transcription",
+	"request": {
+		"model": "xai/grok-voice-transcribe-2.0",
+		"input_audio": {
+			"url": "https://files.example.com/meeting.mp3"
+		},
+		"response_format": "verbose_json",
+		"timestamp_granularities": ["word"],
+		"diarize": true,
+		"keyterms": ["Grok", "Colossus"],
+		"provider": {
+			"options": {
+				"xai": {
+					"filler_words": true
+				}
+			}
+		}
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.x.ai/v1/stt",
+				"body": {
+					"multipart": [
+						{
+							"name": "model",
+							"value": "grok-voice-transcribe-2.0"
+						},
+						{
+							"name": "diarize",
+							"value": "true"
+						},
+						{
+							"name": "keyterm",
+							"value": "Grok"
+						},
+						{
+							"name": "keyterm",
+							"value": "Colossus"
+						},
+						{
+							"name": "filler_words",
+							"value": "true"
+						},
+						{
+							"name": "url",
+							"value": "https://files.example.com/meeting.mp3"
+						}
+					]
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"text\":\"Is Grok ready? Um, almost.\",\"language\":\"en\",\"duration\":2.4,\"words\":[{\"text\":\"Is\",\"start\":0.1,\"end\":0.22,\"confidence\":0.91,\"speaker\":0},{\"text\":\"Grok\",\"start\":0.22,\"end\":0.6,\"confidence\":0.88,\"speaker\":0},{\"text\":\"ready?\",\"start\":0.6,\"end\":1.0,\"confidence\":0.93,\"speaker\":0},{\"text\":\"Um,\",\"start\":1.4,\"end\":1.6,\"confidence\":0.71,\"speaker\":1},{\"text\":\"almost.\",\"start\":1.6,\"end\":2.2,\"confidence\":0.9,\"speaker\":1}]}"
+				]
+			}
+		}
+	]
+}

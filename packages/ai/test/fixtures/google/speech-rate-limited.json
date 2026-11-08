@@ -1,0 +1,54 @@
+{
+	"source": "Built by hand on 2026-10-29 from Google's Interactions API reference (its Error) and the API errors guide (rate_limit_exceeded, 429); a rate limit cannot be asked for. Replace it with a recording: bun scripts/record-google.ts",
+	"recordable": false,
+	"kind": "speech",
+	"request": {
+		"model": "google/gemini-3.8-flash-tts",
+		"input": "Hello",
+		"voice": "Puck"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+				"body": {
+					"model": "gemini-3.8-flash-tts",
+					"input": [
+						{
+							"type": "user_input",
+							"content": [
+								{
+									"type": "text",
+									"text": "Hello"
+								}
+							]
+						}
+					],
+					"response_format": {
+						"type": "audio",
+						"mime_type": "audio/l16"
+					},
+					"generation_config": {
+						"speech_config": [
+							{
+								"voice": "Puck"
+							}
+						]
+					},
+					"store": false,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 429,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\n  \"error\": {\n    \"code\": \"rate_limit_exceeded\",\n    \"message\": \"You exceeded your current quota of requests per minute. Please retry in 20s.\"\n  }\n}"
+				]
+			}
+		}
+	]
+}

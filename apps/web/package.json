@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@octoii-works/octoii-web",
+  "version": "0.0.1",
+  "description": "Octoii's interface: a web app the node serves, speaking to it over one WebSocket",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "author": "Elian Yang (https://elianyang.com)",
+  "scripts": {
+    "build": "bun scripts/build.ts",
+    "typecheck": "bun check",
+    "test": "bun test --timeout=60000 --no-env-file --no-install ./test"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.9.0",
+    "@fontsource-variable/inter": "catalog:",
+    "@number-flow/react": "0.6.2",
+    "@octoii-works/octoii-client": "workspace:*",
+    "@octoii-works/octoii-terminal": "workspace:*",
+    "@pierre/diffs": "1.6.4",
+    "class-variance-authority": "0.7.1",
+    "lucide-react": "1.66.0",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-markdown": "10.1.0",
+    "react-virtuoso": "4.18.20",
+    "remark-directive": "4.0.0",
+    "remark-gfm": "4.0.1",
+    "tailwind-merge": "3.7.0",
+    "typebox": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/mdast": "4.0.4",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "bun-plugin-tailwind": "catalog:",
+    "tailwindcss": "catalog:"
+  }
+}

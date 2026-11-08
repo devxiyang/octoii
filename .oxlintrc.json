@@ -1,0 +1,233 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "unicorn", "oxc", "import"],
+	// The tunnel's own script, as its package builds it.
+	"ignorePatterns": ["apps/web/vendor/**"],
+	// Correctness is on whole; every other rule is chosen one by one below. Rules are only "error" or "off".
+	"categories": { "correctness": "error" },
+	// Octoii's own lint rules, oxlint-plugin-octoii.
+	"jsPlugins": ["./oxlint-plugin-octoii/index.ts"],
+	"rules": {
+		// ---- Correctness ----
+		// The type checker already checks every member read from a namespace import, computed ones included.
+		"import/namespace": "off",
+		// `for (const listener of [...this.listeners])` copies on purpose: a listener may unsubscribe, and ending a
+		// handle removes it from the set being walked.
+		"unicorn/no-useless-spread": "off",
+		// Suspicious rules that catch real mistakes here: code that does not do what it seems to, imports that name the
+		// wrong thing, and comparisons, templates and constraints that say nothing.
+		"block-scoped-var": "error",
+		"no-extend-native": "error",
+		"no-extra-bind": "error",
+		"no-implied-eval": "error",
+		"no-new": "error",
+		"no-unexpected-multiline": "error",
+		"no-unneeded-ternary": "error",
+		"no-useless-concat": "error",
+		"import/no-absolute-path": "error",
+		"import/no-empty-named-blocks": "error",
+		"import/no-named-as-default": "error",
+		"import/no-named-as-default-member": "error",
+		"import/no-self-import": "error",
+		"oxc/approx-constant": "error",
+		"oxc/misrefactored-assign-op": "error",
+		"oxc/no-async-endpoint-handlers": "error",
+		"oxc/no-this-in-exported-function": "error",
+		"typescript/no-confusing-non-null-assertion": "error",
+		"typescript/no-generated-empty-object-type": "error",
+		"typescript/no-unnecessary-template-expression": "error",
+		"typescript/no-unnecessary-type-constraint": "error",
+		"typescript/no-unsafe-enum-comparison": "error",
+		"unicorn/no-accessor-recursion": "error",
+		"unicorn/no-array-fill-with-reference-type": "error",
+		"unicorn/no-confusing-array-with": "error",
+		"unicorn/no-instanceof-builtins": "error",
+		"unicorn/require-module-specifiers": "error",
+		// Errors handled explicitly: a new error keeps the one it replaces.
+		"preserve-caught-error": "error",
+
+		// ---- Type-aware ----
+		// A durable runtime loses writes and errors to a promise nobody awaits.
+		"typescript/no-floating-promises": "error",
+		"typescript/no-misused-promises": "error",
+		"typescript/await-thenable": "error",
+		// No escape from the type checker.
+		"typescript/no-explicit-any": "error",
+		"typescript/no-non-null-assertion": "error",
+		"typescript/no-unnecessary-type-assertion": "error",
+		// Code that says less than it seems to.
+		"typescript/require-array-sort-compare": "error",
+		"typescript/no-meaningless-void-operator": "error",
+		"typescript/no-duplicate-type-constituents": "error",
+		"typescript/no-redundant-type-constituents": "error",
+		"typescript/no-implied-eval": "error",
+		// Type-aware rules that only flag what is meant here: function-valued members such as `kernel.now` passed on,
+		// the interpreter's deliberate `String(value)`, and spreading ASCII strings into characters.
+		"typescript/unbound-method": "off",
+		"typescript/no-base-to-string": "off",
+		"typescript/restrict-template-expressions": "off",
+		"typescript/no-misused-spread": "off",
+
+		// ---- Style ----
+		// Names, flags, comments and suppressions as the repository asks.
+		"octoii/no-record-names": "error",
+		"octoii/no-boolean-parameters": "error",
+		"octoii/no-other-project-names": "error",
+		"octoii/disable-needs-reason": "error",
+		// Every `as` is a claim the checker cannot verify: outside tests, each says why it holds in a `SAFETY:` comment,
+		// the one way for a needed assertion such as minting a branded id. Type evidence is kept, not thrown away and
+		// claimed back.
+		"octoii/require-safety-comment-for-type-assertion": "error",
+		"octoii/no-chained-type-assertions": "error",
+		"octoii/no-widen-then-assert": "error",
+		// A reduction stays linear.
+		"octoii/no-reduce-accumulator-copy": "error",
+		// Small functions: limits the large majority of the code meets, so they catch outliers, not ordinary code.
+		"max-lines-per-function": ["error", { "max": 120, "skipBlankLines": true, "skipComments": true }],
+		"complexity": ["error", { "max": 30 }],
+		"max-params": ["error", { "max": 6 }],
+		"max-depth": ["error", { "max": 5 }],
+
+		// ---- Architecture boundaries ----
+		// Modules form layers: a cycle means a shared piece lives in the wrong module. Type imports are erased, so only
+		// value imports count.
+		"import/no-cycle": ["error", { "ignoreTypes": true }],
+		// Structured data from outside is `unknown` until one schema that is also its type decodes it (`matches`, `parsed`),
+		// and no function hands `unknown` on to its callers.
+		"octoii/no-hand-written-parsers": "error",
+		"octoii/no-unknown-return": "error",
+		// Packages and the kernel's layers are held by `no-restricted-imports` in the overrides below.
+
+		// ---- Tests ----
+		// A test replaces a dependency through a real seam, never by mocking its module. The determinism rules are on
+		// for the packages' tests in the overrides below.
+		"octoii/no-module-mocking": "error"
+	},
+	"overrides": [
+		{
+			// bun:test types `expect(promise).rejects` as returning nothing, yet it must be awaited. A test's fixtures
+			// mint ids and fake values by assertion, which is what a fixture is.
+			"files": ["**/test/**"],
+			"rules": { "typescript/await-thenable": "off", "octoii/require-safety-comment-for-type-assertion": "off" }
+		},
+		{
+			// A test file's `describe` callback groups its cases, and a conformance suite is a test that ships: their length
+			// is the number of cases, not one function's size.
+			"files": ["**/test/**", "packages/*/src/testing/**"],
+			"rules": { "max-lines-per-function": "off" }
+		},
+		{
+			// React code: the hooks' and the compiler's rules, the DOM's safety rules, no effect outside an `effects/`
+			// folder, and the runtime's data read from the client's hooks, never copied into state.
+			"files": ["packages/client/src/react/**", "apps/web/src/**"],
+			"plugins": ["typescript", "unicorn", "oxc", "import", "react"],
+			"rules": {
+				"react/rules-of-hooks": "error",
+				"react/exhaustive-deps": "error",
+				"react/set-state-in-effect": "error",
+				"react/set-state-in-render": "error",
+				"react/no-deriving-state-in-effects": "error",
+				"react/purity": "error",
+				"react/immutability": "error",
+				"react/refs": "error",
+				"react/static-components": "error",
+				"react/use-memo": "error",
+				"react/no-danger": "error",
+				"react/jsx-no-script-url": "error",
+				"react/jsx-no-target-blank": "error",
+				"react/iframe-missing-sandbox": "error",
+				"react/no-array-index-key": "error",
+				"octoii/no-use-effect": "error",
+				"octoii/no-copied-runtime-state": "error",
+				"octoii/no-palette-colors": "error",
+				"octoii/no-off-scale-type": "error"
+			}
+		},
+		{
+			// The web app's layers, from the bottom: core reads what the node sends over its WebSocket, through the client,
+			// into what is shown, and holds the shapes of the page's own state; components draw it; screens are the pages;
+			// and app is the page as a whole, connected to the node. Each imports only itself and the layers below; the
+			// client's hooks and React come in where the layers use them.
+			"files": ["apps/web/src/**"],
+			"rules": {
+				"octoii/layer-imports": [
+					"error",
+					{
+						"root": "apps/web/src",
+						"layers": ["core", "components", "screens", "app"],
+						"packages": {
+							"@octoii-works/octoii-client": "core",
+							"typebox": "core",
+							"react": "components",
+							"react-dom": "app",
+							"@base-ui/react": "components",
+							"class-variance-authority": "components",
+							"tailwind-merge": "components",
+							"react-markdown": "components",
+							"remark-gfm": "components",
+							"remark-directive": "components",
+							"lucide-react": "components"
+						}
+					}
+				]
+			}
+		},
+		{
+			// Tests are deterministic: they move the fake clock rather than wait or read the time, poll no deadline, and
+			// say why a test is left out or has a timeout of its own.
+			"files": ["packages/*/test/**", "apps/*/test/**"],
+			"rules": {
+				"octoii/no-real-waits": "error",
+				"octoii/no-wall-clock": "error",
+				"octoii/no-deadline-polling": "error",
+				"octoii/no-unexplained-skips": "error"
+			}
+		},
+		{
+			// The client's source, which runs in a browser, on Bun and on Node: TypeBox and React alone, nothing of a
+			// platform and no other package of Octoii's.
+			"files": ["packages/client/src/**"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["@octoii-works/**"],
+								"message": "The client's source stands on no other package of Octoii's."
+							},
+							{
+								"regex": "^(bun|bun:.*|node:.*)$",
+								"message": "The client runs on every platform: it imports no bun, bun:* or node:* module."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["packages/terminal/**"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"regex": "^@octoii-works/[^/]+/src(/|$)",
+								"message": "Another package is imported through its entry points, never a path into its files."
+							},
+							{
+								"regex": "^(\\.\\./)+(ai|mcp|terminal)/(src|test|scripts)/",
+								"message": "Another package is imported through its entry points, never a relative path into its files."
+							},
+							{
+								"group": ["@octoii-works/**", "!@octoii-works/octoii-terminal", "!@octoii-works/octoii-terminal/**"],
+								"message": "@octoii-works/octoii-terminal depends on no other package of the workspace: the std it uses is its own copy."
+							}
+						]
+					}
+				]
+			}
+		}
+	]
+}

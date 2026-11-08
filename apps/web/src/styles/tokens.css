@@ -1,0 +1,152 @@
+/*
+ * The design's raw values: the geometry the layout shares, the glass the floating surfaces are made of, and each
+ * surface's and ink's colour, light first, then dark. `theme.css` turns them into Tailwind's utilities, so a theme
+ * changes these alone.
+ */
+
+:root {
+	/* Geometry: kept semantic, so the sidebar, the palette, the menus and the toolbars cannot drift apart. */
+	--control-radius: 0.5rem;
+	--topbar-height: 52px;
+	/* How wide the chat's column grows, as the device sets it on the root: comfortable, narrow or wide. The details card's
+	 * room beside it, in `theme.css`, is reckoned from these. */
+	--chat-width: 46rem;
+	/* The page's gutter on either side of the chat's column, where the window is narrower than the column and its gutters. */
+	--chat-gutter: 1rem;
+	--details-width: 17.5rem;
+	/* The room the details card takes beside the chat's column: the card, its inset from the edge, and the gap before the column. */
+	--details-inline-room: calc(var(--details-width) + 1.5rem);
+	--sidebar-inset: 0.5rem;
+	--sidebar-row-inset: 0.625rem;
+	--floating-inset: 0.75rem;
+	--scrollbar-width: 6px;
+	--scrollbar-thumb: rgb(217 217 217);
+	--scrollbar-thumb-hover: rgb(191 191 191);
+
+	/* How far secondary text and borders lean toward the text, the device's contrast less 100%. */
+	--contrast-boost: 0%;
+
+	/* Glass: menus, dialogs and the composer show what is behind them, blurred. */
+	--glass-blur: 12px;
+	--glass-opacity: 80%;
+	--glass-saturation: 1.14;
+
+	&[data-chat-width="narrow"] {
+		--chat-width: 40rem;
+	}
+
+	&[data-chat-width="wide"] {
+		--chat-width: 58rem;
+	}
+
+	@variant dark {
+		--scrollbar-thumb: rgb(255 255 255 / 8%);
+		--scrollbar-thumb-hover: rgb(255 255 255 / 12%);
+		--glass-blur: 16px;
+		--glass-saturation: 1.08;
+	}
+}
+
+:root {
+	color-scheme: light;
+	--radius: 0.5rem;
+	/* The page's panels: the chat and the right panel, cards on the shell's canvas, which is the sidebar's. */
+	--background: var(--color-white);
+	--foreground: var(--color-zinc-900);
+	--card: var(--color-white);
+	--card-foreground: var(--color-zinc-900);
+	--popover: var(--color-white);
+	--popover-foreground: var(--color-zinc-900);
+	--primary: oklch(0.488 0.217 264);
+	--primary-foreground: var(--color-white);
+	--secondary: var(--color-zinc-50);
+	--secondary-foreground: var(--color-zinc-800);
+	--muted: var(--color-zinc-50);
+	--muted-foreground: var(--color-zinc-500);
+	--placeholder: var(--muted-foreground);
+	--secondary-label: var(--muted-foreground);
+	--icon-muted: var(--muted-foreground);
+	/* One step past the accent, so a person's message stands off the near-white canvas. */
+	--message: color-mix(in srgb, var(--color-zinc-200) 55%, var(--color-zinc-100));
+	--message-foreground: var(--foreground);
+	--accent: var(--color-zinc-100);
+	--accent-foreground: var(--color-zinc-900);
+	--error: var(--color-red-500);
+	--error-foreground: var(--color-red-700);
+	/* How much of its ink a status's surface takes: a tint of it, made in `theme.css` beside the utilities that paint it. */
+	--surface-tint: 8%;
+	--destructive: var(--error);
+	--destructive-foreground: var(--error-foreground);
+	--border: var(--color-zinc-200);
+	--input: var(--color-zinc-300);
+	--ring: var(--primary);
+	--info: var(--color-blue-500);
+	--info-foreground: var(--color-blue-700);
+	--success: var(--color-emerald-500);
+	--success-foreground: var(--color-emerald-700);
+	--warning: var(--color-amber-500);
+	--warning-foreground: var(--color-amber-700);
+	/* The shell's canvas, a step under the panels, so they stand on it as cards. */
+	--sidebar: color-mix(in srgb, var(--color-zinc-100) 65%, var(--color-zinc-50));
+	--sidebar-foreground: var(--foreground);
+	--sidebar-muted: var(--muted-foreground);
+	--sidebar-control: var(--color-zinc-100);
+	--sidebar-row-hover: color-mix(in srgb, var(--color-white) 60%, transparent);
+	--sidebar-row-active: var(--color-white);
+	--sidebar-border: var(--border);
+	--diff-add: var(--color-emerald-600);
+	--diff-remove: var(--color-red-600);
+	--diff-add-surface: color-mix(in srgb, var(--color-emerald-500) 10%, transparent);
+	--diff-remove-surface: color-mix(in srgb, var(--color-red-500) 10%, transparent);
+	/* A changed file's mark: a muted blue, so added and deleted files lead. */
+	--diff-modified: color-mix(in srgb, var(--info-foreground) 50%, var(--muted-foreground));
+	--glass-border: rgb(0 0 0 / 10%);
+	--shadow-composer: 0 1px 2px rgb(0 0 0 / 5%);
+	/* A panel's, on the canvas: barely there. */
+	--shadow-panel: 0 1px 2px rgb(0 0 0 / 4%);
+	--shadow-floating: 0 16px 40px -18px rgb(0 0 0 / 55%);
+	--shadow-dialog: 0 24px 64px -24px rgb(0 0 0 / 65%);
+
+	@variant dark {
+		color-scheme: dark;
+		/* The canvas is true black; raised surfaces keep a tone over it, so cards, menus and the composer lift. */
+		--background: #000;
+		--foreground: var(--color-neutral-100);
+		--card: color-mix(in srgb, var(--color-neutral-950) 97%, var(--color-white));
+		--card-foreground: var(--color-neutral-100);
+		--popover: color-mix(in srgb, var(--color-neutral-950) 97%, var(--color-white));
+		--popover-foreground: var(--color-neutral-100);
+		--primary: oklch(0.571 0.21 264);
+		--secondary: rgb(255 255 255 / 3%);
+		--secondary-foreground: var(--color-neutral-100);
+		--muted: rgb(255 255 255 / 3%);
+		--muted-foreground: var(--color-neutral-400);
+		--secondary-label: #8f8f8f;
+		--accent: rgb(255 255 255 / 4%);
+		--accent-foreground: var(--color-neutral-100);
+		--message: color-mix(in srgb, var(--color-neutral-950) 92%, var(--color-white));
+		--error: color-mix(in srgb, var(--color-red-500) 90%, var(--color-white));
+		--error-foreground: var(--color-red-400);
+		--surface-tint: 16%;
+		--border: rgb(255 255 255 / 8%);
+		--input: rgb(255 255 255 / 11%);
+		--info-foreground: var(--color-blue-400);
+		--success-foreground: var(--color-emerald-400);
+		--warning-foreground: var(--color-amber-400);
+		--sidebar: var(--card);
+		--sidebar-foreground: #f1f3f7;
+		--sidebar-muted: #a3a3a3;
+		--sidebar-control: var(--muted);
+		--sidebar-row-hover: rgb(241 243 247 / 8%);
+		--sidebar-row-active: rgb(241 243 247 / 11%);
+		--diff-add: var(--color-emerald-400);
+		--diff-remove: var(--color-red-400);
+		/* On black a grey mix stays as bright as the blue, so it dims with transparency instead. */
+		--diff-modified: color-mix(in srgb, var(--info-foreground) 65%, transparent);
+		--glass-border: rgb(255 255 255 / 8%);
+		--shadow-composer: 0 14px 32px -18px rgb(0 0 0 / 75%);
+		--shadow-panel: none;
+		--shadow-floating: 0 18px 44px -18px rgb(0 0 0 / 80%);
+		--shadow-dialog: inset 0 1px rgb(255 255 255 / 4%), 0 24px 72px -20px rgb(0 0 0 / 90%);
+	}
+}

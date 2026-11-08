@@ -1,0 +1,45 @@
+{
+	"source": "Built by hand from Z.ai's API documentation on 2026-10-29: the Chat Completion reference (its request, response and streaming), the thinking mode and stream tool call guides, and the error codes page. Replace it with a recording: bun scripts/record-zai.ts zai-coding-plan",
+	"request": {
+		"model": "zai-coding-plan/glm-5.3",
+		"input": "Write hello world in Python.",
+		"reasoning": {
+			"effort": "medium"
+		}
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.z.ai/api/coding/paas/v4/chat/completions",
+				"body": {
+					"model": "glm-5.3",
+					"messages": [
+						{
+							"role": "user",
+							"content": "Write hello world in Python."
+						}
+					],
+					"thinking": {
+						"type": "enabled",
+						"clear_thinking": false
+					},
+					"reasoning_effort": "low",
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"id\":\"2026102918000022345\",\"created\":1761760800,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning_content\":\"One print call.\"}}]}\n\n",
+					"data: {\"id\":\"2026102918000022345\",\"created\":1761760800,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"print(\\\"Hello, world!\\\")\"}}]}\n\n",
+					"data: {\"id\":\"2026102918000022345\",\"created\":1761760800,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":14,\"completion_tokens\":18,\"total_tokens\":32,\"prompt_tokens_details\":{\"cached_tokens\":0}}}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

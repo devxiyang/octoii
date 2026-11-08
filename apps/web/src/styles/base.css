@@ -1,0 +1,71 @@
+/*
+ * The page's ground: Inter for the interface where the system has no font of its own, Latin alone, so the page carries
+ * one small file; every border its token and every outline the ring; the root filling the window; thin scrollbars;
+ * and lighter icon strokes.
+ */
+
+@font-face {
+	font-family: "Inter Variable";
+	font-style: normal;
+	font-display: swap;
+	font-weight: 100 900;
+	src: url("@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2-variations");
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+
+	/* Outlines stay inside controls, at clipped and scrolling edges too. */
+	*,
+	::before,
+	::after {
+		outline-offset: -2px;
+	}
+
+	html,
+	body,
+	#root {
+		height: 100%;
+	}
+
+	html,
+	body {
+		overscroll-behavior: none;
+	}
+
+	body {
+		@apply bg-background font-sans text-foreground antialiased;
+		font-size: 14px;
+		overflow: hidden;
+	}
+
+	pre,
+	code {
+		font-family: var(--font-mono);
+	}
+
+	/* Lucide draws at 2; the interface reads lighter. A stroke utility still wins. */
+	:where(svg.lucide[stroke-width="2"]) {
+		stroke-width: 1.75;
+	}
+
+	::-webkit-scrollbar {
+		width: var(--scrollbar-width);
+		height: var(--scrollbar-width);
+	}
+
+	::-webkit-scrollbar-thumb {
+		border-radius: 999px;
+		background: var(--scrollbar-thumb);
+	}
+
+	::-webkit-scrollbar-thumb:hover {
+		background: var(--scrollbar-thumb-hover);
+	}
+
+	::-webkit-scrollbar-track {
+		background: transparent;
+	}
+}

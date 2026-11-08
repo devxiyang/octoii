@@ -1,0 +1,40 @@
+{
+	"source": "Built by hand from Z.ai's API documentation on 2026-10-29: the error codes page and the Chat Completion reference's finish reasons. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "zai/glm-5.2",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.z.ai/api/paas/v4/chat/completions",
+				"body": {
+					"model": "glm-5.2",
+					"messages": [
+						{
+							"role": "user",
+							"content": "Hello"
+						}
+					],
+					"thinking": {
+						"type": "enabled",
+						"clear_thinking": false
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 429,
+				"headers": {
+					"content-type": "application/json",
+					"retry-after": "30"
+				},
+				"chunks": [
+					"{\"error\":{\"code\":\"1302\",\"message\":\"Rate limit reached for requests\"}}"
+				]
+			}
+		}
+	]
+}

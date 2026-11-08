@@ -1,0 +1,33 @@
+{
+	"source": "Built by hand from OpenRouter's API documentation on 2026-10-29: the Image Generation guide (its streaming events, response format and billing) and the Generate an image API reference (ImageGenerationRequest, ImageGenerationResponse, ImageGenerationUsage and the stream's events). A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"kind": "image",
+	"request": {
+		"model": "openrouter/openai/gpt-image-2",
+		"prompt": "a lighthouse at dusk"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/images",
+				"body": {
+					"model": "openai/gpt-image-2",
+					"prompt": "a lighthouse at dusk",
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"type\":\"image_generation.partial_image\",\"partial_image_index\":0,\"b64_json\":\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==\"}\n\n",
+					"data: {\"type\":\"error\",\"error\":{\"code\":\"server_error\",\"message\":\"Generation failed\",\"param\":null,\"type\":\"provider_error\"}}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

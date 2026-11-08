@@ -1,0 +1,60 @@
+{
+	"source": "Built by hand from OpenAI's API documentation on 2026-10-29: the speech-to-text guide (gpt-transcribe's languages and keywords, its stream of transcript.text.delta and transcript.text.done, and the languages it heard) and the transcription reference (its multipart request, and the usage in tokens a stream's end carries). Replace it with a recording: bun scripts/record-openai.ts",
+	"kind": "transcription",
+	"request": {
+		"model": "openai/gpt-transcribe",
+		"input_audio": {
+			"data": "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYxLjcuMTAwAAAAAAAAAAAAAAD/+0DAAAAAAAAAAAAAAAAAAAAAAAA=",
+			"format": "mp3"
+		},
+		"language": "fr",
+		"keyterms": [
+			"OpenAI"
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/audio/transcriptions",
+				"body": {
+					"multipart": [
+						{
+							"name": "file",
+							"filename": "audio.mp3",
+							"content_type": "audio/mpeg",
+							"base64": "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYxLjcuMTAwAAAAAAAAAAAAAAD/+0DAAAAAAAAAAAAAAAAAAAAAAAA="
+						},
+						{
+							"name": "model",
+							"value": "gpt-transcribe"
+						},
+						{
+							"name": "languages[]",
+							"value": "fr"
+						},
+						{
+							"name": "keywords[]",
+							"value": "OpenAI"
+						},
+						{
+							"name": "stream",
+							"value": "true"
+						}
+					]
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"type\":\"transcript.text.delta\",\"delta\":\"Bonjour,\"}\n\n",
+					"data: {\"type\":\"transcript.text.delta\",\"delta\":\" pouvez-vous m'entendre ?\"}\n\n",
+					"data: {\"type\":\"transcript.text.done\",\"text\":\"Bonjour, pouvez-vous m'entendre ?\",\"languages\":[{\"code\":\"fr\"}],\"usage\":{\"type\":\"tokens\",\"input_tokens\":24,\"input_token_details\":{\"audio_tokens\":20,\"text_tokens\":4},\"output_tokens\":11,\"total_tokens\":35}}\n\n"
+				]
+			}
+		}
+	]
+}

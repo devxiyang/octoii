@@ -1,0 +1,47 @@
+{
+	"source": "Built by hand from xAI's documentation on 2026-10-29: the Text to Speech guide (POST /v1/tts, a language given, a voice made for the account by its id, and the pcm codec's output format and Content-Type) and the Voice API reference for /v1/tts. The voice's id is a sample, which a recording replaces with one of the account's. Replace it with a recording: bun scripts/record-xai.ts",
+	"kind": "speech",
+	"request": {
+		"model": "xai/grok-voice-tts-1.0",
+		"input": "Grüße aus Berlin.",
+		"voice": {
+			"id": "nlbqfwie"
+		},
+		"response_format": "pcm",
+		"provider": {
+			"options": {
+				"xai": {
+					"language": "de"
+				}
+			}
+		}
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.x.ai/v1/tts",
+				"body": {
+					"text": "Grüße aus Berlin.",
+					"voice_id": "nlbqfwie",
+					"language": "de",
+					"output_format": {
+						"codec": "pcm",
+						"sample_rate": 24000
+					}
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "audio/pcm"
+				},
+				"chunks": [
+					{
+						"base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+					}
+				]
+			}
+		}
+	]
+}

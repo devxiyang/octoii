@@ -1,0 +1,30 @@
+{
+	"source": "Built by hand from DeepSeek's API documentation on 2026-10-29: its error codes page and the Responses API guide; the wording of the message and the body in OpenAI's form are a sample. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "deepseek/deepseek-flash",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.deepseek.com/responses",
+				"body": {
+					"model": "deepseek-flash",
+					"input": "Hello",
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 400,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"error\":{\"message\":\"This model's maximum context length is 1048576 tokens. However, you requested 1100000 tokens (1100000 in the messages, 0 in the completion). Please reduce the length of the messages or completion.\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"invalid_request_error\"}}"
+				]
+			}
+		}
+	]
+}

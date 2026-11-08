@@ -1,0 +1,162 @@
+{
+	"source": "Built by hand from DeepSeek's API documentation on 2026-10-29: the Responses API guide (its fields, items, tools, images and its stream, which ends with its terminal event and no [DONE]), the thinking mode, vision and pricing guides; the shapes of the events are OpenAI's, which DeepSeek's Responses API follows. Replace it with a recording: bun scripts/record-deepseek.ts",
+	"request": {
+		"model": "deepseek/deepseek-flash",
+		"input": [
+			{
+				"type": "message",
+				"role": "user",
+				"content": [
+					{
+						"type": "input_text",
+						"text": "What is the weather in Hangzhou?"
+					}
+				]
+			},
+			{
+				"type": "reasoning",
+				"id": "rs_0f5a1d3c7e21",
+				"summary": [],
+				"content": [
+					{
+						"type": "reasoning_text",
+						"text": "The user asks for the weather in Hangzhou. I will call get_weather."
+					}
+				],
+				"status": "completed",
+				"octoii": {
+					"model": "deepseek/deepseek-flash"
+				}
+			},
+			{
+				"type": "function_call",
+				"id": "fc_0f5a1d3c7e22",
+				"call_id": "call_00_q8Hf2kLm",
+				"name": "get_weather",
+				"arguments": "{\"city\":\"Hangzhou\"}",
+				"status": "completed",
+				"octoii": {
+					"model": "deepseek/deepseek-flash"
+				}
+			},
+			{
+				"type": "function_call_output",
+				"call_id": "call_00_q8Hf2kLm",
+				"output": "{\"temperature_c\":24,\"sky\":\"cloudy\"}",
+				"octoii": {
+					"is_error": false
+				}
+			}
+		],
+		"tools": [
+			{
+				"type": "function",
+				"name": "get_weather",
+				"description": "The weather in a city now.",
+				"parameters": {
+					"type": "object",
+					"properties": {
+						"city": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"city"
+					]
+				}
+			}
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.deepseek.com/responses",
+				"body": {
+					"model": "deepseek-flash",
+					"input": [
+						{
+							"type": "message",
+							"role": "user",
+							"content": [
+								{
+									"type": "input_text",
+									"text": "What is the weather in Hangzhou?"
+								}
+							]
+						},
+						{
+							"type": "reasoning",
+							"id": "rs_0f5a1d3c7e21",
+							"summary": [],
+							"content": [
+								{
+									"type": "reasoning_text",
+									"text": "The user asks for the weather in Hangzhou. I will call get_weather."
+								}
+							],
+							"status": "completed"
+						},
+						{
+							"type": "function_call",
+							"id": "fc_0f5a1d3c7e22",
+							"call_id": "call_00_q8Hf2kLm",
+							"name": "get_weather",
+							"arguments": "{\"city\":\"Hangzhou\"}",
+							"status": "completed"
+						},
+						{
+							"type": "function_call_output",
+							"call_id": "call_00_q8Hf2kLm",
+							"output": "{\"temperature_c\":24,\"sky\":\"cloudy\"}"
+						}
+					],
+					"tools": [
+						{
+							"type": "function",
+							"name": "get_weather",
+							"description": "The weather in a city now.",
+							"parameters": {
+								"type": "object",
+								"properties": {
+									"city": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"city"
+								]
+							}
+						}
+					],
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					": keep-alive\n\n",
+					"event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_0f5a1d3c7e30\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"deepseek-flash\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"error\":null,\"store\":false},\"sequence_number\":0}\n\n",
+					"event: response.in_progress\ndata: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_0f5a1d3c7e30\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"deepseek-flash\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"error\":null,\"store\":false},\"sequence_number\":1}\n\n",
+					"event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"reasoning\",\"id\":\"rs_0f5a1d3c7e31\",\"summary\":[],\"content\":[],\"status\":\"in_progress\"},\"sequence_number\":2}\n\n",
+					"event: response.content_part.added\ndata: {\"type\":\"response.content_part.added\",\"item_id\":\"rs_0f5a1d3c7e31\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"reasoning_text\",\"text\":\"\"},\"sequence_number\":3}\n\n",
+					"event: response.reasoning_text.delta\ndata: {\"type\":\"response.reasoning_text.delta\",\"item_id\":\"rs_0f5a1d3c7e31\",\"output_index\":0,\"content_index\":0,\"delta\":\"The tool says 24 °C and cloudy.\",\"sequence_number\":4}\n\n",
+					"event: response.reasoning_text.done\ndata: {\"type\":\"response.reasoning_text.done\",\"item_id\":\"rs_0f5a1d3c7e31\",\"output_index\":0,\"content_index\":0,\"text\":\"The tool says 24 °C and cloudy.\",\"sequence_number\":5}\n\n",
+					"event: response.content_part.done\ndata: {\"type\":\"response.content_part.done\",\"item_id\":\"rs_0f5a1d3c7e31\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"reasoning_text\",\"text\":\"The tool says 24 °C and cloudy.\"},\"sequence_number\":6}\n\n",
+					"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"reasoning\",\"id\":\"rs_0f5a1d3c7e31\",\"summary\":[],\"content\":[{\"type\":\"reasoning_text\",\"text\":\"The tool says 24 °C and cloudy.\"}],\"status\":\"completed\"},\"sequence_number\":7}\n\n",
+					"event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":1,\"item\":{\"type\":\"message\",\"id\":\"msg_0f5a1d3c7e32\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[]},\"sequence_number\":8}\n\n",
+					"event: response.content_part.added\ndata: {\"type\":\"response.content_part.added\",\"item_id\":\"msg_0f5a1d3c7e32\",\"output_index\":1,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"\",\"annotations\":[]},\"sequence_number\":9}\n\n",
+					"event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_0f5a1d3c7e32\",\"output_index\":1,\"content_index\":0,\"delta\":\"It is 24 °C\",\"logprobs\":[],\"sequence_number\":10}\n\n",
+					"event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_0f5a1d3c7e32\",\"output_index\":1,\"content_index\":0,\"delta\":\" and cloudy in Hangzhou.\",\"logprobs\":[],\"sequence_number\":11}\n\n",
+					"event: response.output_text.done\ndata: {\"type\":\"response.output_text.done\",\"item_id\":\"msg_0f5a1d3c7e32\",\"output_index\":1,\"content_index\":0,\"text\":\"It is 24 °C and cloudy in Hangzhou.\",\"logprobs\":[],\"sequence_number\":12}\n\n",
+					"event: response.content_part.done\ndata: {\"type\":\"response.content_part.done\",\"item_id\":\"msg_0f5a1d3c7e32\",\"output_index\":1,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"It is 24 °C and cloudy in Hangzhou.\",\"annotations\":[]},\"sequence_number\":13}\n\n",
+					"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":1,\"item\":{\"type\":\"message\",\"id\":\"msg_0f5a1d3c7e32\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"It is 24 °C and cloudy in Hangzhou.\",\"annotations\":[]}]},\"sequence_number\":14}\n\n",
+					"event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_0f5a1d3c7e30\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"deepseek-flash\",\"status\":\"completed\",\"output\":[{\"type\":\"reasoning\",\"id\":\"rs_0f5a1d3c7e31\",\"summary\":[],\"content\":[{\"type\":\"reasoning_text\",\"text\":\"The tool says 24 °C and cloudy.\"}],\"status\":\"completed\"},{\"type\":\"message\",\"id\":\"msg_0f5a1d3c7e32\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"It is 24 °C and cloudy in Hangzhou.\",\"annotations\":[]}]}],\"usage\":{\"input_tokens\":236,\"input_tokens_details\":{\"cached_tokens\":192},\"output_tokens\":22,\"output_tokens_details\":{\"reasoning_tokens\":9},\"total_tokens\":258},\"incomplete_details\":null,\"error\":null,\"store\":false},\"sequence_number\":15}\n\n"
+				]
+			}
+		}
+	]
+}

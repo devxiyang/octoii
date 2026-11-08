@@ -1,0 +1,81 @@
+{
+	"source": "Built by hand from a body OpenRouter's live API sent on 2026-10-29, a provider's refusal of a PDF it could not parse passed on in metadata.raw; the request is that of the files fixture.",
+	"recordable": false,
+	"request": {
+		"model": "openrouter/meta/muse-spark-1.3",
+		"input": [
+			{
+				"type": "message",
+				"role": "user",
+				"content": [
+					{
+						"type": "input_text",
+						"text": "What are these?"
+					},
+					{
+						"type": "input_image",
+						"detail": "auto",
+						"image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+						"octoii": {
+							"filename": "pixel.png"
+						}
+					},
+					{
+						"type": "input_file",
+						"filename": "meeting.pdf",
+						"file_data": "data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PC9UeXBlL0NhdGFsb2cvUGFnZXMgMiAwIFI+PgplbmRvYmoKMiAwIG9iago8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PgplbmRvYmoKMyAwIG9iago8PC9UeXBlL1BhZ2UvUGFyZW50IDIgMCBSL01lZGlhQm94WzAgMCA2MTIgNzkyXS9Db250ZW50cyA0IDAgUi9SZXNvdXJjZXM8PC9Gb250PDwvRjEgNSAwIFI+Pj4+Pj4KZW5kb2JqCjQgMCBvYmoKPDwvTGVuZ3RoIDU2Pj4Kc3RyZWFtCkJUIC9GMSAyNCBUZiA3MiA3MjAgVGQgKFRoZSBtZWV0aW5nIGlzIG9uIEZyaWRheS4pIFRqIEVUCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PC9UeXBlL0ZvbnQvU3VidHlwZS9UeXBlMS9CYXNlRm9udC9IZWx2ZXRpY2E+PgplbmRvYmoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTQgMDAwMDAgbiAKMDAwMDAwMDEwNSAwMDAwMCBuIAowMDAwMDAwMjE3IDAwMDAwIG4gCjAwMDAwMDAzMjEgMDAwMDAgbiAKdHJhaWxlcgo8PC9TaXplIDYvUm9vdCAxIDAgUj4+CnN0YXJ0eHJlZgozODQKJSVFT0YK"
+					}
+				]
+			}
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/responses",
+				"body": {
+					"model": "meta/muse-spark-1.3",
+					"input": [
+						{
+							"type": "message",
+							"role": "user",
+							"content": [
+								{
+									"type": "input_text",
+									"text": "What are these?"
+								},
+								{
+									"type": "input_image",
+									"detail": "auto",
+									"image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+								},
+								{
+									"type": "input_file",
+									"filename": "meeting.pdf",
+									"file_data": "data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PC9UeXBlL0NhdGFsb2cvUGFnZXMgMiAwIFI+PgplbmRvYmoKMiAwIG9iago8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PgplbmRvYmoKMyAwIG9iago8PC9UeXBlL1BhZ2UvUGFyZW50IDIgMCBSL01lZGlhQm94WzAgMCA2MTIgNzkyXS9Db250ZW50cyA0IDAgUi9SZXNvdXJjZXM8PC9Gb250PDwvRjEgNSAwIFI+Pj4+Pj4KZW5kb2JqCjQgMCBvYmoKPDwvTGVuZ3RoIDU2Pj4Kc3RyZWFtCkJUIC9GMSAyNCBUZiA3MiA3MjAgVGQgKFRoZSBtZWV0aW5nIGlzIG9uIEZyaWRheS4pIFRqIEVUCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PC9UeXBlL0ZvbnQvU3VidHlwZS9UeXBlMS9CYXNlRm9udC9IZWx2ZXRpY2E+PgplbmRvYmoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTQgMDAwMDAgbiAKMDAwMDAwMDEwNSAwMDAwMCBuIAowMDAwMDAwMjE3IDAwMDAwIG4gCjAwMDAwMDAzMjEgMDAwMDAgbiAKdHJhaWxlcgo8PC9TaXplIDYvUm9vdCAxIDAgUj4+CnN0YXJ0eHJlZgozODQKJSVFT0YK"
+								}
+							]
+						}
+					],
+					"provider": {
+						"require_parameters": true
+					},
+					"cache_control": {
+						"type": "ephemeral"
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 400,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"error\":{\"message\":\"Provider returned error\",\"code\":400,\"metadata\":{\"raw\":\"{\\\"error\\\":{\\\"code\\\":null,\\\"message\\\":\\\"failed to parse PDF at input[0].content[2]: invalid PDF input: PdfiumError('Failed to load document (PDFium: Data format error).')\\\",\\\"param\\\":null,\\\"type\\\":\\\"invalid_request_error\\\"}}\",\"provider_name\":\"Meta\",\"is_byok\":false}},\"user_id\":\"user_x\"}"
+				]
+			}
+		}
+	]
+}

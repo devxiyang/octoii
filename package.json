@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "octoii",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "bun": "1.4.4"
+  },
+  "scripts": {
+    "lint": "oxlint --type-aware --deny-warnings --report-unused-disable-directives packages/terminal packages/client apps/web oxlint-plugin-octoii",
+    "format": "bun fmt \"**/*.{ts,tsx,js,mjs}\"",
+    "format:check": "bun fmt --check \"**/*.{ts,tsx,js,mjs}\"",
+    "knip": "knip --no-progress",
+    "typecheck": "bun check --no-script -b -p tsconfig.projects.json",
+    "test": "bun run --filter './packages/terminal' --filter './packages/client' --filter './apps/web' --filter './oxlint-plugin-octoii' --parallel test",
+    "test:node": "node node_modules/vitest/vitest.mjs run",
+    "check": "bun run format:check && bun run lint && bun run knip && bun run typecheck && bun run test && bun run test:node",
+    "build": "bun run --workspaces --if-present build"
+  },
+  "workspaces": {
+    "packages": [
+      "oxlint-plugin-octoii",
+      "packages/client",
+      "packages/terminal",
+      "apps/web"
+    ],
+    "catalog": {
+      "@types/bun": "1.4.4",
+      "typebox": "1.4.3",
+      "react": "19.3.1",
+      "react-dom": "19.3.1",
+      "@types/react": "19.3.0",
+      "@types/react-dom": "19.3.0",
+      "happy-dom": "21.0.4",
+      "tailwindcss": "4.3.3",
+      "bun-plugin-tailwind": "0.1.2",
+      "electron": "45.2.1",
+      "@types/node": "26.6.6",
+      "@fontsource-variable/inter": "5.3.0"
+    }
+  },
+  "packageManager": "bun@1.4.4",
+  "trustedDependencies": [],
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "knip": "6.44.1",
+    "oxlint": "1.90.0",
+    "oxlint-tsgolint": "7.0.2005",
+    "typescript": "7.1.0-beta",
+    "vitest": "5.0.5"
+  }
+}

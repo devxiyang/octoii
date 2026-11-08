@@ -1,0 +1,75 @@
+{
+	"source": "Built by hand from OpenRouter's API documentation on 2026-10-29: the Decisions API reference (submit a Decisions request), the Jev tutorial and the guide to multimodal decisions. Replace it with a recording: bun scripts/record-openrouter.ts",
+	"kind": "decision",
+	"request": {
+		"model": "openrouter/openai/gpt-6-luna-decisions",
+		"state": [
+			"Listing title: Red square sticker",
+			{
+				"type": "image_url",
+				"image_url": {
+					"url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+				}
+			}
+		],
+		"questions": {
+			"matches_title": {
+				"type": "noul",
+				"instructions": "The photo shows the item in the title."
+			},
+			"color": {
+				"type": "choice",
+				"instructions": "What color is the item?",
+				"criteria": {
+					"red": null,
+					"green": null,
+					"blue": null
+				}
+			}
+		}
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/alpha/decisions",
+				"body": {
+					"model": "openai/gpt-6-luna-decisions",
+					"state": [
+						"Listing title: Red square sticker",
+						{
+							"type": "image_url",
+							"image_url": {
+								"url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+							}
+						}
+					],
+					"questions": {
+						"matches_title": {
+							"type": "noul",
+							"instructions": "The photo shows the item in the title."
+						},
+						"color": {
+							"type": "choice",
+							"instructions": "What color is the item?",
+							"criteria": {
+								"red": null,
+								"green": null,
+								"blue": null
+							}
+						}
+					}
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"model\":\"openai/gpt-6-luna-decisions\",\"answers\":{\"matches_title\":{\"type\":\"noul\",\"noul\":0.8607},\"color\":{\"type\":\"choice\",\"choice\":\"red\",\"probabilities\":{\"red\":0.9844,\"green\":0.008,\"blue\":0.0076},\"confidence\":0.9536}},\"usage\":{\"input_tokens\":289,\"output_tokens\":0},\"id\":\"gen-dec-1793275260-dYSCIMTDCntkRY04klXf\",\"provider\":\"OpenAI\"}"
+				]
+			}
+		}
+	]
+}

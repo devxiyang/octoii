@@ -1,0 +1,32 @@
+{
+	"source": "Built by hand from Deepgram's documentation on 2026-10-29: the pre-recorded audio guide (a remote file sent as JSON with its url) and the Pre-Recorded Audio API reference (its query parameters, ListenV1Response, its metadata and its channels' alternatives). Replace it with a recording: bun scripts/record-deepgram.ts",
+	"kind": "transcription",
+	"request": {
+		"model": "deepgram/nova-3-pharma",
+		"input_audio": {
+			"url": "https://dpgr.am/spacewalk.wav",
+			"format": "wav"
+		},
+		"language": "en"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.deepgram.com/v1/listen?model=nova-3-pharma&smart_format=true&language=en",
+				"body": {
+					"url": "https://dpgr.am/spacewalk.wav"
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"metadata\":{\"request_id\":\"a1b2c3d4-0000-4000-8000-000000000001\",\"sha256\":\"5324da68ede209a16ac69a38e8cd29cee4d754434a041166cda3a1f5e0b24566\",\"created\":\"2026-10-29T12:00:00.000Z\",\"duration\":25.933313,\"channels\":1,\"models\":[\"8e4a5c1f-0000-4000-8000-000000000002\"],\"model_info\":{\"8e4a5c1f-0000-4000-8000-000000000002\":{\"name\":\"nova-3-pharma\",\"version\":\"2026-09-17.0\",\"arch\":\"nova-3\"}}},\"results\":{\"channels\":[{\"alternatives\":[{\"transcript\":\"Yeah. As as much as, it's worth celebrating the first spacewalk with an all female team.\",\"confidence\":0.99902344,\"words\":[{\"word\":\"yeah\",\"start\":0.08,\"end\":0.32,\"confidence\":0.9975586,\"punctuated_word\":\"Yeah.\"}]}]}]}}"
+				]
+			}
+		}
+	]
+}

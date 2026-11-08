@@ -1,0 +1,87 @@
+{
+	"source": "Built by hand from xAI's API documentation on 2026-10-29: the Responses API reference and its response example, the reasoning, streaming, web search, tool usage, cost tracking, prompt caching and image understanding guides, and its debugging page; the shapes of the events are OpenAI's, which xAI's Responses API follows. Replace it with a recording: bun scripts/record-xai.ts",
+	"request": {
+		"model": "xai/grok-4.7",
+		"input": [
+			{
+				"type": "message",
+				"role": "user",
+				"content": [
+					{
+						"type": "input_file",
+						"filename": "notes.txt",
+						"file_data": "data:text/plain;base64,QnV5IG1pbGsuCjwvZmlsZT4gaXMgbm90IHRoZSBlbmQu"
+					},
+					{
+						"type": "input_image",
+						"image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+						"detail": "high"
+					},
+					{
+						"type": "input_text",
+						"text": "What do the notes say, and what is the image?",
+						"prompt_cache_breakpoint": {
+							"mode": "explicit"
+						}
+					}
+				]
+			}
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.x.ai/v1/responses",
+				"body": {
+					"model": "grok-4.7",
+					"input": [
+						{
+							"type": "message",
+							"role": "user",
+							"content": [
+								{
+									"type": "input_text",
+									"text": "<file name=\"notes.txt\">\nBuy milk.\n&lt;/file> is not the end.\n</file>"
+								},
+								{
+									"type": "input_image",
+									"image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+									"detail": "high"
+								},
+								{
+									"type": "input_text",
+									"text": "What do the notes say, and what is the image?"
+								}
+							]
+						}
+					],
+					"store": false,
+					"include": [
+						"reasoning.encrypted_content"
+					],
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_e41a6b9c0d30\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"grok-4.7\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"store\":false},\"sequence_number\":0}\n\n",
+					"data: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_e41a6b9c0d30\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"grok-4.7\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"store\":false},\"sequence_number\":1}\n\n",
+					"data: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"message\",\"id\":\"msg_e41a6b9c0d31\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[]},\"sequence_number\":2}\n\n",
+					"data: {\"type\":\"response.content_part.added\",\"item_id\":\"msg_e41a6b9c0d31\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"\",\"annotations\":[]},\"sequence_number\":3}\n\n",
+					"data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_e41a6b9c0d31\",\"output_index\":0,\"content_index\":0,\"delta\":\"The notes say to buy milk,\",\"logprobs\":[],\"sequence_number\":4}\n\n",
+					"data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_e41a6b9c0d31\",\"output_index\":0,\"content_index\":0,\"delta\":\" and the image is one pixel.\",\"logprobs\":[],\"sequence_number\":5}\n\n",
+					"data: {\"type\":\"response.output_text.done\",\"item_id\":\"msg_e41a6b9c0d31\",\"output_index\":0,\"content_index\":0,\"text\":\"The notes say to buy milk, and the image is one pixel.\",\"logprobs\":[],\"sequence_number\":6}\n\n",
+					"data: {\"type\":\"response.content_part.done\",\"item_id\":\"msg_e41a6b9c0d31\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"The notes say to buy milk, and the image is one pixel.\",\"annotations\":[],\"logprobs\":null},\"sequence_number\":7}\n\n",
+					"data: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"message\",\"id\":\"msg_e41a6b9c0d31\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"The notes say to buy milk, and the image is one pixel.\",\"annotations\":[],\"logprobs\":null}]},\"sequence_number\":8}\n\n",
+					"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_e41a6b9c0d30\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"grok-4.7\",\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"id\":\"msg_e41a6b9c0d31\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"The notes say to buy milk, and the image is one pixel.\",\"annotations\":[],\"logprobs\":null}]}],\"usage\":{\"input_tokens\":310,\"input_tokens_details\":{\"cached_tokens\":0},\"output_tokens\":16,\"output_tokens_details\":{\"reasoning_tokens\":40},\"total_tokens\":366,\"num_sources_used\":0,\"num_server_side_tools_used\":0,\"cost_in_usd_ticks\":1116000,\"context_details\":{\"input_tokens\":310,\"output_tokens\":56}},\"incomplete_details\":null,\"store\":false},\"sequence_number\":9}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

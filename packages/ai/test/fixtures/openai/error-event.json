@@ -1,0 +1,33 @@
+{
+	"source": "Built by hand from OpenAI's API documentation on 2026-10-29: its error codes and rate limits guides and the headers its official SDK reads. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "openai/gpt-6-luna",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/responses",
+				"body": {
+					"model": "gpt-6-luna",
+					"input": "Hello",
+					"stream": true,
+					"store": false
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream; charset=utf-8"
+				},
+				"chunks": [
+					"event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_68f9a0c1e2d43001\",\"object\":\"response\",\"created_at\":1793260800,\"status\":\"in_progress\",\"background\":false,\"error\":null,\"incomplete_details\":null,\"instructions\":null,\"max_output_tokens\":null,\"model\":\"gpt-6-luna-2026-09-22\",\"output\":[],\"parallel_tool_calls\":true,\"previous_response_id\":null,\"reasoning\":{\"effort\":\"medium\",\"summary\":null},\"store\":false,\"temperature\":1.0,\"text\":{\"format\":{\"type\":\"text\"},\"verbosity\":\"medium\"},\"tool_choice\":\"auto\",\"tools\":[],\"top_p\":1.0,\"truncation\":\"disabled\",\"usage\":null,\"metadata\":{}},\"sequence_number\":0}\n\n",
+					"event: response.in_progress\ndata: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_68f9a0c1e2d43001\",\"object\":\"response\",\"created_at\":1793260800,\"status\":\"in_progress\",\"background\":false,\"error\":null,\"incomplete_details\":null,\"instructions\":null,\"max_output_tokens\":null,\"model\":\"gpt-6-luna-2026-09-22\",\"output\":[],\"parallel_tool_calls\":true,\"previous_response_id\":null,\"reasoning\":{\"effort\":\"medium\",\"summary\":null},\"store\":false,\"temperature\":1.0,\"text\":{\"format\":{\"type\":\"text\"},\"verbosity\":\"medium\"},\"tool_choice\":\"auto\",\"tools\":[],\"top_p\":1.0,\"truncation\":\"disabled\",\"usage\":null,\"metadata\":{}},\"sequence_number\":1}\n\n",
+					"event: error\ndata: {\"type\":\"error\",\"code\":\"rate_limit_exceeded\",\"message\":\"Rate limit reached for gpt-6-luna.\",\"param\":null,\"sequence_number\":2}\n\n"
+				]
+			}
+		}
+	]
+}

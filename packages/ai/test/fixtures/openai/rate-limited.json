@@ -1,0 +1,38 @@
+{
+	"source": "Built by hand from OpenAI's API documentation on 2026-10-29: its error codes and rate limits guides and the headers its official SDK reads. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "openai/gpt-6-luna",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/responses",
+				"body": {
+					"model": "gpt-6-luna",
+					"input": "Hello",
+					"stream": true,
+					"store": false
+				}
+			},
+			"response": {
+				"status": 429,
+				"headers": {
+					"content-type": "application/json",
+					"x-should-retry": "true",
+					"x-ratelimit-limit-requests": "500",
+					"x-ratelimit-remaining-requests": "499",
+					"x-ratelimit-reset-requests": "120ms",
+					"x-ratelimit-limit-tokens": "30000",
+					"x-ratelimit-remaining-tokens": "0",
+					"x-ratelimit-reset-tokens": "2.4s"
+				},
+				"chunks": [
+					"{\"error\":{\"message\":\"Rate limit reached for gpt-6-luna on tokens per min (TPM): Limit 30000, Used 30000, Requested 1200.\",\"type\":\"tokens\",\"param\":null,\"code\":\"rate_limit_exceeded\"}}"
+				]
+			}
+		}
+	]
+}

@@ -1,0 +1,42 @@
+{
+	"source": "Built by hand from a body OpenRouter's live API sent on 2026-10-29, a request its providers' terms of service prohibit, as the Decisions API refuses it.",
+	"recordable": false,
+	"kind": "decision",
+	"request": {
+		"model": "openrouter/typesafe/jev-1.14",
+		"state": "Hello",
+		"questions": {
+			"greeting": {
+				"type": "noul",
+				"instructions": "The text is a greeting."
+			}
+		}
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/alpha/decisions",
+				"body": {
+					"model": "typesafe/jev-1.14",
+					"state": "Hello",
+					"questions": {
+						"greeting": {
+							"type": "noul",
+							"instructions": "The text is a greeting."
+						}
+					}
+				}
+			},
+			"response": {
+				"status": 403,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"error\":{\"message\":\"The request is prohibited due to a violation of provider Terms Of Service.\",\"code\":403,\"metadata\":{\"provider_name\":null,\"previous_errors\":[{\"code\":403,\"message\":\"The request is prohibited due to a violation of provider Terms Of Service.\"}]}}}"
+				]
+			}
+		}
+	]
+}

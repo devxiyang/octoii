@@ -1,0 +1,100 @@
+/*
+ * The design's language: the patterns every surface is made of, and the principles they keep.
+ *
+ * Alignment: a column has one edge. Every line, paragraph, card and the composer start on it; a line's mark sits in a
+ * slot of one width, its words one slot and a gap in; what opens under a line starts where its words do; numbers stand
+ * right, in figures of one width.
+ * Proximity: space says what belongs together — a list's lines sit closest, the blocks of one reply further apart, a
+ * message and its reply further still, one turn and the next furthest; what opens under a line sits nearer it than the
+ * next line does.
+ * Density: the work is dense and quiet — small lines, muted, close — and the words are comfortable — larger, airy;
+ * details wait folded, and what acts on a line — its chevron, a copy — shows as the line is pointed at; nothing is said
+ * twice.
+ * Restraint: a box only for what asks the person to act, and for code; everything else is set apart by space, weight and
+ * tint. One hairline colour; a shadow only for what floats over the page.
+ */
+
+/*
+ * The chat's column: as wide as the device sets it, centred, its gutter on either side where the window is narrower;
+ * where the thread's details card stands beside it, centred in the room the card leaves, `--details-room`, which the
+ * chat sets while the card is shown.
+ */
+@utility chat-column {
+	@apply mx-auto w-full max-w-[calc(var(--chat-width)+var(--chat-gutter)*2)] px-(--chat-gutter);
+	@variant details-inline {
+		margin-left: max(0px, calc((100% - var(--details-room, 0px) - var(--chat-width) - var(--chat-gutter) * 2) / 2));
+	}
+}
+
+/* A card in the flow of a page, for what asks the person to act or stands apart: a hairline, no shadow. */
+@utility card {
+	@apply rounded-xl border border-border/70 bg-card;
+}
+
+/* A well set into a page, for what a line or a card holds — a call's arguments, what an edit will do: a tint, no line. */
+@utility well {
+	@apply rounded-lg bg-muted;
+}
+
+/*
+ * A tray set into a page, for a column of cards: a tint of the ink over whatever the page is, so the cards it holds
+ * stand lighter than it in every theme; rounded as they are, a step out.
+ */
+@utility tray {
+	@apply rounded-2xl bg-foreground/4 p-1.5;
+}
+
+/* A label over a group, quiet: small capitals, spaced — an inbox's columns, a waterfall's heads. */
+@utility label-caps {
+	@apply text-2xs font-medium tracking-caps text-muted-foreground uppercase;
+}
+
+/*
+ * A line of work: its mark in the slot every line gives one, its words after it, what stands at its end; a list's lines
+ * close together, closer still among what a stretch gathered. A line that opens darkens as it is pointed at — no band
+ * behind it — its focus ring reaching a little past its edges while its mark and its words stay on the column's; what
+ * opens under it is indented to its words.
+ */
+@utility work-line {
+	@apply flex min-h-[var(--work-line,var(--spacing-control-sm))] w-full min-w-0 items-center gap-2 text-left text-ui text-muted-foreground;
+}
+
+@utility work-opens {
+	@apply -mx-1.5 w-[calc(100%+0.75rem)] rounded-md px-1.5 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70;
+}
+
+/* What a stretch gathered: its lines closer, a dense row's height each. */
+@utility work-tight {
+	--work-line: var(--spacing-control-xs);
+}
+
+@utility work-indent {
+	@apply ps-7;
+}
+
+/*
+ * A line's mark: an icon — or a tool's first letter — on a round of the page's own colour, a hairline around it: plain
+ * on its own, and, stacked over the one before as the avatars of a group are, hiding what it covers behind a ring of
+ * the page; red where what it marks went wrong. A stack's marks overlap; one that joins it is pushed in from its end.
+ */
+@utility tool-mark {
+	@apply inline-flex size-control-2xs shrink-0 items-center justify-center rounded-full bg-background text-muted-foreground ring-1 ring-border ring-inset outline-[1.5px] outline-background [&>svg]:size-3;
+}
+
+@utility tool-marks {
+	@apply inline-flex shrink-0 items-center [&>*+*]:-ms-1.5;
+}
+
+@utility work-list {
+	@apply flex flex-col gap-0.5;
+}
+
+/* A chevron that waits: seen as its line is pointed at, focused or open. */
+@utility quiet-chevron {
+	@apply text-muted-foreground/70 opacity-0 transition-opacity group-hover/fold:opacity-100 group-focus-visible/fold:opacity-100 group-data-panel-open/fold:opacity-100;
+}
+
+/* A line that tells how something went — how long a turn worked, that it works still — quieter than what it tells of. */
+@utility meta-line {
+	@apply flex min-h-control-sm items-center gap-1.5 text-ui text-muted-foreground tabular-nums;
+}

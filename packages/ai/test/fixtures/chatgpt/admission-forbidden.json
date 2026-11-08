@@ -1,0 +1,37 @@
+{
+	"source": "Built by hand from OpenAI's documentation of Sign in with ChatGPT for open-source apps on 2026-10-29: its errors and recovery page. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "chatgpt/gpt-6-luna",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/responses",
+				"body": {
+					"model": "gpt-6-luna",
+					"input": [
+						{
+							"type": "message",
+							"role": "user",
+							"content": "Hello"
+						}
+					],
+					"stream": true,
+					"store": false
+				}
+			},
+			"response": {
+				"status": 403,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"detail\":\"Access to this resource is not allowed from your region.\"}"
+				]
+			}
+		}
+	]
+}

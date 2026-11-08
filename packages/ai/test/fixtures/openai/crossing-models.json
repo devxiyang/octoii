@@ -1,0 +1,300 @@
+{
+	"source": "Built by hand from OpenAI's API documentation on 2026-10-29: the Responses API reference and its streaming events, the guides to reasoning, function calling, file inputs, web search, prompt caching and streaming responses, and the shapes of the types its official SDK defines. Replace it with a recording: bun scripts/record-openai.ts",
+	"request": {
+		"model": "openai/gpt-6-luna",
+		"input": [
+			{
+				"type": "message",
+				"role": "user",
+				"content": [
+					{
+						"type": "input_text",
+						"text": "Read the notes.",
+						"prompt_cache_breakpoint": {
+							"mode": "explicit",
+							"ttl": "12h"
+						}
+					}
+				]
+			},
+			{
+				"type": "reasoning",
+				"id": "rs_claude_1",
+				"summary": [
+					{
+						"type": "summary_text",
+						"text": "I should read notes.md."
+					}
+				],
+				"signature": "EqQBCkYIBxgCKkBzaWduZWQtYnktYW50aHJvcGlj",
+				"format": "anthropic-claude-v1",
+				"status": "completed",
+				"octoii": {
+					"model": "anthropic/claude-opus-5-5"
+				}
+			},
+			{
+				"type": "message",
+				"id": "msg_01XFDUDYJgAACzvnptvVoYEL",
+				"role": "assistant",
+				"content": [
+					{
+						"type": "output_text",
+						"text": "Reading it now.",
+						"annotations": []
+					}
+				],
+				"octoii": {
+					"model": "anthropic/claude-opus-5-5",
+					"provider_metadata": {
+						"anthropic": {
+							"citations": []
+						}
+					}
+				}
+			},
+			{
+				"type": "function_call",
+				"id": "toolu_01A9xQ",
+				"call_id": "toolu_01A9xQ",
+				"name": "read_file",
+				"arguments": "{\"path\":\"notes.md\"}",
+				"octoii": {
+					"model": "anthropic/claude-opus-5-5",
+					"provider_metadata": {
+						"anthropic": {
+							"caller": "direct"
+						}
+					}
+				}
+			},
+			{
+				"type": "function_call_output",
+				"call_id": "toolu_01A9xQ",
+				"output": [
+					{
+						"type": "input_text",
+						"text": "Buy milk."
+					}
+				],
+				"octoii": {
+					"is_error": false
+				}
+			},
+			{
+				"type": "additional_tools",
+				"role": "developer",
+				"tools": [
+					{
+						"type": "function",
+						"name": "search",
+						"parameters": {
+							"type": "object",
+							"properties": {
+								"query": {
+									"type": "string"
+								}
+							}
+						}
+					}
+				]
+			},
+			{
+				"type": "octoii:tool_removal",
+				"names": [
+					"write_file"
+				]
+			},
+			{
+				"type": "configuration_update",
+				"reasoning": {
+					"effort": "high"
+				}
+			},
+			{
+				"type": "message",
+				"role": "user",
+				"content": [
+					{
+						"type": "input_text",
+						"text": "Now search for a shop."
+					}
+				]
+			}
+		],
+		"tools": [
+			{
+				"type": "function",
+				"name": "read_file",
+				"parameters": {
+					"type": "object",
+					"properties": {
+						"path": {
+							"type": "string"
+						}
+					}
+				}
+			},
+			{
+				"type": "function",
+				"name": "write_file",
+				"parameters": {
+					"type": "object",
+					"properties": {
+						"path": {
+							"type": "string"
+						},
+						"text": {
+							"type": "string"
+						}
+					}
+				}
+			},
+			{
+				"type": "openrouter:web_search",
+				"parameters": {
+					"allowed_domains": [
+						"example.com"
+					]
+				}
+			}
+		],
+		"reasoning": {
+			"effort": "low"
+		},
+		"prompt_cache_options": {
+			"mode": "explicit",
+			"ttl": "30m"
+		},
+		"cache_control": {
+			"type": "ephemeral"
+		},
+		"trace": {
+			"trace_id": "t-1"
+		}
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/responses",
+				"body": {
+					"model": "gpt-6-luna",
+					"input": [
+						{
+							"type": "message",
+							"role": "user",
+							"content": [
+								{
+									"type": "input_text",
+									"text": "Read the notes.",
+									"prompt_cache_breakpoint": {
+										"mode": "explicit",
+										"ttl": "12h"
+									}
+								}
+							]
+						},
+						{
+							"type": "message",
+							"role": "assistant",
+							"content": [
+								{
+									"type": "output_text",
+									"text": "Reading it now.",
+									"annotations": []
+								}
+							]
+						},
+						{
+							"type": "function_call",
+							"call_id": "toolu_01A9xQ",
+							"name": "read_file",
+							"arguments": "{\"path\":\"notes.md\"}"
+						},
+						{
+							"type": "function_call_output",
+							"call_id": "toolu_01A9xQ",
+							"output": [
+								{
+									"type": "input_text",
+									"text": "Buy milk."
+								}
+							]
+						},
+						{
+							"type": "message",
+							"role": "user",
+							"content": [
+								{
+									"type": "input_text",
+									"text": "Now search for a shop."
+								}
+							]
+						}
+					],
+					"tools": [
+						{
+							"type": "function",
+							"name": "read_file",
+							"parameters": {
+								"type": "object",
+								"properties": {
+									"path": {
+										"type": "string"
+									}
+								}
+							}
+						},
+						{
+							"type": "web_search",
+							"filters": {
+								"allowed_domains": [
+									"example.com"
+								]
+							}
+						},
+						{
+							"type": "function",
+							"name": "search",
+							"parameters": {
+								"type": "object",
+								"properties": {
+									"query": {
+										"type": "string"
+									}
+								}
+							}
+						}
+					],
+					"reasoning": {
+						"effort": "high"
+					},
+					"prompt_cache_options": {
+						"mode": "explicit",
+						"ttl": "30m"
+					},
+					"stream": true,
+					"store": false
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream; charset=utf-8"
+				},
+				"chunks": [
+					"event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_68f9a0c1e2d40001\",\"object\":\"response\",\"created_at\":1793260800,\"status\":\"in_progress\",\"background\":false,\"error\":null,\"incomplete_details\":null,\"instructions\":null,\"max_output_tokens\":null,\"model\":\"gpt-6-luna-2026-09-22\",\"output\":[],\"parallel_tool_calls\":true,\"previous_response_id\":null,\"reasoning\":{\"effort\":\"medium\",\"summary\":null},\"store\":false,\"temperature\":1.0,\"text\":{\"format\":{\"type\":\"text\"},\"verbosity\":\"medium\"},\"tool_choice\":\"auto\",\"tools\":[],\"top_p\":1.0,\"truncation\":\"disabled\",\"usage\":null,\"metadata\":{}},\"sequence_number\":0}\n\n",
+					"event: response.in_progress\ndata: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_68f9a0c1e2d40001\",\"object\":\"response\",\"created_at\":1793260800,\"status\":\"in_progress\",\"background\":false,\"error\":null,\"incomplete_details\":null,\"instructions\":null,\"max_output_tokens\":null,\"model\":\"gpt-6-luna-2026-09-22\",\"output\":[],\"parallel_tool_calls\":true,\"previous_response_id\":null,\"reasoning\":{\"effort\":\"medium\",\"summary\":null},\"store\":false,\"temperature\":1.0,\"text\":{\"format\":{\"type\":\"text\"},\"verbosity\":\"medium\"},\"tool_choice\":\"auto\",\"tools\":[],\"top_p\":1.0,\"truncation\":\"disabled\",\"usage\":null,\"metadata\":{}},\"sequence_number\":1}\n\n",
+					"event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"message\",\"id\":\"msg_68f9a0c1e2d40002\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[],\"phase\":\"commentary\"},\"sequence_number\":2}\n\n",
+					"event: response.content_part.added\ndata: {\"type\":\"response.content_part.added\",\"item_id\":\"msg_68f9a0c1e2d40002\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"\",\"annotations\":[],\"logprobs\":[]},\"sequence_number\":3}\n\n",
+					"event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_68f9a0c1e2d40002\",\"output_index\":0,\"content_index\":0,\"delta\":\"I will search for a shop that sells milk.\",\"logprobs\":[],\"sequence_number\":4,\"obfuscation\":\"q8Zx3\"}\n\n",
+					"event: response.output_text.done\ndata: {\"type\":\"response.output_text.done\",\"item_id\":\"msg_68f9a0c1e2d40002\",\"output_index\":0,\"content_index\":0,\"text\":\"I will search for a shop that sells milk.\",\"logprobs\":[],\"sequence_number\":5}\n\n",
+					"event: response.content_part.done\ndata: {\"type\":\"response.content_part.done\",\"item_id\":\"msg_68f9a0c1e2d40002\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"I will search for a shop that sells milk.\",\"annotations\":[],\"logprobs\":[]},\"sequence_number\":6}\n\n",
+					"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"message\",\"id\":\"msg_68f9a0c1e2d40002\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"I will search for a shop that sells milk.\",\"annotations\":[],\"logprobs\":[]}],\"phase\":\"commentary\"},\"sequence_number\":7}\n\n",
+					"event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_68f9a0c1e2d40001\",\"object\":\"response\",\"created_at\":1793260800,\"status\":\"completed\",\"background\":false,\"error\":null,\"incomplete_details\":null,\"instructions\":null,\"max_output_tokens\":null,\"model\":\"gpt-6-luna-2026-09-22\",\"output\":[{\"type\":\"message\",\"id\":\"msg_68f9a0c1e2d40002\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"I will search for a shop that sells milk.\",\"annotations\":[],\"logprobs\":[]}],\"phase\":\"commentary\"}],\"parallel_tool_calls\":true,\"previous_response_id\":null,\"reasoning\":{\"effort\":\"medium\",\"summary\":null},\"store\":false,\"temperature\":1.0,\"text\":{\"format\":{\"type\":\"text\"},\"verbosity\":\"medium\"},\"tool_choice\":\"auto\",\"tools\":[],\"top_p\":1.0,\"truncation\":\"disabled\",\"usage\":{\"input_tokens\":140,\"input_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0},\"output_tokens\":12,\"output_tokens_details\":{\"reasoning_tokens\":0},\"total_tokens\":152},\"metadata\":{}},\"sequence_number\":8}\n\n"
+				]
+			}
+		}
+	]
+}

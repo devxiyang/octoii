@@ -1,0 +1,32 @@
+{
+	"source": "Built by hand from Deepgram's documentation on 2026-10-29: the Errors page (400 Invalid JSON submitted, in its form with a category, a message and details); a broken body cannot be asked for through ai. Replace it with a recording: bun scripts/record-deepgram.ts",
+	"recordable": false,
+	"kind": "transcription",
+	"request": {
+		"model": "deepgram/nova-3-pharma",
+		"input_audio": {
+			"url": "https://dpgr.am/spacewalk.wav"
+		},
+		"language": "en"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.deepgram.com/v1/listen?model=nova-3-pharma&smart_format=true&language=en",
+				"body": {
+					"url": "https://dpgr.am/spacewalk.wav"
+				}
+			},
+			"response": {
+				"status": 400,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"category\":\"INVALID_JSON\",\"message\":\"Invalid JSON submitted.\",\"details\":\"Json deserialize error: missing field `url` at line 1 column 2\",\"request_id\":\"uuid\"}"
+				]
+			}
+		}
+	]
+}

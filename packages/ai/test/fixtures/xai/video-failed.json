@@ -1,0 +1,61 @@
+{
+	"source": "Built by hand from xAI's documentation on 2026-10-29: the Videos API reference (POST /v1/videos/generations, /v1/videos/edits and /v1/videos/extensions, and GET /v1/videos/{request_id} with its statuses, progress, video and usage in ticks) and the Video Generation guide (polling, its statuses and error codes). The wording of the error's message is a sample. Replace it with a recording: bun scripts/record-xai.ts",
+	"kind": "video",
+	"request": {
+		"model": "xai/grok-imagine-video-1.5-lite",
+		"prompt": "A crowd fighting in a stadium",
+		"duration": 4
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.x.ai/v1/videos/generations",
+				"body": {
+					"model": "grok-imagine-video-1.5-lite",
+					"prompt": "A crowd fighting in a stadium",
+					"duration": 4
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"request_id\":\"d03e6a42-9f5c-4bab-9c83-4e7a2b9fbd35\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://api.x.ai/v1/videos/d03e6a42-9f5c-4bab-9c83-4e7a2b9fbd35"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"status\":\"pending\",\"progress\":0}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://api.x.ai/v1/videos/d03e6a42-9f5c-4bab-9c83-4e7a2b9fbd35"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"status\":\"failed\",\"error\":{\"code\":\"invalid_argument\",\"message\":\"The request was blocked by content moderation.\"}}"
+				]
+			}
+		}
+	]
+}

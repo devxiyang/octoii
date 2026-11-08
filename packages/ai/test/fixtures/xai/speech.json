@@ -1,0 +1,36 @@
+{
+	"source": "Built by hand from xAI's documentation on 2026-10-29: the Text to Speech guide (POST /v1/tts, its voices, languages, output formats and raw audio bytes in the response) and the Voice API reference for /v1/tts. Replace it with a recording: bun scripts/record-xai.ts",
+	"kind": "speech",
+	"request": {
+		"model": "xai/grok-voice-tts-1.0",
+		"input": "Hello! Welcome to the Text to Speech API.",
+		"voice": "ara"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.x.ai/v1/tts",
+				"body": {
+					"text": "Hello! Welcome to the Text to Speech API.",
+					"voice_id": "ara",
+					"language": "auto"
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "audio/mpeg"
+				},
+				"chunks": [
+					{
+						"base64": "SUQzBAAAAAAAAA=="
+					},
+					{
+						"base64": "//OExAAAAAA="
+					}
+				]
+			}
+		}
+	]
+}

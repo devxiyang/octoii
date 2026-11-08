@@ -1,0 +1,47 @@
+{
+	"source": "Built by hand from OpenAI's API documentation on 2026-10-29: the Images API reference (its edit's JSON request with images by address, streaming events and usage example) and the image generation guide (partial images, sizes and qualities). Replace it with a recording: bun scripts/record-openai.ts",
+	"kind": "image",
+	"request": {
+		"model": "openai/gpt-image-2.5-sunburst",
+		"prompt": "Add a red scarf to the cat",
+		"quality": "xhigh",
+		"output_format": "webp",
+		"input_references": [
+			{
+				"type": "image_url",
+				"image_url": {
+					"url": "https://example.com/source-image.png"
+				}
+			}
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/images/edits",
+				"body": {
+					"prompt": "Add a red scarf to the cat",
+					"quality": "xhigh",
+					"output_format": "webp",
+					"images": [
+						{
+							"image_url": "https://example.com/source-image.png"
+						}
+					],
+					"model": "gpt-image-2.5-sunburst",
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"event: image_edit.completed\ndata: {\"type\":\"image_edit.completed\",\"b64_json\":\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==\",\"background\":\"opaque\",\"created_at\":1793275260,\"output_format\":\"webp\",\"quality\":\"xhigh\",\"size\":\"1024x1024\",\"usage\":{\"total_tokens\":1356,\"input_tokens\":300,\"output_tokens\":1056,\"input_tokens_details\":{\"text_tokens\":12,\"image_tokens\":288}}}\n\n"
+				]
+			}
+		}
+	]
+}

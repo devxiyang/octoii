@@ -1,0 +1,36 @@
+{
+	"source": "Built by hand from a body OpenRouter's live API sent on 2026-10-29, a request its providers' terms of service prohibit.",
+	"recordable": false,
+	"request": {
+		"model": "openrouter/openai/gpt-6-luna",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/responses",
+				"body": {
+					"model": "openai/gpt-6-luna",
+					"provider": {
+						"require_parameters": true
+					},
+					"input": "Hello",
+					"cache_control": {
+						"type": "ephemeral"
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 403,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"error\":{\"message\":\"The request is prohibited due to a violation of provider Terms Of Service.\",\"code\":403,\"metadata\":{\"provider_name\":null,\"previous_errors\":[{\"code\":403,\"message\":\"The request is prohibited due to a violation of provider Terms Of Service.\"}]}}}"
+				]
+			}
+		}
+	]
+}

@@ -1,0 +1,37 @@
+{
+	"source": "Built by hand from OpenRouter's API documentation on 2026-10-28: its errors and debugging page and the Responses API's error handling. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "openrouter/openai/gpt-6-luna",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/responses",
+				"body": {
+					"model": "openai/gpt-6-luna",
+					"provider": {
+						"require_parameters": true
+					},
+					"input": "Hello",
+					"cache_control": {
+						"type": "ephemeral"
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 503,
+				"headers": {
+					"content-type": "application/json",
+					"retry-after": "Wed, 28 Oct 2026 12:01:30 GMT"
+				},
+				"chunks": [
+					"{\"error\":{\"code\":503,\"message\":\"No allowed providers are available for the selected model.\"}}"
+				]
+			}
+		}
+	]
+}

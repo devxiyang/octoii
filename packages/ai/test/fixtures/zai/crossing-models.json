@@ -1,0 +1,228 @@
+{
+	"source": "Built by hand from Z.ai's API documentation on 2026-10-29: the Chat Completion reference (its request, response and streaming), the thinking mode and stream tool call guides, and the error codes page. Replace it with a recording: bun scripts/record-zai.ts",
+	"request": {
+		"model": "zai/glm-5.2",
+		"input": [
+			{
+				"role": "user",
+				"content": "Read the notes."
+			},
+			{
+				"type": "reasoning",
+				"id": "rs_claude_1",
+				"summary": [
+					{
+						"type": "summary_text",
+						"text": "I should read notes.md."
+					}
+				],
+				"signature": "EqQBCkYIBxgCKkBzaWduZWQtYnktYW50aHJvcGlj",
+				"format": "anthropic-claude-v1",
+				"status": "completed",
+				"octoii": {
+					"model": "anthropic/claude-opus-5-5"
+				}
+			},
+			{
+				"type": "message",
+				"role": "assistant",
+				"content": [
+					{
+						"type": "output_text",
+						"text": "Reading it now.",
+						"annotations": []
+					}
+				],
+				"octoii": {
+					"model": "anthropic/claude-opus-5-5",
+					"provider_metadata": {
+						"anthropic": {
+							"citations": []
+						}
+					}
+				}
+			},
+			{
+				"type": "function_call",
+				"call_id": "toolu_01A9xQ",
+				"name": "read_file",
+				"arguments": "{\"path\":\"notes.md\"}",
+				"octoii": {
+					"model": "anthropic/claude-opus-5-5",
+					"provider_metadata": {
+						"anthropic": {
+							"caller": "direct"
+						}
+					}
+				}
+			},
+			{
+				"type": "function_call_output",
+				"call_id": "toolu_01A9xQ",
+				"output": [
+					{
+						"type": "input_text",
+						"text": "Buy milk."
+					}
+				],
+				"octoii": {
+					"is_error": false
+				}
+			},
+			{
+				"type": "additional_tools",
+				"role": "developer",
+				"tools": [
+					{
+						"type": "function",
+						"name": "search",
+						"parameters": {
+							"type": "object",
+							"properties": {
+								"query": {
+									"type": "string"
+								}
+							}
+						}
+					}
+				]
+			},
+			{
+				"type": "octoii:tool_removal",
+				"names": [
+					"write_file"
+				]
+			},
+			{
+				"role": "developer",
+				"content": "Answer in French from now on."
+			},
+			{
+				"role": "user",
+				"content": "Now search for a shop."
+			}
+		],
+		"tools": [
+			{
+				"type": "function",
+				"name": "read_file",
+				"parameters": {
+					"type": "object",
+					"properties": {
+						"path": {
+							"type": "string"
+						}
+					}
+				}
+			},
+			{
+				"type": "function",
+				"name": "write_file",
+				"parameters": {
+					"type": "object",
+					"properties": {
+						"path": {
+							"type": "string"
+						}
+					}
+				}
+			}
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.z.ai/api/paas/v4/chat/completions",
+				"body": {
+					"model": "glm-5.2",
+					"messages": [
+						{
+							"role": "user",
+							"content": "Read the notes."
+						},
+						{
+							"role": "assistant",
+							"content": "Reading it now.",
+							"tool_calls": [
+								{
+									"id": "toolu_01A9xQ",
+									"type": "function",
+									"function": {
+										"name": "read_file",
+										"arguments": "{\"path\":\"notes.md\"}"
+									}
+								}
+							]
+						},
+						{
+							"role": "tool",
+							"tool_call_id": "toolu_01A9xQ",
+							"content": "Buy milk."
+						},
+						{
+							"role": "user",
+							"content": [
+								{
+									"type": "text",
+									"text": "Now search for a shop."
+								},
+								{
+									"type": "text",
+									"text": "<system-update>\nAnswer in French from now on.\n</system-update>"
+								}
+							]
+						}
+					],
+					"tools": [
+						{
+							"type": "function",
+							"function": {
+								"name": "read_file",
+								"parameters": {
+									"type": "object",
+									"properties": {
+										"path": {
+											"type": "string"
+										}
+									}
+								}
+							}
+						},
+						{
+							"type": "function",
+							"function": {
+								"name": "search",
+								"parameters": {
+									"type": "object",
+									"properties": {
+										"query": {
+											"type": "string"
+										}
+									}
+								}
+							}
+						}
+					],
+					"thinking": {
+						"type": "enabled",
+						"clear_thinking": false
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"id\":\"2026102918000012349\",\"created\":1761760800,\"model\":\"glm-5.2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Je cherche un magasin.\"}}]}\n\n",
+					"data: {\"id\":\"2026102918000012349\",\"created\":1761760800,\"model\":\"glm-5.2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"tool_calls\":[{\"id\":\"call_0\",\"index\":0,\"type\":\"function\",\"function\":{\"name\":\"search\",\"arguments\":\"{\\\"query\\\":\\\"shop\\\"}\"}}]}}]}\n\n",
+					"data: {\"id\":\"2026102918000012349\",\"created\":1761760800,\"model\":\"glm-5.2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":240,\"completion_tokens\":20,\"total_tokens\":260,\"prompt_tokens_details\":{\"cached_tokens\":0}}}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

@@ -1,0 +1,62 @@
+{
+	"source": "Built by hand from xAI's API documentation on 2026-10-29: the Responses API reference and its response example, the reasoning, streaming, web search, tool usage, cost tracking, prompt caching and image understanding guides, and its debugging page; the shapes of the events are OpenAI's, which xAI's Responses API follows. Replace it with a recording: bun scripts/record-xai.ts",
+	"request": {
+		"model": "xai/grok-4.7",
+		"instructions": "You are a helpful assistant that can answer questions and help with tasks.",
+		"input": "What is 101*3?",
+		"reasoning": {
+			"effort": "high",
+			"summary": "auto"
+		},
+		"prompt_cache_key": "conv_abc123"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.x.ai/v1/responses",
+				"body": {
+					"model": "grok-4.7",
+					"instructions": "You are a helpful assistant that can answer questions and help with tasks.",
+					"input": "What is 101*3?",
+					"reasoning": {
+						"effort": "high"
+					},
+					"prompt_cache_key": "conv_abc123",
+					"store": false,
+					"include": [
+						"reasoning.encrypted_content"
+					],
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_ad5663da63e6\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"grok-4.7\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"store\":false},\"sequence_number\":0}\n\n",
+					"data: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_ad5663da63e6\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"grok-4.7\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"store\":false},\"sequence_number\":1}\n\n",
+					"data: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"reasoning\",\"id\":\"rs_ad5663da63e6\",\"summary\":[],\"status\":\"in_progress\"},\"sequence_number\":2}\n\n",
+					"data: {\"type\":\"response.reasoning_summary_part.added\",\"item_id\":\"rs_ad5663da63e6\",\"output_index\":0,\"summary_index\":0,\"part\":{\"type\":\"summary_text\",\"text\":\"\"},\"sequence_number\":3}\n\n",
+					"data: {\"type\":\"response.reasoning_summary_text.delta\",\"item_id\":\"rs_ad5663da63e6\",\"output_index\":0,\"summary_index\":0,\"delta\":\"First, the user asked: \\\"What is 101*3?\\\" \",\"sequence_number\":4}\n\n",
+					"data: {\"type\":\"response.reasoning_summary_text.delta\",\"item_id\":\"rs_ad5663da63e6\",\"output_ind",
+					"ex\":0,\"summary_index\":0,\"delta\":\"100 * 3 = 300, and 1 * 3 = 3, so 303.\",\"sequence_number\":5}\n\n",
+					"data: {\"type\":\"response.reasoning_summary_text.done\",\"item_id\":\"rs_ad5663da63e6\",\"output_index\":0,\"summary_index\":0,\"text\":\"First, the user asked: \\\"What is 101*3?\\\" 100 * 3 = 300, and 1 * 3 = 3, so 303.\",\"sequence_number\":6}\n\n",
+					"data: {\"type\":\"response.reasoning_summary_part.done\",\"item_id\":\"rs_ad5663da63e6\",\"output_index\":0,\"summary_index\":0,\"part\":{\"type\":\"summary_text\",\"text\":\"First, the user asked: \\\"What is 101*3?\\\" 100 * 3 = 300, and 1 * 3 = 3, so 303.\"},\"sequence_number\":7}\n\n",
+					"data: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"reasoning\",\"id\":\"rs_ad5663da63e6\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"First, the user asked: \\\"What is 101*3?\\\" 100 * 3 = 300, and 1 * 3 = 3, so 303.\"}],\"encrypted_content\":\"gAAAAAB-xai-encrypted-reasoning-0001\",\"status\":\"completed\"},\"sequence_number\":8}\n\n",
+					"data: {\"type\":\"response.output_item.added\",\"output_index\":1,\"item\":{\"type\":\"message\",\"id\":\"msg_ad5663da63e6\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[]},\"sequence_number\":9}\n\n",
+					"data: {\"type\":\"response.content_part.added\",\"item_id\":\"msg_ad5663da63e6\",\"output_index\":1,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"\",\"annotations\":[]},\"sequence_number\":10}\n\n",
+					"data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_ad5663da63e6\",\"output_index\":1,\"content_index\":0,\"delta\":\"101 multiplied by 3\",\"logprobs\":[],\"sequence_number\":11}\n\n",
+					"data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_ad5663da63e6\",\"output_index\":1,\"content_index\":0,\"delta\":\" is 303.\",\"logprobs\":[],\"sequence_number\":12}\n\n",
+					"data: {\"type\":\"response.output_text.done\",\"item_id\":\"msg_ad5663da63e6\",\"output_index\":1,\"content_index\":0,\"text\":\"101 multiplied by 3 is 303.\",\"logprobs\":[],\"sequence_number\":13}\n\n",
+					"data: {\"type\":\"response.content_part.done\",\"item_id\":\"msg_ad5663da63e6\",\"output_index\":1,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"101 multiplied by 3 is 303.\",\"annotations\":[],\"logprobs\":null},\"sequence_number\":14}\n\n",
+					"data: {\"type\":\"response.output_item.done\",\"output_index\":1,\"item\":{\"type\":\"message\",\"id\":\"msg_ad5663da63e6\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"101 multiplied by 3 is 303.\",\"annotations\":[],\"logprobs\":null}]},\"sequence_number\":15}\n\n",
+					"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_ad5663da63e6\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"grok-4.7\",\"status\":\"completed\",\"output\":[{\"type\":\"reasoning\",\"id\":\"rs_ad5663da63e6\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"First, the user asked: \\\"What is 101*3?\\\" 100 * 3 = 300, and 1 * 3 = 3, so 303.\"}],\"encrypted_content\":\"gAAAAAB-xai-encrypted-reasoning-0001\",\"status\":\"completed\"},{\"type\":\"message\",\"id\":\"msg_ad5663da63e6\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"101 multiplied by 3 is 303.\",\"annotations\":[],\"logprobs\":null}]}],\"usage\":{\"input_tokens\":32,\"input_tokens_details\":{\"cached_tokens\":8},\"output_tokens\":9,\"output_tokens_details\":{\"reasoning_tokens\":110},\"total_tokens\":151,\"num_sources_used\":0,\"num_server_side_tools_used\":0,\"cost_in_usd_ticks\":7660000,\"context_details\":{\"input_tokens\":32,\"output_tokens\":119}},\"incomplete_details\":null,\"store\":false},\"sequence_number\":16}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

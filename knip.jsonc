@@ -1,0 +1,24 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"workspaces": {
+		".": {
+			// The repository's own configuration.
+			"entry": ["vitest.bun-test.ts"],
+			"project": ["*.ts"]
+		},
+		"packages/*": {
+			"entry": ["test/**/*.{ts,tsx}"],
+			"project": ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"]
+		},
+		"apps/web": {
+			// The pages' entries, as their HTML loads them.
+			"entry": ["src/index.html", "src/main.tsx", "src/hosted/index.html", "src/hosted/main.tsx", "test/**/*.{ts,tsx}"],
+			"project": ["src/**/*.{ts,tsx}", "scripts/**/*.ts", "test/**/*.{ts,tsx}"],
+			// The stylesheet imports Tailwind and the Inter font, which knip does not read.
+			"ignoreDependencies": ["tailwindcss", "@fontsource-variable/inter"]
+		}
+	},
+	"rules": { "catalog": "off" },
+	// An export the module itself uses is kept as written; what knip reports is code nothing uses.
+	"ignoreExportsUsedInFile": true
+}

@@ -1,0 +1,88 @@
+{
+	"source": "Built by hand from DeepSeek's API documentation on 2026-10-29: the Responses API guide (its fields, items, tools, images and its stream, which ends with its terminal event and no [DONE]), the thinking mode, vision and pricing guides; the shapes of the events are OpenAI's, which DeepSeek's Responses API follows. Replace it with a recording: bun scripts/record-deepseek.ts",
+	"request": {
+		"model": "deepseek/deepseek-v4-pro",
+		"input": [
+			{
+				"type": "message",
+				"role": "user",
+				"content": [
+					{
+						"type": "input_text",
+						"text": "What is DeepSeek's Responses API?"
+					}
+				]
+			}
+		],
+		"tools": [
+			{
+				"type": "web_search"
+			}
+		],
+		"reasoning": {
+			"effort": "none"
+		}
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.deepseek.com/responses",
+				"body": {
+					"model": "deepseek-v4-pro",
+					"input": [
+						{
+							"type": "message",
+							"role": "user",
+							"content": [
+								{
+									"type": "input_text",
+									"text": "What is DeepSeek's Responses API?"
+								}
+							]
+						}
+					],
+					"tools": [
+						{
+							"type": "web_search"
+						}
+					],
+					"reasoning": {
+						"effort": "none"
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					": keep-alive\n\n",
+					"event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_7a2c9e1b3d40\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"deepseek-v4-pro\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"error\":null,\"store\":false},\"sequence_number\":0}\n\n",
+					"event: response.in_progress\ndata: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_7a2c9e1b3d40\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"deepseek-v4-pro\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"incomplete_details\":null,\"error\":null,\"store\":false},\"sequence_number\":1}\n\n",
+					"event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"web_search_call\",\"id\":\"ws_7a2c9e1b3d41\",\"status\":\"in_progress\"},\"sequence_number\":2}\n\n",
+					"event: response.web_search_call.in_progress\ndata: {\"type\":\"response.web_search_call.in_progress\",\"item_id\":\"ws_7a2c9e1b3d41\",\"output_index\":0,\"sequence_number\":3}\n\n",
+					"event: response.web_search_call.searching\ndata: {\"type\":\"response.web_search_call.searching\",\"item_id\":\"ws_7a2c9e1b3d41\",\"output_index\":0,\"sequence_number\":4}\n\n",
+					"event: response.web_search_call.completed\ndata: {\"type\":\"response.web_search_call.completed\",\"item_id\":\"ws_7a2c9e1b3d41\",\"output_index\":0,\"sequence_number\":5}\n\n",
+					"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"web_search_call\",\"id\":\"ws_7a2c9e1b3d41\",\"status\":\"completed\",\"action\":{\"type\":\"search\",\"query\":\"DeepSeek Responses API\",\"sources\":[{\"type\":\"url\",\"url\":\"https://api-docs.deepseek.com/guides/responses_api\"}]}},\"sequence_number\":6}\n\n",
+					"event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":1,\"item\":{\"type\":\"web_search_call\",\"id\":\"ws_7a2c9e1b3d42\",\"status\":\"in_progress\"},\"sequence_number\":7}\n\n",
+					"event: response.web_search_call.in_progress\ndata: {\"type\":\"response.web_search_call.in_progress\",\"item_id\":\"ws_7a2c9e1b3d42\",\"output_index\":1,\"sequence_number\":8}\n\n",
+					"event: response.web_search_call.searching\ndata: {\"type\":\"response.web_search_call.searching\",\"item_id\":\"ws_7a2c9e1b3d42\",\"output_index\":1,\"sequence_number\":9}\n\n",
+					"event: response.web_search_call.completed\ndata: {\"type\":\"response.web_search_call.completed\",\"item_id\":\"ws_7a2c9e1b3d42\",\"output_index\":1,\"sequence_number\":10}\n\n",
+					"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":1,\"item\":{\"type\":\"web_search_call\",\"id\":\"ws_7a2c9e1b3d42\",\"status\":\"completed\",\"action\":{\"type\":\"search\",\"query\":\"DeepSeek pricing peak hours\",\"sources\":[{\"type\":\"url\",\"url\":\"https://api-docs.deepseek.com/quick_start/pricing\"}]}},\"sequence_number\":11}\n\n",
+					"event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":2,\"item\":{\"type\":\"message\",\"id\":\"msg_7a2c9e1b3d43\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[]},\"sequence_number\":12}\n\n",
+					"event: response.content_part.added\ndata: {\"type\":\"response.content_part.added\",\"item_id\":\"msg_7a2c9e1b3d43\",\"output_index\":2,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"\",\"annotations\":[]},\"sequence_number\":13}\n\n",
+					"event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_7a2c9e1b3d43\",\"output_index\":2,\"content_index\":0,\"delta\":\"DeepSeek serves the Responses API\",\"logprobs\":[],\"sequence_number\":14}\n\n",
+					"event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_7a2c9e1b3d43\",\"output_index\":2,\"content_index\":0,\"delta\":\" without state.\",\"logprobs\":[],\"sequence_number\":15}\n\n",
+					"event: response.output_text.annotation.added\ndata: {\"type\":\"response.output_text.annotation.added\",\"item_id\":\"msg_7a2c9e1b3d43\",\"output_index\":2,\"content_index\":0,\"annotation_index\":0,\"annotation\":{\"type\":\"url_citation\",\"url\":\"https://api-docs.deepseek.com/guides/responses_api\",\"title\":\"Responses API | DeepSeek API Docs\",\"start_index\":0,\"end_index\":41},\"sequence_number\":16}\n\n",
+					"event: response.output_text.done\ndata: {\"type\":\"response.output_text.done\",\"item_id\":\"msg_7a2c9e1b3d43\",\"output_index\":2,\"content_index\":0,\"text\":\"DeepSeek serves the Responses API without state.\",\"logprobs\":[],\"sequence_number\":17}\n\n",
+					"event: response.content_part.done\ndata: {\"type\":\"response.content_part.done\",\"item_id\":\"msg_7a2c9e1b3d43\",\"output_index\":2,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"DeepSeek serves the Responses API without state.\",\"annotations\":[{\"type\":\"url_citation\",\"url\":\"https://api-docs.deepseek.com/guides/responses_api\",\"title\":\"Responses API | DeepSeek API Docs\",\"start_index\":0,\"end_index\":41}]},\"sequence_number\":18}\n\n",
+					"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":2,\"item\":{\"type\":\"message\",\"id\":\"msg_7a2c9e1b3d43\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"DeepSeek serves the Responses API without state.\",\"annotations\":[{\"type\":\"url_citation\",\"url\":\"https://api-docs.deepseek.com/guides/responses_api\",\"title\":\"Responses API | DeepSeek API Docs\",\"start_index\":0,\"end_index\":41}]}]},\"sequence_number\":19}\n\n",
+					"event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_7a2c9e1b3d40\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"deepseek-v4-pro\",\"status\":\"completed\",\"output\":[{\"type\":\"web_search_call\",\"id\":\"ws_7a2c9e1b3d41\",\"status\":\"completed\",\"action\":{\"type\":\"search\",\"query\":\"DeepSeek Responses API\",\"sources\":[{\"type\":\"url\",\"url\":\"https://api-docs.deepseek.com/guides/responses_api\"}]}},{\"type\":\"web_search_call\",\"id\":\"ws_7a2c9e1b3d42\",\"status\":\"completed\",\"action\":{\"type\":\"search\",\"query\":\"DeepSeek pricing peak hours\",\"sources\":[{\"type\":\"url\",\"url\":\"https://api-docs.deepseek.com/quick_start/pricing\"}]}},{\"type\":\"message\",\"id\":\"msg_7a2c9e1b3d43\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"DeepSeek serves the Responses API without state.\",\"annotations\":[{\"type\":\"url_citation\",\"url\":\"https://api-docs.deepseek.com/guides/responses_api\",\"title\":\"Responses API | DeepSeek API Docs\",\"start_index\":0,\"end_index\":41}]}]}],\"usage\":{\"input_tokens\":3120,\"input_tokens_details\":{\"cached_tokens\":0},\"output_tokens\":61,\"output_tokens_details\":{\"reasoning_tokens\":0},\"total_tokens\":3181},\"incomplete_details\":null,\"error\":null,\"store\":false},\"sequence_number\":20}\n\n"
+				]
+			}
+		}
+	]
+}

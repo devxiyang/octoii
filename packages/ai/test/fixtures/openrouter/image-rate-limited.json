@@ -1,0 +1,31 @@
+{
+	"source": "Built by hand from OpenRouter's API documentation on 2026-10-29: the Image Generation guide (its streaming events, response format and billing) and the Generate an image API reference (ImageGenerationRequest, ImageGenerationResponse, ImageGenerationUsage and the stream's events) and its errors page. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"kind": "image",
+	"request": {
+		"model": "openrouter/qwen/qwen-image-3-pro",
+		"prompt": "a lighthouse at dusk"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/images",
+				"body": {
+					"model": "qwen/qwen-image-3-pro",
+					"prompt": "a lighthouse at dusk"
+				}
+			},
+			"response": {
+				"status": 429,
+				"headers": {
+					"content-type": "application/json",
+					"retry-after": "30"
+				},
+				"chunks": [
+					"{\"error\":{\"code\":429,\"message\":\"Rate limit exceeded\"}}"
+				]
+			}
+		}
+	]
+}

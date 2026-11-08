@@ -1,0 +1,47 @@
+{
+	"source": "Built by hand from xAI's documentation on 2026-10-29: the Speech to Text guide (POST /v1/stt as multipart/form-data, its model, language and file, the file last, and its response) and the Voice API reference for /v1/stt. Replace it with a recording: bun scripts/record-xai.ts",
+	"kind": "transcription",
+	"request": {
+		"model": "xai/grok-voice-transcribe-2.0",
+		"input_audio": {
+			"data": "UklGRiQAAABXQVZFZm10IA==",
+			"format": "wav"
+		},
+		"language": "en"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.x.ai/v1/stt",
+				"body": {
+					"multipart": [
+						{
+							"name": "model",
+							"value": "grok-voice-transcribe-2.0"
+						},
+						{
+							"name": "language",
+							"value": "en"
+						},
+						{
+							"name": "file",
+							"filename": "audio.wav",
+							"content_type": "audio/wav",
+							"base64": "UklGRiQAAABXQVZFZm10IA=="
+						}
+					]
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"text\":\"The balance is $167,983.15.\",\"language\":\"en\",\"duration\":3.45,\"words\":[{\"text\":\"The\",\"start\":0.24,\"end\":0.48},{\"text\":\"balance\",\"start\":0.48,\"end\":0.96},{\"text\":\"is\",\"start\":0.96,\"end\":1.12},{\"text\":\"$167,983.15.\",\"start\":1.12,\"end\":3.2}]}"
+				]
+			}
+		}
+	]
+}

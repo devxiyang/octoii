@@ -1,0 +1,71 @@
+{
+	"source": "Built by hand from OpenAI's API documentation on 2026-10-29: the Responses API reference and its streaming events, the guides to reasoning, function calling, file inputs, web search, prompt caching and streaming responses, and the shapes of the types its official SDK defines. Replace it with a recording: bun scripts/record-openai.ts",
+	"request": {
+		"model": "openai/gpt-6-luna",
+		"input": "How does the OpenAI Responses API stream?",
+		"tools": [
+			{
+				"type": "web_search",
+				"search_context_size": "low",
+				"filters": {
+					"allowed_domains": [
+						"developers.openai.com"
+					]
+				}
+			}
+		]
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/responses",
+				"body": {
+					"model": "gpt-6-luna",
+					"input": "How does the OpenAI Responses API stream?",
+					"tools": [
+						{
+							"type": "web_search",
+							"search_context_size": "low",
+							"filters": {
+								"allowed_domains": [
+									"developers.openai.com"
+								]
+							}
+						}
+					],
+					"stream": true,
+					"store": false
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream; charset=utf-8"
+				},
+				"chunks": [
+					"event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_68f9a0c1e2d3f001\",\"object\":\"response\",\"created_at\":1793260800,\"status\":\"in_progress\",\"background\":false,\"error\":null,\"incomplete_details\":null,\"instructions\":null,\"max_output_tokens\":null,\"model\":\"gpt-6-luna-2026-09-22\",\"output\":[],\"parallel_tool_calls\":true,\"previous_response_id\":null,\"reasoning\":{\"effort\":\"medium\",\"summary\":null},\"store\":false,\"temperature\":1.0,\"text\":{\"format\":{\"type\":\"text\"},\"verbosity\":\"medium\"},\"tool_choice\":\"auto\",\"tools\":[],\"top_p\":1.0,\"truncation\":\"disabled\",\"usage\":null,\"metadata\":{}},\"sequence_number\":0}\n\n",
+					"event: response.in_progress\ndata: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_68f9a0c1e2d3f001\",\"object\":\"response\",\"created_at\":1793260800,\"status\":\"in_progress\",\"background\":false,\"error\":null,\"incomplete_details\":null,\"instructions\":null,\"max_output_tokens\":null,\"model\":\"gpt-6-luna-2026-09-22\",\"output\":[],\"parallel_tool_calls\":true,\"previous_response_id\":null,\"reasoning\":{\"effort\":\"medium\",\"summary\":null},\"store\":false,\"temperature\":1.0,\"text\":{\"format\":{\"type\":\"text\"},\"verbosity\":\"medium\"},\"tool_choice\":\"auto\",\"tools\":[],\"top_p\":1.0,\"truncation\":\"disabled\",\"usage\":null,\"metadata\":{}},\"sequence_number\":1}\n\n",
+					"event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"web_search_call\",\"id\":\"ws_68f9a0c1e2d3f002\",\"status\":\"in_progress\"},\"sequence_number\":2}\n\n",
+					"event: response.web_search_call.in_progress\ndata: {\"type\":\"response.web_search_call.in_progress\",\"item_id\":\"ws_68f9a0c1e2d3f002\",\"output_index\":0,\"sequence_number\":3}\n\n",
+					"event: response.web_search_call.searching\ndata: {\"type\":\"response.web_search_call.searching\",\"item_id\":\"ws_68f9a0c1e2d3f002\",\"output_index\":0,\"sequence_number\":4}\n\n",
+					"event: response.web_search_call.completed\ndata: {\"type\":\"response.web_search_call.completed\",\"item_id\":\"ws_68f9a0c1e2d3f002\",\"output_index\":0,\"sequence_number\":5}\n\n",
+					"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"web_search_call\",\"id\":\"ws_68f9a0c1e2d3f002\",\"status\":\"completed\",\"action\":{\"type\":\"search\",\"query\":\"OpenAI Responses API streaming\",\"sources\":[{\"type\":\"url\",\"url\":\"https://developers.openai.com/api/docs/guides/streaming-responses\"}]}},\"sequence_number\":6}\n\n",
+					"event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":1,\"item\":{\"type\":\"web_search_call\",\"id\":\"ws_68f9a0c1e2d3f003\",\"status\":\"in_progress\"},\"sequence_number\":7}\n\n",
+					"event: response.web_search_call.in_progress\ndata: {\"type\":\"response.web_search_call.in_progress\",\"item_id\":\"ws_68f9a0c1e2d3f003\",\"output_index\":1,\"sequence_number\":8}\n\n",
+					"event: response.web_search_call.searching\ndata: {\"type\":\"response.web_search_call.searching\",\"item_id\":\"ws_68f9a0c1e2d3f003\",\"output_index\":1,\"sequence_number\":9}\n\n",
+					"event: response.web_search_call.completed\ndata: {\"type\":\"response.web_search_call.completed\",\"item_id\":\"ws_68f9a0c1e2d3f003\",\"output_index\":1,\"sequence_number\":10}\n\n",
+					"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":1,\"item\":{\"type\":\"web_search_call\",\"id\":\"ws_68f9a0c1e2d3f003\",\"status\":\"completed\",\"action\":{\"type\":\"open_page\",\"url\":\"https://developers.openai.com/api/docs/guides/streaming-responses\"}},\"sequence_number\":11}\n\n",
+					"event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":2,\"item\":{\"type\":\"message\",\"id\":\"msg_68f9a0c1e2d3f004\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[],\"phase\":\"final_answer\"},\"sequence_number\":12}\n\n",
+					"event: response.content_part.added\ndata: {\"type\":\"response.content_part.added\",\"item_id\":\"msg_68f9a0c1e2d3f004\",\"output_index\":2,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"\",\"annotations\":[],\"logprobs\":[]},\"sequence_number\":13}\n\n",
+					"event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_68f9a0c1e2d3f004\",\"output_index\":2,\"content_index\":0,\"delta\":\"The Responses API streams typed server-sent events.\",\"logprobs\":[],\"sequence_number\":14,\"obfuscation\":\"q8Zx3\"}\n\n",
+					"event: response.output_text.annotation.added\ndata: {\"type\":\"response.output_text.annotation.added\",\"item_id\":\"msg_68f9a0c1e2d3f004\",\"output_index\":2,\"content_index\":0,\"annotation_index\":0,\"annotation\":{\"type\":\"url_citation\",\"url\":\"https://developers.openai.com/api/docs/guides/streaming-responses\",\"title\":\"Streaming API responses\",\"start_index\":0,\"end_index\":52},\"sequence_number\":15}\n\n",
+					"event: response.output_text.done\ndata: {\"type\":\"response.output_text.done\",\"item_id\":\"msg_68f9a0c1e2d3f004\",\"output_index\":2,\"content_index\":0,\"text\":\"The Responses API streams typed server-sent events.\",\"logprobs\":[],\"sequence_number\":16}\n\n",
+					"event: response.content_part.done\ndata: {\"type\":\"response.content_part.done\",\"item_id\":\"msg_68f9a0c1e2d3f004\",\"output_index\":2,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"The Responses API streams typed server-sent events.\",\"annotations\":[{\"type\":\"url_citation\",\"url\":\"https://developers.openai.com/api/docs/guides/streaming-responses\",\"title\":\"Streaming API responses\",\"start_index\":0,\"end_index\":52}],\"logprobs\":[]},\"sequence_number\":17}\n\n",
+					"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":2,\"item\":{\"type\":\"message\",\"id\":\"msg_68f9a0c1e2d3f004\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"The Responses API streams typed server-sent events.\",\"annotations\":[{\"type\":\"url_citation\",\"url\":\"https://developers.openai.com/api/docs/guides/streaming-responses\",\"title\":\"Streaming API responses\",\"start_index\":0,\"end_index\":52}],\"logprobs\":[]}],\"phase\":\"final_answer\"},\"sequence_number\":18}\n\n",
+					"event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_68f9a0c1e2d3f001\",\"object\":\"response\",\"created_at\":1793260800,\"status\":\"completed\",\"background\":false,\"error\":null,\"incomplete_details\":null,\"instructions\":null,\"max_output_tokens\":null,\"model\":\"gpt-6-luna-2026-09-22\",\"output\":[{\"type\":\"web_search_call\",\"id\":\"ws_68f9a0c1e2d3f002\",\"status\":\"completed\",\"action\":{\"type\":\"search\",\"query\":\"OpenAI Responses API streaming\",\"sources\":[{\"type\":\"url\",\"url\":\"https://developers.openai.com/api/docs/guides/streaming-responses\"}]}},{\"type\":\"web_search_call\",\"id\":\"ws_68f9a0c1e2d3f003\",\"status\":\"completed\",\"action\":{\"type\":\"open_page\",\"url\":\"https://developers.openai.com/api/docs/guides/streaming-responses\"}},{\"type\":\"message\",\"id\":\"msg_68f9a0c1e2d3f004\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"The Responses API streams typed server-sent events.\",\"annotations\":[{\"type\":\"url_citation\",\"url\":\"https://developers.openai.com/api/docs/guides/streaming-responses\",\"title\":\"Streaming API responses\",\"start_index\":0,\"end_index\":52}],\"logprobs\":[]}],\"phase\":\"final_answer\"}],\"parallel_tool_calls\":true,\"previous_response_id\":null,\"reasoning\":{\"effort\":\"medium\",\"summary\":null},\"store\":false,\"temperature\":1.0,\"text\":{\"format\":{\"type\":\"text\"},\"verbosity\":\"medium\"},\"tool_choice\":\"auto\",\"tools\":[{\"type\":\"web_search\",\"search_context_size\":\"low\",\"filters\":{\"allowed_domains\":[\"developers.openai.com\"]}}],\"top_p\":1.0,\"truncation\":\"disabled\",\"usage\":{\"input_tokens\":8417,\"input_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0},\"output_tokens\":64,\"output_tokens_details\":{\"reasoning_tokens\":0},\"total_tokens\":8481},\"metadata\":{}},\"sequence_number\":19}\n\n"
+				]
+			}
+		}
+	]
+}

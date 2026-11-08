@@ -1,0 +1,41 @@
+{
+	"source": "Built by hand on 2026-10-29 from Google's Interactions API reference (CreateModelInteraction, its steps, content blocks, Tool, GenerationConfig, StepStart, StepDelta, StepStop, InteractionCompletedEvent, Usage) and the API errors guide and the token counting guide; an input past the model's window costs money to send. Replace it with a recording: bun scripts/record-google.ts",
+	"recordable": false,
+	"request": {
+		"model": "google/gemini-3.8-flash",
+		"input": "Summarize the attached book."
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+				"body": {
+					"model": "gemini-3.8-flash",
+					"input": [
+						{
+							"type": "user_input",
+							"content": [
+								{
+									"type": "text",
+									"text": "Summarize the attached book."
+								}
+							]
+						}
+					],
+					"store": false,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 400,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\n  \"error\": {\n    \"code\": \"invalid_request\",\n    \"message\": \"The input token count (1210304) exceeds the maximum number of tokens allowed (1048576).\"\n  }\n}"
+				]
+			}
+		}
+	]
+}

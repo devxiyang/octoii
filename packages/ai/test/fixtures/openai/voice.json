@@ -1,0 +1,65 @@
+{
+	"source": "Built by hand from OpenAI's API documentation on 2026-10-29: the voices and voice consents references (their multipart requests and the Voice, VoiceConsent and VoiceDeleted objects) and the custom voices guide. Its recordings are no person's: a recording takes a real consent and sample in their place. Replace it with a recording: bun scripts/record-openai.ts",
+	"kind": "voice",
+	"request": {
+		"name": "Narrator",
+		"audio_sample": {
+			"data": "UklGRiQAAABXQVZFZm10IBAAAAABAAEAwF0AAIC7AAACABAAZGF0YQAAAAA=",
+			"format": "wav"
+		},
+		"consent": "cons_1234",
+		"octoii": {
+			"provider": "openai"
+		}
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/audio/voices",
+				"body": {
+					"multipart": [
+						{
+							"name": "name",
+							"value": "Narrator"
+						},
+						{
+							"name": "consent",
+							"value": "cons_1234"
+						},
+						{
+							"name": "audio_sample",
+							"filename": "audio.wav",
+							"content_type": "audio/wav",
+							"base64": "UklGRiQAAABXQVZFZm10IBAAAAABAAEAwF0AAIC7AAACABAAZGF0YQAAAAA="
+						}
+					]
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\": \"voice_1234\", \"object\": \"audio.voice\", \"name\": \"Narrator\", \"created_at\": 1793275260, \"type\": \"audio_sample\"}"
+				]
+			}
+		},
+		{
+			"request": {
+				"method": "DELETE",
+				"url": "https://api.openai.com/v1/audio/voices/voice_1234"
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"id\": \"voice_1234\", \"object\": \"audio.voice.deleted\", \"deleted\": true}"
+				]
+			}
+		}
+	]
+}

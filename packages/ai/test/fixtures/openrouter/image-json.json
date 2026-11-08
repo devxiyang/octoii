@@ -1,0 +1,37 @@
+{
+	"source": "Recorded from OpenRouter's live API on 2026-10-28 by scripts/record-openrouter.ts; the two images' bytes are replaced by a 1×1 PNG, to keep the fixture small.",
+	"kind": "image",
+	"request": {
+		"model": "openrouter/qwen/qwen-image-3-pro",
+		"prompt": "two watercolor foxes",
+		"n": 2,
+		"resolution": "1K",
+		"aspect_ratio": "1:1",
+		"seed": 7
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/images",
+				"body": {
+					"model": "qwen/qwen-image-3-pro",
+					"prompt": "two watercolor foxes",
+					"n": 2,
+					"resolution": "1K",
+					"aspect_ratio": "1:1",
+					"seed": 7
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"created\":1793228547,\"data\":[{\"b64_json\":\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==\",\"media_type\":\"image/png\"},{\"b64_json\":\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==\",\"media_type\":\"image/png\"}],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":8350,\"total_tokens\":8355,\"cost\":0.08,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":0.08,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0.08},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":8350}}}"
+				]
+			}
+		}
+	]
+}

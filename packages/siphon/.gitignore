@@ -1,0 +1,4 @@
+/vendor/beak/
+/zig-out/
+/.zig-cache/
+/zig-pkg/

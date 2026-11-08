@@ -1,0 +1,40 @@
+{
+	"source": "Built by hand from OpenRouter's API documentation on 2026-10-28: its errors and debugging page and the Responses API's error handling. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "openrouter/openai/gpt-6-luna",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/v1/responses",
+				"body": {
+					"model": "openai/gpt-6-luna",
+					"provider": {
+						"require_parameters": true
+					},
+					"input": "Hello",
+					"cache_control": {
+						"type": "ephemeral"
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					": OPENROUTER PROCESSING\n\n",
+					"data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_0193a1c4e820\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"openai/gpt-6-luna\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"error\":null,\"incomplete_details\":null},\"sequence_number\":0}\n\n",
+					"data: {\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_0193a1c4e820\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"openai/gpt-6-luna\",\"status\":\"in_progress\",\"output\":[],\"usage\":null,\"error\":null,\"incomplete_details\":null},\"sequence_number\":1}\n\n",
+					"data: {\"type\":\"response.incomplete\",\"response\":{\"id\":\"resp_0193a1c4e820\",\"object\":\"response\",\"created_at\":1793174400,\"model\":\"openai/gpt-6-luna\",\"status\":\"incomplete\",\"output\":[],\"usage\":{\"input_tokens\":1050112,\"input_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0},\"output_tokens\":0,\"output_tokens_details\":{\"reasoning_tokens\":0},\"total_tokens\":1050112},\"error\":null,\"incomplete_details\":{\"reason\":\"max_output_tokens\"}},\"sequence_number\":2}\n\n",
+					"data: [DONE]\n\n"
+				]
+			}
+		}
+	]
+}

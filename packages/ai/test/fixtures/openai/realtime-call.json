@@ -1,0 +1,53 @@
+{
+	"source": "Built by hand from OpenAI's documentation on 2026-10-29: the Realtime API reference's Create call (POST /realtime/calls, multipart form data with sdp of type application/sdp and session of type application/json, answered with the SDP) and the Realtime server controls guide (\"The fetch response will contain a Location header that has a unique call ID\", Location: /v1/realtime/calls/rtc_123456). Replace it with a recording of a client's offer: bun scripts/record-openai.ts",
+	"kind": "realtime-call",
+	"request": {
+		"session": {
+			"type": "transcription",
+			"audio": {
+				"input": {
+					"transcription": {
+						"model": "openai/gpt-live-transcribe",
+						"languages": [
+							"en"
+						]
+					},
+					"turn_detection": null
+				}
+			}
+		},
+		"sdp": "v=0\r\no=- 4611731400430051336 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\na=group:BUNDLE 0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\nc=IN IP4 0.0.0.0\r\na=mid:0\r\na=sendrecv\r\na=rtpmap:111 opus/48000/2\r\n"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.openai.com/v1/realtime/calls",
+				"body": {
+					"multipart": [
+						{
+							"name": "sdp",
+							"value": "v=0\r\no=- 4611731400430051336 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\na=group:BUNDLE 0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\nc=IN IP4 0.0.0.0\r\na=mid:0\r\na=sendrecv\r\na=rtpmap:111 opus/48000/2\r\n",
+							"content_type": "application/sdp"
+						},
+						{
+							"name": "session",
+							"value": "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"gpt-live-transcribe\",\"languages\":[\"en\"]},\"turn_detection\":null}}}",
+							"content_type": "application/json"
+						}
+					]
+				}
+			},
+			"response": {
+				"status": 201,
+				"headers": {
+					"content-type": "application/sdp",
+					"location": "/v1/realtime/calls/rtc_u1_9c6574da8b8a41a18da9308f4ad974ce"
+				},
+				"chunks": [
+					"v=0\r\no=- 4227147428 1719357865 IN IP4 127.0.0.1\r\ns=-\r\nc=IN IP4 0.0.0.0\r\nt=0 0\r\na=group:BUNDLE 0 1\r\na=msid-semantic:WMS *\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111 0 8\r\na=mid:0\r\na=setup:active\r\na=rtcp-mux\r\na=rtpmap:111 opus/48000/2\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=mid:1\r\na=sctp-port:5000\r\n"
+				]
+			}
+		}
+	]
+}

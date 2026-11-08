@@ -1,0 +1,45 @@
+.{
+    .name = .octoii_siphon,
+    .version = "0.0.0",
+    // Generated once by the toolchain, never changed: the package's identity.
+    .fingerprint = 0x81d5f7cc81829204,
+    .minimum_zig_version = "0.17.1",
+    .dependencies = .{
+        .foundation = .{ .path = "../foundation" },
+        .ai = .{ .path = "../ai" },
+        .mcp = .{ .path = "../mcp" },
+        .translate_c = .{
+            .url = "git+https://codeberg.org/ziglang/translate-c?ref=zig-0.17.x#cfac21f3199b2b02ce3fd7db652aa456421fe4ab",
+            .hash = "translate_c-2.0.2-Q_BUWvBNBwDnyehSiuAJmdFcMYHYGA-Jc3KiYdrV2Dqx",
+        },
+        .typebox = .{
+            .url = "git+https://github.com/octoii-works/typebox#aa161a4072bb09fd0e909d062fcf608b99036c06",
+            .hash = "typebox-0.0.0-cseGoCV4AADPl8mu7VJ6CK2O_As5Kcepo5A3W-333oma",
+        },
+        .quickts = .{
+            .url = "git+https://github.com/octoii-works/quickts#e65dafa51a4ee4527917b530e60148f4984623d4",
+            .hash = "N-V-__8AANNlYwBOH33UJo5lNdYi0ZgMvG297eVH_Ebinkp7",
+        },
+        .wuffs = .{
+            .url = "git+https://github.com/google/wuffs-mirror-release-c#c55c7ceba7ef6560f7f6154be7db1c3a181e1321",
+            .hash = "N-V-__8AAMpWWwA_QV2Fj4Ghl0tMdKTMIWSkBeraZj3IYMK-",
+        },
+        .stb = .{
+            .url = "git+https://github.com/nothings/stb#4e9b368bfc071e97206ea5c6adba68dd0cbf8897",
+            .hash = "N-V-__8AAFRGTgBWHIQULKwDqlrvga2AR9enp42AsQ7z-yXN",
+        },
+        .stb_image_resize = .{
+            .url = "git+https://github.com/nothings/stb_image_resize#703100c5f8a0b75b4861e401db567f1d82d545b8",
+            .hash = "N-V-__8AAMlfDQBeas9Wh_WjclqmmsTcDRCRJTubGth7hYj2",
+        },
+        .tree_sitter = .{
+            .url = "git+https://github.com/tree-sitter/tree-sitter#3fb7be49145acfb07e33b61ed5689e2b6771b2e9",
+            .hash = "tree_sitter-0.27.2-Tw2sR8H1DQA0X6RmzcaABPYo71PUgl1SnGAn9YOYBYyU",
+        },
+        .tree_sitter_bash = .{
+            .url = "git+https://github.com/tree-sitter/tree-sitter-bash#a06c2e4415e9bc0346c6b86d401879ffb44058f7",
+            .hash = "N-V-__8AANjenwCy_cXlIbU8nqBzGxMlEHVokLZJYrmIXtoz",
+        },
+    },
+    .paths = .{ "build.zig", "build.zig.zon", "src" },
+}

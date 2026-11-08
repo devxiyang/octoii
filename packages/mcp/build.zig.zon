@@ -1,0 +1,15 @@
+.{
+    .name = .octoii_mcp,
+    .version = "0.0.0",
+    // Generated once by the toolchain, never changed: the package's identity.
+    .fingerprint = 0x85016cfd0c072db5,
+    .minimum_zig_version = "0.17.1",
+    .dependencies = .{
+        .foundation = .{ .path = "../foundation" },
+        .typebox = .{
+            .url = "git+https://github.com/octoii-works/typebox#aa161a4072bb09fd0e909d062fcf608b99036c06",
+            .hash = "typebox-0.0.0-cseGoCV4AADPl8mu7VJ6CK2O_As5Kcepo5A3W-333oma",
+        },
+    },
+    .paths = .{ "build.zig", "build.zig.zon", "src" },
+}

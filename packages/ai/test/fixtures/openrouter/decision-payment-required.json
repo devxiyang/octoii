@@ -1,0 +1,42 @@
+{
+	"source": "Built by hand from OpenRouter's API documentation on 2026-10-29: the Decisions API reference (submit a Decisions request), the Jev tutorial and the guide to multimodal decisions and its errors page. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"kind": "decision",
+	"request": {
+		"model": "openrouter/typesafe/jev-1.14",
+		"state": "Hello",
+		"questions": {
+			"greeting": {
+				"type": "noul",
+				"instructions": "The text is a greeting."
+			}
+		}
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://openrouter.ai/api/alpha/decisions",
+				"body": {
+					"model": "typesafe/jev-1.14",
+					"state": "Hello",
+					"questions": {
+						"greeting": {
+							"type": "noul",
+							"instructions": "The text is a greeting."
+						}
+					}
+				}
+			},
+			"response": {
+				"status": 402,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"error\":{\"code\":402,\"message\":\"Insufficient credits. Add more using https://openrouter.ai/credits\"}}"
+				]
+			}
+		}
+	]
+}

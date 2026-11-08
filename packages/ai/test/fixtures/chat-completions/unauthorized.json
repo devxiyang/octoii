@@ -1,0 +1,38 @@
+{
+	"source": "Built by hand from OpenAI's Chat Completions API reference on 2026-10-29: its error responses and streamed errors. A failure a server cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "local/qwen3.6-27b",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "http://127.0.0.1:8080/v1/chat/completions",
+				"body": {
+					"model": "qwen3.6-27b",
+					"messages": [
+						{
+							"role": "user",
+							"content": "Hello"
+						}
+					],
+					"stream_options": {
+						"include_usage": true
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 401,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"error\":{\"message\":\"Incorrect API key provided.\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"invalid_api_key\"}}"
+				]
+			}
+		}
+	]
+}

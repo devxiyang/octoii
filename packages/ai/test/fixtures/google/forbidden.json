@@ -1,0 +1,41 @@
+{
+	"source": "Built by hand on 2026-10-29 from Google's Interactions API reference (CreateModelInteraction, its steps, content blocks, Tool, GenerationConfig, StepStart, StepDelta, StepStop, InteractionCompletedEvent, Usage) and the API errors guide and the troubleshooting guide; the live API cannot be asked for it on purpose. Replace it with a recording: bun scripts/record-google.ts",
+	"recordable": false,
+	"request": {
+		"model": "google/gemini-3.8-flash",
+		"input": "Hi"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+				"body": {
+					"model": "gemini-3.8-flash",
+					"input": [
+						{
+							"type": "user_input",
+							"content": [
+								{
+									"type": "text",
+									"text": "Hi"
+								}
+							]
+						}
+					],
+					"store": false,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 403,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\n  \"error\": {\n    \"code\": \"permission_denied\",\n    \"message\": \"Your project has been denied access. Please contact support.\"\n  }\n}"
+				]
+			}
+		}
+	]
+}

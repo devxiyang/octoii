@@ -1,0 +1,40 @@
+{
+	"source": "Built by hand on 2026-10-29 from Google's Interactions API reference (its ErrorEvent, whose code names the error) and the API errors guide (rate_limit_exceeded); the live API cannot be asked for a failure in its stream. Replace it with a recording: bun scripts/record-google.ts",
+	"recordable": false,
+	"kind": "image",
+	"request": {
+		"model": "google/gemini-nano-banana-2.1",
+		"prompt": "A banana"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+				"body": {
+					"model": "gemini-nano-banana-2.1",
+					"input": [
+						{
+							"type": "text",
+							"text": "A banana"
+						}
+					],
+					"response_format": {
+						"type": "image"
+					},
+					"store": false,
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "text/event-stream"
+				},
+				"chunks": [
+					"data: {\"event_type\":\"interaction.created\",\"interaction\":{\"id\":\"v1_int_1\",\"created\":\"2026-10-29T12:00:00Z\",\"status\":\"in_progress\"}}\n\ndata: {\"event_type\":\"step.start\",\"index\":0,\"step\":{\"type\":\"model_output\"}}\n\ndata: {\"event_type\":\"error\",\"error\":{\"code\":\"rate_limit_exceeded\",\"message\":\"You exceeded your current quota of requests per minute.\"}}\n\n"
+				]
+			}
+		}
+	]
+}

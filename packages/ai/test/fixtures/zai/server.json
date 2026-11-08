@@ -1,0 +1,39 @@
+{
+	"source": "Built by hand from Z.ai's API documentation on 2026-10-29: the error codes page and the Chat Completion reference's finish reasons. A failure the live API cannot be asked for is not recorded.",
+	"recordable": false,
+	"request": {
+		"model": "zai/glm-5.2",
+		"input": "Hello"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.z.ai/api/paas/v4/chat/completions",
+				"body": {
+					"model": "glm-5.2",
+					"messages": [
+						{
+							"role": "user",
+							"content": "Hello"
+						}
+					],
+					"thinking": {
+						"type": "enabled",
+						"clear_thinking": false
+					},
+					"stream": true
+				}
+			},
+			"response": {
+				"status": 500,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"error\":{\"code\":\"1234\",\"message\":\"Network error, error id: 20261029180000abc, please try again later\"}}"
+				]
+			}
+		}
+	]
+}

@@ -1,0 +1,38 @@
+{
+	"source": "Built by hand from xAI's documentation on 2026-10-29: the Images API reference (POST /v1/images/generations, its request and response bodies and their usage in ticks) and the Image Generation guide (n, aspect_ratio, resolution, quality and base64 output). Replace it with a recording: bun scripts/record-xai.ts",
+	"kind": "image",
+	"request": {
+		"model": "xai/grok-imagine-image-2.0",
+		"prompt": "A collage of London landmarks in a stenciled street-art style",
+		"n": 2,
+		"aspect_ratio": "16:9",
+		"resolution": "2K",
+		"quality": "low"
+	},
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.x.ai/v1/images/generations",
+				"body": {
+					"model": "grok-imagine-image-2.0",
+					"prompt": "A collage of London landmarks in a stenciled street-art style",
+					"n": 2,
+					"aspect_ratio": "16:9",
+					"resolution": "2k",
+					"quality": "low",
+					"response_format": "b64_json"
+				}
+			},
+			"response": {
+				"status": 200,
+				"headers": {
+					"content-type": "application/json"
+				},
+				"chunks": [
+					"{\"data\":[{\"b64_json\":\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==\",\"mime_type\":\"image/png\"},{\"b64_json\":\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==\",\"mime_type\":\"image/png\"}],\"usage\":{\"cost_in_usd_ticks\":800000000,\"input_tokens\":14,\"input_tokens_details\":{\"cached_tokens\":0,\"image_tokens\":0,\"text_tokens\":14},\"output_tokens\":96,\"output_tokens_details\":{\"image_tokens\":0,\"reasoning_tokens\":0,\"text_tokens\":96},\"total_tokens\":110}}"
+				]
+			}
+		}
+	]
+}
