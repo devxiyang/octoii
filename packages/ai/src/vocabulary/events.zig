@@ -116,7 +116,7 @@ pub const OutputTextDeltaEvent = struct {
     sequence_number: u64,
     content_index: u32,
     delta: []const u8,
-    logprobs: []const StreamLogprob,
+    logprobs: []const StreamLogprob = &.{},
 };
 
 /// An answer's text, whole.
@@ -127,7 +127,7 @@ pub const OutputTextDoneEvent = struct {
     sequence_number: u64,
     content_index: u32,
     text: []const u8,
-    logprobs: []const StreamLogprob,
+    logprobs: []const StreamLogprob = &.{},
 };
 
 /// An annotation of an answer's text, such as a citation.
@@ -236,7 +236,8 @@ pub const FunctionCallArgumentsDoneEvent = struct {
     item_id: []const u8,
     output_index: u32,
     sequence_number: u64,
-    name: []const u8,
+    /// The function's, where the provider says it again: the call's item names it in any case.
+    name: ?[]const u8 = null,
     arguments: []const u8,
 };
 
