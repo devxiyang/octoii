@@ -301,14 +301,6 @@ pub fn Variants(comptime U: type, comptime key: []const u8) type {
                 inline else => |payload| try writer.write(payload),
             }
         }
-
-        /// Whether a variant takes an object whose member `key` is the text `name`.
-        pub fn names(name: []const u8) bool {
-            inline for (@typeInfo(U).@"union".field_types) |Variant| {
-                if (takes(Variant, key, .{ .string = name })) return true;
-            }
-            return false;
-        }
     };
 }
 

@@ -95,5 +95,5 @@ fn details(arena: Allocator, body: []const u8) ?http.Details {
 }
 
 fn translate(call: *Call, data: []const u8, out: *std.ArrayList(vocabulary.ResponseStreamEvent)) Error!void {
-    if (try responses.openAiEvent(call, data, kindOf)) |event| try out.append(call.arena, event);
+    try out.append(call.arena, try responses.openAiEvent(call, data, kindOf));
 }

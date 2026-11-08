@@ -1,5 +1,5 @@
 //! The events a text response streams: the response's own, each output item's, the content, reasoning, calls and web
-//! searches within them, OpenRouter's `response.debug`, and `error`. Each carries its `sequence_number`, from 0 without
+//! searches within them, OpenRouter's `response.debug`, ChatGPT's `response.metadata`, and `error`. Each carries its `sequence_number`, from 0 without
 //! a gap, and the last is `response.completed`, `response.incomplete` or `response.failed`, carrying the whole response.
 const foundation = @import("foundation");
 const Raw = foundation.json.Raw;
@@ -312,6 +312,15 @@ pub const ErrorEvent = struct {
     sequence_number: u64,
 };
 
+/// What ChatGPT reports beside the answer as it streams: its moderation of the prompt and of what the model wrote.
+pub const MetadataEvent = struct {
+    type: enum { @"response.metadata" } = .@"response.metadata",
+    response_id: []const u8,
+    /// As ChatGPT reports it: an object.
+    metadata: Raw,
+    sequence_number: u64,
+};
+
 /// An event of a text response's stream.
 pub const ResponseStreamEvent = union(enum) {
     created: ResponseCreatedEvent,
@@ -342,11 +351,10 @@ pub const ResponseStreamEvent = union(enum) {
     web_search_call_searching: WebSearchCallSearchingEvent,
     web_search_call_completed: WebSearchCallCompletedEvent,
     debug: DebugEvent,
+    metadata: MetadataEvent,
     @"error": ErrorEvent,
 
     const variants = Variants(@This(), "type");
-    /// Whether the vocabulary has an event of the type `name`.
-    pub const names = variants.names;
     pub const jsonParse = variants.jsonParse;
     pub const jsonParseFromValue = variants.jsonParseFromValue;
     pub const jsonStringify = variants.jsonStringify;

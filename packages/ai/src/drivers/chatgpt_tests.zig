@@ -58,6 +58,7 @@ test "ChatGPT signs in and serves the catalogue's models with the sign-in's acce
     try std.testing.expectEqualStrings("chatgpt", chatgpt.driver.catalogue.?);
     try std.testing.expect(chatgpt.driver.sign_in != null);
     const streamed = try fixtures.streamFixture(a, "text", options);
+    try std.testing.expect(streamed.events[1] == .metadata);
     const sent = streamed.replay.sent.items[0];
     try std.testing.expectEqualStrings("https://api.openai.com/v1/responses", sent.url);
     try std.testing.expectEqualStrings("Bearer access-1", foundation.http.find(sent.headers, "authorization").?);
