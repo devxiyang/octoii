@@ -147,19 +147,38 @@ fn finish(call: *Call, context: *anyopaque, redirect: []const u8) Error!void {
     const code = oauth.valueOf(given, "code") orelse "";
     if (code.len == 0) return call.failWith(.auth, "The address holds no code: sign in again", .{});
     const client_id = try issuedClient(call, attempt, oauth.valueOf(given, "client_id"));
-    const tokens = try tokensFor(call, &.{
+    const tokens = tokensFor(call, &.{
         .{ "grant_type", "authorization_code" },
         .{ "code", code },
         .{ "code_verifier", attempt.pkce.verifier },
         .{ "redirect_uri", attempt.redirect_uri },
         .{ "client_id", client_id },
         .{ "resource", resource },
-    }, "The code is no longer valid: sign in again");
+    }, "The code is no longer valid: sign in again") catch |err| {
+        if (err == error.Failed and attempt.client_id == null and isSpent(call.failure.?.code)) keepRegistration(call, attempt, client_id);
+        return err;
+    };
     const id_token = tokens.id_token orelse return call.failWith(.auth, "The issuer gave no ID token, by which ai knows who signed in", .{});
     const claims = try verifiedClaims(call, id_token, client_id, attempt.nonce);
     if (attempt.subject) |subject| if (!std.mem.eql(u8, subject, claims.sub)) {
         return call.failWith(.auth, "The person signed in to another ChatGPT account than the one signing in again: sign out of it first", .{});
     };
+    keep(call, .{ .oauth = .{
+        .issuer = issuer,
+        .client_id = client_id,
+        .host_id = attempt.host_id,
+        .subject = claims.sub,
+        .email = claims.email,
+        .tokens = try storedTokens(call, tokens, null, &scopes),
+    } }) catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        error.Failed => return error.Failed,
+        error.Unavailable => return call.failWith(.auth, "The host's credentials cannot keep the sign-in to {s}", .{call.provider.id}),
+    };
+}
+
+/// Stores `credential` as the provider's, in place of what the host keeps.
+fn keep(call: *Call, credential: seam.Credential) !void {
     const Store = struct {
         credential: seam.Credential,
 
@@ -168,19 +187,22 @@ fn finish(call: *Call, context: *anyopaque, redirect: []const u8) Error!void {
             return store.credential;
         }
     };
-    var store: Store = .{ .credential = .{ .oauth = .{
-        .issuer = issuer,
-        .client_id = client_id,
-        .host_id = attempt.host_id,
-        .subject = claims.sub,
-        .email = claims.email,
-        .tokens = try storedTokens(call, tokens, null, &scopes),
-    } } };
-    _ = call.host.credentials.modify(call.arena, call.provider.id, .{ .context = &store, .apply = Store.apply }) catch |err| switch (err) {
-        error.OutOfMemory => return error.OutOfMemory,
-        error.Failed => return error.Failed,
-        error.Unavailable => return call.failWith(.auth, "The host's credentials cannot keep the sign-in to {s}", .{call.provider.id}),
-    };
+    var store: Store = .{ .credential = credential };
+    _ = try call.host.credentials.modify(call.arena, call.provider.id, .{ .context = &store, .apply = Store.apply });
+}
+
+/// Keeps the client a first sign-in registered, where its code was refused: the next sign-in goes on as that client, under
+/// the same host id, in place of registering another. The refusal is what the person is told; a client not kept only
+/// means the next sign-in registers again.
+fn keepRegistration(call: *Call, attempt: *const Attempt, client_id: []const u8) void {
+    keep(call, .{ .oauth = .{ .issuer = issuer, .client_id = client_id, .host_id = attempt.host_id } }) catch return;
+}
+
+/// Whether `code` is one by which the issuer says a code or refresh token is no longer good.
+fn isSpent(code: ?[]const u8) bool {
+    const given = code orelse return false;
+    for (spent_errors) |each| if (std.mem.eql(u8, each, given)) return true;
+    return false;
 }
 
 /// The client the sign-in goes on as: the one issued before, where the issuer returned no other, or the one the issuer
@@ -240,16 +262,14 @@ fn tokenFailure(call: *Call, response: foundation.http.Response, spent: []const 
         .object => |object| if (object.get("code")) |value| (if (value == .string) value.string else return failure) else return failure,
         else => return failure,
     };
-    for (spent_errors) |each| if (std.mem.eql(u8, each, code)) {
-        failure.kind = .auth;
-        failure.retryable = false;
-        failure.message = if (reasonOf(said, raised)) |reason|
-            try std.fmt.allocPrint(call.arena, "{s} (the issuer said {s}: {s})", .{ spent, code, reason })
-        else
-            try std.fmt.allocPrint(call.arena, "{s} (the issuer said {s})", .{ spent, code });
-        failure.code = code;
-        return failure;
-    };
+    if (!isSpent(code)) return failure;
+    failure.kind = .auth;
+    failure.retryable = false;
+    failure.message = if (reasonOf(said, raised)) |reason|
+        try std.fmt.allocPrint(call.arena, "{s} (the issuer said {s}: {s})", .{ spent, code, reason })
+    else
+        try std.fmt.allocPrint(call.arena, "{s} (the issuer said {s})", .{ spent, code });
+    failure.code = code;
     return failure;
 }
 

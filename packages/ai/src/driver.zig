@@ -216,6 +216,11 @@ pub const Credential = union(enum) {
     api_key: []const u8,
     oauth: OAuth,
     none,
+
+    /// Whether it can authorize a request: all but a sign-in that holds a registered client and no tokens yet.
+    pub fn usable(credential: Credential) bool {
+        return credential != .oauth or credential.oauth.tokens != null;
+    }
 };
 
 /// A sign-in by OAuth, as the host keeps it.

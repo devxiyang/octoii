@@ -319,6 +319,24 @@ fn expectContains(text: []const u8, words: []const u8) !void {
     return error.TestUnexpectedMessage;
 }
 
+test "a first sign-in whose code is refused keeps the client it registered, unconnected, and the next goes on as it" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const a = arena_state.allocator();
+    var issuer: Issuer = .{ .arena = a, .now_ms = now_ms, .answer = .{ .refusal = .{ .status = 400, .body = "{\"error\":\"invalid_grant\"}" } } };
+    const first = try begun(a, &issuer, null, redirect_uri);
+    const address = try callback(a, &.{ .{ "code", "code-1" }, .{ "state", oauth.valueOf(first.query, "state").? }, .{ "client_id", client } });
+    try expectContains((try first.models.finishSignIn(a, "chatgpt", first.sign_in, address)).?.message, "no longer valid");
+    const kept = first.host.saved.?.credential;
+    try std.testing.expectEqualStrings(client, kept.oauth.client_id);
+    try std.testing.expectEqualStrings(oauth.valueOf(first.query, "ext_agent_host_id").?, kept.oauth.host_id.?);
+    try std.testing.expect(kept.oauth.tokens == null and !kept.usable());
+    const next = try begun(a, &issuer, kept, redirect_uri);
+    try std.testing.expectEqualStrings(client, oauth.valueOf(next.query, "client_id").?);
+    try std.testing.expectEqualStrings(oauth.valueOf(first.query, "ext_agent_host_id").?, oauth.valueOf(next.query, "ext_agent_host_id").?);
+    try std.testing.expect(oauth.valueOf(next.query, "agent_name_hint") == null);
+}
+
 test "a sign-in with ChatGPT that cannot finish fails as auth, saying why, and keeps nothing" {
     var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_state.deinit();
@@ -328,9 +346,9 @@ test "a sign-in with ChatGPT that cannot finish fails as auth, saying why, and k
     try expectContains((try declined.models.finishSignIn(a, "chatgpt", declined.sign_in, redirect_uri ++ "?error=access_denied&state=x")).?.message, "declined");
     try expectContains(try failedSignIn(a, null, .{ .tokens = .{} }, "another", client), "not of this sign-in attempt");
     try expectContains(try failedSignIn(a, null, .{ .tokens = .{} }, null, null), "registration gave no client");
-    try expectContains(try failedSignIn(a, null, .{ .refusal = .{ .status = 400, .body = "{\"error\":\"invalid_grant\"}" } }, null, client), "no longer valid");
-    try expectContains(try failedSignIn(a, null, .{ .refusal = .{ .status = 400, .body = "{\"error\":\"invalid_grant\",\"error_description\":\"the verifier does not match\"}" } }, null, client), "the issuer said invalid_grant: the verifier does not match");
-    try expectContains(try failedSignIn(a, null, .{ .refusal = .{ .status = 400, .body = "{\"error\":{\"code\":\"token_expired\",\"message\":\"the code expired\"}}" } }, null, client), "the issuer said token_expired: the code expired");
+    try expectContains(try failedSignIn(a, signedIn(3_600_000, &sign_in.scopes), .{ .refusal = .{ .status = 400, .body = "{\"error\":\"invalid_grant\"}" } }, null, null), "no longer valid");
+    try expectContains(try failedSignIn(a, signedIn(3_600_000, &sign_in.scopes), .{ .refusal = .{ .status = 400, .body = "{\"error\":\"invalid_grant\",\"error_description\":\"the verifier does not match\"}" } }, null, null), "the issuer said invalid_grant: the verifier does not match");
+    try expectContains(try failedSignIn(a, signedIn(3_600_000, &sign_in.scopes), .{ .refusal = .{ .status = 400, .body = "{\"error\":{\"code\":\"token_expired\",\"message\":\"the code expired\"}}" } }, null, null), "the issuer said token_expired: the code expired");
     try expectContains(try failedSignIn(a, null, .{ .tokens = .{ .id_token = .{ .other_key = true } } }, null, client), "signature");
     try expectContains(try failedSignIn(a, null, .{ .tokens = .{ .id_token = .{ .nonce = "another nonce" } } }, null, client), "nonce");
     try expectContains(try failedSignIn(a, null, .{ .tokens = .{ .id_token = .{ .audience = "oaiapp_other" } } }, null, client), "not issued for the client");

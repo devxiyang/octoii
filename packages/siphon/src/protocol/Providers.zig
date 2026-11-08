@@ -68,7 +68,7 @@ pub fn list(connection: *Connection, arena: Allocator, id: []const u8, _: struct
     for (ids, listed) |provider_id, *each| {
         const provider = clients.models.provider(provider_id).?;
         const held = if (clients.credentials) |store| store.read(arena, provider_id) catch null else null;
-        each.* = .{ .id = provider_id, .name = provider.name, .connects = connectsOf(provider), .credential = if (held) |credential| @tagName(credential) else null };
+        each.* = .{ .id = provider_id, .name = provider.name, .connects = connectsOf(provider), .credential = if (held) |credential| if (credential.usable()) @tagName(credential) else null else null };
     }
     return connection.answer(arena, id, .{ .providers = listed });
 }

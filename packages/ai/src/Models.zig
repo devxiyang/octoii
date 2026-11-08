@@ -495,6 +495,6 @@ pub fn status(models: *Models, arena: Allocator, id: []const u8) Allocator.Error
         error.Failed => .{ .connected = false, .problem = call.failure.?.message },
     };
     const credential = models.host.credentials.read(arena, id) catch null;
-    if (credential != null) return .{ .connected = true };
+    if (credential) |held| if (held.usable()) return .{ .connected = true };
     return .{ .connected = false, .problem = try std.fmt.allocPrint(arena, "No credential is kept for {s}", .{serving.name}) };
 }
