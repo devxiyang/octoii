@@ -580,11 +580,11 @@ const ManifestGiven = struct {
 
 fn threadsCreate(connection: *Connection, arena: Allocator, id: []const u8, given: struct { manifest: ManifestGiven = .{}, operation: []const u8 }) !void {
     const runtime = connection.clients.runtime;
-    const workspace = given.manifest.workspace orelse try Machine.defaultWorkspace(connection.clients.machine, arena);
     const manifest: threads.Manifest = .{
-        .project = try Machine.projectAt(connection.clients.machine, arena, workspace),
+        // The default folder is where a thread that names none works, not a project it belongs to.
+        .project = try Machine.projectAt(connection.clients.machine, arena, given.manifest.workspace),
         .model = given.manifest.model,
-        .workspace = workspace,
+        .workspace = given.manifest.workspace orelse try Machine.defaultWorkspace(connection.clients.machine, arena),
         .title = given.manifest.title,
         .mode = given.manifest.mode orelse (try settings.environmentOf(runtime.volume, &arena)).thread_mode,
         .effort = given.manifest.effort,

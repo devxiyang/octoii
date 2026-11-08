@@ -96,7 +96,7 @@ fn streamed(arena: Allocator) !ai.testing.fake.Answer {
     }) };
 }
 
-test "a thread made naming no folder works in the default one, made for it" {
+test "a thread made naming no folder works in the default one, made for it, and belongs to no project" {
     var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
     defer arena_state.deinit();
     const arena = arena_state.allocator();
@@ -116,6 +116,7 @@ test "a thread made naming no folder works in the default one, made for it" {
     const tid = field(answers[1], &.{ "result", "thread" }).?.string;
     const manifest = try threads.manifestOf(siphon.runtime.volume, &arena, try threads.pathOf(arena, tid));
     try std.testing.expectEqualStrings(try std.fs.path.join(arena, &.{ root, "octoii" }), manifest.workspace.?);
+    try std.testing.expectEqual(@as(?[]const u8, null), manifest.project);
     try tmp.dir.access(std.testing.io, "octoii", .{});
     try client.close();
 }

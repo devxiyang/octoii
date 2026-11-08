@@ -117,7 +117,7 @@ function FolderStrip(props: {
 					className="inline-flex h-control-sm max-w-full items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70 data-popup-open:bg-accent data-popup-open:text-foreground"
 				>
 					<FolderOpen className="size-3.5 shrink-0" />
-					<span className="truncate">{props.folder === undefined ? "Work in a folder" : folderName(props.folder)}</span>
+					<span className="truncate">{props.folder === undefined ? "No project" : folderName(props.folder)}</span>
 					<ChevronDown className="size-3.5 shrink-0 opacity-70" />
 				</MenuTrigger>
 				<MenuPopup side="top" align="start" sideOffset={8} className="w-64">
@@ -130,7 +130,7 @@ function FolderStrip(props: {
 						))}
 						<MenuRadioItem value="">
 							<FolderX />
-							<MenuItemLabel>No folder</MenuItemLabel>
+							<MenuItemLabel>No project</MenuItemLabel>
 						</MenuRadioItem>
 					</MenuRadioGroup>
 					<MenuSeparator />
