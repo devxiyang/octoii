@@ -580,10 +580,11 @@ const ManifestGiven = struct {
 
 fn threadsCreate(connection: *Connection, arena: Allocator, id: []const u8, given: struct { manifest: ManifestGiven = .{}, operation: []const u8 }) !void {
     const runtime = connection.clients.runtime;
+    const workspace = given.manifest.workspace orelse try Machine.defaultWorkspace(connection.clients.machine, arena);
     const manifest: threads.Manifest = .{
-        .project = try Machine.projectAt(connection.clients.machine, arena, given.manifest.workspace),
+        .project = try Machine.projectAt(connection.clients.machine, arena, workspace),
         .model = given.manifest.model,
-        .workspace = given.manifest.workspace,
+        .workspace = workspace,
         .title = given.manifest.title,
         .mode = given.manifest.mode orelse (try settings.environmentOf(runtime.volume, &arena)).thread_mode,
         .effort = given.manifest.effort,

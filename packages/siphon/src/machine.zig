@@ -147,6 +147,21 @@ pub fn projectOf(machine: Machine, arena: Allocator, given: []const u8) ![]const
     return try machine.repositoryOf(arena, given) orelse try paths.resolve(arena, machine.base, given);
 }
 
+/// The folder under the person's home folder that a thread works in where it names none.
+const default_workspace = "octoii";
+
+/// The folder a thread that names none works in, made where it is missing; none where the host gives no machine or
+/// knows no home folder.
+pub fn defaultWorkspace(host: Host, arena: Allocator) !?[]const u8 {
+    if (host.handle == null) return null;
+    const home = host.home orelse return null;
+    const folder = try std.fs.path.join(arena, &.{ home, default_workspace });
+    const machine = try open(host, .{ .base = .{ .workspace = folder, .home = home } });
+    defer machine.close();
+    try beak.check(h.beak_namespace_mkdir(machine.namespace, beak.bytes(try machine.pathOf(arena, folder))));
+    return folder;
+}
+
 /// The project a thread working in `workspace` belongs to, as the machine `host` gives finds it — the folder itself
 /// where the host gives no machine; none for a thread that works in no folder.
 pub fn projectAt(host: Host, arena: Allocator, workspace: ?[]const u8) !?[]const u8 {

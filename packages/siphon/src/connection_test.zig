@@ -96,6 +96,30 @@ fn streamed(arena: Allocator) !ai.testing.fake.Answer {
     }) };
 }
 
+test "a thread made naming no folder works in the default one, made for it" {
+    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const root = try tmp.dir.realPathFileAlloc(std.testing.io, ".", arena);
+    const machine = try testing.openLocalMachine();
+    defer _ = @import("beak.zig").h.beak_close(machine);
+    var clock: testing.Clock = .{ .now_ms = 1_000 };
+    const siphon = try Siphon.open(std.testing.allocator, .{ .io = std.testing.io, .clock = clock.clock(), .machine = machine, .home = root }, .{});
+    defer siphon.close();
+    const client: Client = try .open(siphon, arena);
+    client.send("{\"id\":\"1\",\"method\":\"hello\",\"params\":{\"protocol\":1}}");
+    client.send("{\"id\":\"2\",\"method\":\"threads.create\",\"params\":{\"operation\":\"create-1\"}}");
+    _ = try siphon.runtime.pump();
+    const answers = try client.taken();
+    const tid = field(answers[1], &.{ "result", "thread" }).?.string;
+    const manifest = try threads.manifestOf(siphon.runtime.volume, &arena, try threads.pathOf(arena, tid));
+    try std.testing.expectEqualStrings(try std.fs.path.join(arena, &.{ root, "octoii" }), manifest.workspace.?);
+    try tmp.dir.access(std.testing.io, "octoii", .{});
+    try client.close();
+}
+
 test "a client is greeted as its session, its methods answered by their ids, and a thread it follows sent as it goes" {
     var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
     defer arena_state.deinit();

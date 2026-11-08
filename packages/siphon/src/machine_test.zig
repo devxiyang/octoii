@@ -16,6 +16,25 @@ fn closeForTest(machine: Machine) void {
     _ = h.beak_close(machine.handle);
 }
 
+test "the folder a thread that names none works in is octoii under the home folder, made once and kept" {
+    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const root = try tmp.dir.realPathFileAlloc(std.testing.io, ".", arena);
+    const handle = try testing.openLocalMachine();
+    defer _ = h.beak_close(handle);
+    const host: Machine.Host = .{ .handle = handle, .home = root };
+    const folder = (try Machine.defaultWorkspace(host, arena)).?;
+    try std.testing.expectEqualStrings(try std.fs.path.join(arena, &.{ root, "octoii" }), folder);
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "octoii/kept", .data = "kept" });
+    try std.testing.expectEqualStrings(folder, (try Machine.defaultWorkspace(host, arena)).?);
+    try tmp.dir.access(std.testing.io, "octoii/kept", .{});
+    try std.testing.expectEqual(@as(?[]const u8, null), try Machine.defaultWorkspace(.{ .handle = handle }, arena));
+    try std.testing.expectEqual(@as(?[]const u8, null), try Machine.defaultWorkspace(.{ .home = root }, arena));
+}
+
 test "a program runs to its end: its output taken whole, its errors kept, its code told" {
     var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
     defer arena_state.deinit();
