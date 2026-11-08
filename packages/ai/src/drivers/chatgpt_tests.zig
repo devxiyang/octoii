@@ -329,6 +329,8 @@ test "a sign-in with ChatGPT that cannot finish fails as auth, saying why, and k
     try expectContains(try failedSignIn(a, null, .{ .tokens = .{} }, "another", client), "not of this sign-in attempt");
     try expectContains(try failedSignIn(a, null, .{ .tokens = .{} }, null, null), "registration gave no client");
     try expectContains(try failedSignIn(a, null, .{ .refusal = .{ .status = 400, .body = "{\"error\":\"invalid_grant\"}" } }, null, client), "no longer valid");
+    try expectContains(try failedSignIn(a, null, .{ .refusal = .{ .status = 400, .body = "{\"error\":\"invalid_grant\",\"error_description\":\"the verifier does not match\"}" } }, null, client), "the issuer said invalid_grant: the verifier does not match");
+    try expectContains(try failedSignIn(a, null, .{ .refusal = .{ .status = 400, .body = "{\"error\":{\"code\":\"token_expired\",\"message\":\"the code expired\"}}" } }, null, client), "the issuer said token_expired: the code expired");
     try expectContains(try failedSignIn(a, null, .{ .tokens = .{ .id_token = .{ .other_key = true } } }, null, client), "signature");
     try expectContains(try failedSignIn(a, null, .{ .tokens = .{ .id_token = .{ .nonce = "another nonce" } } }, null, client), "nonce");
     try expectContains(try failedSignIn(a, null, .{ .tokens = .{ .id_token = .{ .audience = "oaiapp_other" } } }, null, client), "not issued for the client");

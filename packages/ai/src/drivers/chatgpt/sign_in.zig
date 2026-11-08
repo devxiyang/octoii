@@ -228,8 +228,8 @@ fn tokensFor(call: *Call, form: []const oauth.Field, spent: []const u8) Error!To
     return readJson(TokenAnswer, call, response, "tokens");
 }
 
-/// The failure a refusal of the token endpoint stands for: `auth` with `spent` as its message where the issuer says the
-/// code or refresh token is no longer good, else as its status says.
+/// The failure a refusal of the token endpoint stands for: `auth` with `spent` and the issuer's own words as its message
+/// where the issuer says the code or refresh token is no longer good, else as its status says.
 fn tokenFailure(call: *Call, response: foundation.http.Response, spent: []const u8) Error!Failure {
     var failure = try http.failureOf(call, response, null);
     const said = std.json.parseFromSliceLeaky(std.json.Value, call.arena, failure.body orelse "", .{}) catch return failure;
@@ -243,11 +243,21 @@ fn tokenFailure(call: *Call, response: foundation.http.Response, spent: []const 
     for (spent_errors) |each| if (std.mem.eql(u8, each, code)) {
         failure.kind = .auth;
         failure.retryable = false;
-        failure.message = spent;
+        failure.message = if (reasonOf(said, raised)) |reason|
+            try std.fmt.allocPrint(call.arena, "{s} (the issuer said {s}: {s})", .{ spent, code, reason })
+        else
+            try std.fmt.allocPrint(call.arena, "{s} (the issuer said {s})", .{ spent, code });
         failure.code = code;
         return failure;
     };
     return failure;
+}
+
+/// The issuer's own words for the refusal `said` raises as `raised`, where it gave any: the error's message, or its
+/// description beside it.
+fn reasonOf(said: std.json.Value, raised: std.json.Value) ?[]const u8 {
+    const field = (if (raised == .object) raised.object.get("message") else said.object.get("error_description")) orelse return null;
+    return if (field == .string) field.string else null;
 }
 
 /// The claims of an ID token that a sign-in checks.
