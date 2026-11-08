@@ -381,6 +381,8 @@ pub const Call = struct {
     wait: ?http.Wait = null,
     /// The failure the call failed with, once a function returned `Failed`.
     failure: ?Failure = null,
+    /// The types of the events it was sent that the vocabulary lacks.
+    unlisted_events: std.StringHashMapUnmanaged(void) = .empty,
 
     /// Leaves `failure` as the call's, for the caller to read.
     pub fn fail(call: *Call, failure: Failure) error{Failed} {

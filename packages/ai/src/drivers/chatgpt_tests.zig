@@ -66,6 +66,45 @@ test "ChatGPT signs in and serves the catalogue's models with the sign-in's acce
     try std.testing.expectEqualStrings("Hello! How can I help?", (try fixtures.messageText(a, streamed.response.output)).?);
 }
 
+/// The recorded stream of `text`, with `chunk` sent after its first event.
+fn withChunk(arena: Allocator, chunk: []const u8) !struct { fixture: fixtures.Fixture, exchanges: []foundation.replay.Exchange } {
+    const fixture = try fixtures.load(arena, "chatgpt", "text");
+    const exchanges = try arena.dupe(foundation.replay.Exchange, fixture.exchanges);
+    const recorded = exchanges[0].response.chunks;
+    const chunks = try arena.alloc(foundation.replay.Chunk, recorded.len + 1);
+    chunks[0] = recorded[0];
+    chunks[1] = .{ .text = chunk };
+    @memcpy(chunks[2..], recorded[1..]);
+    exchanges[0].response.chunks = chunks;
+    return .{ .fixture = fixture, .exchanges = exchanges };
+}
+
+test "an event of a type the vocabulary lacks is passed over, once noted, and the answer comes whole" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const a = arena_state.allocator();
+    std.testing.log_level = .err;
+    defer std.testing.log_level = .warn;
+    const unlisted = "event: response.from_the_future\ndata: {\"type\":\"response.from_the_future\",\"sequence_number\":1}\n\n";
+    const given = try withChunk(a, unlisted);
+    const streamed = try fixtures.stream(a, given.fixture.request, given.exchanges, options);
+    try std.testing.expectEqual(@as(usize, 1), streamed.unlisted);
+    try std.testing.expectEqual(vocabulary.response.ResponseStatus.completed, streamed.response.status);
+    try std.testing.expectEqualStrings("Hello! How can I help?", (try fixtures.messageText(a, streamed.response.output)).?);
+}
+
+test "an event of a type the vocabulary has that does not fit it fails the response" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const a = arena_state.allocator();
+    std.testing.log_level = .err;
+    defer std.testing.log_level = .warn;
+    const misshapen = "event: response.in_progress\ndata: {\"type\":\"response.in_progress\",\"sequence_number\":1}\n\n";
+    const given = try withChunk(a, misshapen);
+    const streamed = try fixtures.stream(a, given.fixture.request, given.exchanges, options);
+    try std.testing.expectEqual(FailureKind.invalid_response, streamed.response.@"error".?.octoii.kind);
+}
+
 test "ChatGPT fails as auth before anything is sent where the host is not signed in, or its tokens may not use the plan" {
     var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_state.deinit();

@@ -355,6 +355,8 @@ pub const ResponseStreamEvent = union(enum) {
     @"error": ErrorEvent,
 
     const variants = Variants(@This(), "type");
+    /// Whether the vocabulary has an event of the type `name`.
+    pub const names = variants.names;
     pub const jsonParse = variants.jsonParse;
     pub const jsonParseFromValue = variants.jsonParseFromValue;
     pub const jsonStringify = variants.jsonStringify;

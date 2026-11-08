@@ -430,11 +430,16 @@ pub fn takeResponseError(comptime E: type, call: *Call, value: *Value, data: []c
 /// The event of the vocabulary one event of OpenAI's stream stands for: an `error` and a failed response with their
 /// failures classified by `kind_of`, a code it does not know being `server`; an ended response's usage with the
 /// searches its web search calls ran and the cache writes kept 12 hours, and the tokens its context took; every other
-/// event as it is.
-pub fn openAiEvent(call: *Call, data: []const u8, kind_of: KindOfCode) Error!Event {
+/// event as it is. Null for a type the vocabulary lacks: the event that ends the response carries all of it, and one
+/// that ends it in a new way leaves the stream unended, which fails.
+pub fn openAiEvent(call: *Call, data: []const u8, kind_of: KindOfCode) Error!?Event {
     var value = try json.parseObject(call, data);
     withoutNullLogprobs(&value);
     const kind = json.textOf(value, "type").?;
+    if (!Event.names(kind)) {
+        try noteUnlisted(call, kind, data);
+        return null;
+    }
     if (std.mem.eql(u8, kind, "error")) {
         const given = try decodeAs(struct { code: ?[]const u8 = null, type: ?[]const u8 = null, message: ?[]const u8 = null, param: ?[]const u8 = null, @"error": ?WireError = null }, call, value, data);
         const wire = given.@"error" orelse WireError{ .code = given.code, .message = given.message, .param = given.param };
@@ -462,6 +467,12 @@ pub fn openAiEvent(call: *Call, data: []const u8, kind_of: KindOfCode) Error!Eve
         else => {},
     }
     return event;
+}
+
+/// Logs an event of a type the vocabulary lacks, the first of its type in the call, by which the type comes to be added.
+fn noteUnlisted(call: *Call, kind: []const u8, data: []const u8) Allocator.Error!void {
+    const noted = try call.unlisted_events.getOrPut(call.arena, kind);
+    if (!noted.found_existing) std.log.scoped(.ai).warn("an event of a type the vocabulary lacks, {s}: {s}", .{ kind, data });
 }
 
 /// The failure an error in OpenAI's stream stands for: by its code or type, else the provider's own, `server`.

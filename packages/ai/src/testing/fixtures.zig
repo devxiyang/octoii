@@ -51,11 +51,13 @@ pub fn textNames(arena: Allocator, provider: []const u8) ![]const []const u8 {
     return names.items;
 }
 
-/// A fixture streamed: its events, its last response, and the replay, which holds what was sent.
+/// A fixture streamed: its events, its last response, the replay, which holds what was sent, and how many types of
+/// event the vocabulary lacks it was sent.
 pub const Streamed = struct {
     events: []const Event,
     response: vocabulary.Response,
     replay: *Replay,
+    unlisted: usize,
 };
 
 /// How a fixture is streamed: through which driver, with which key, and the provider's models and settings.
@@ -121,13 +123,15 @@ pub fn stream(arena: Allocator, request: vocabulary.ResponsesRequest, exchanges:
     const problems = try contract.problems(arena, events.items);
     for (problems) |problem| std.debug.print("stream contract: {s}\n", .{problem});
     try std.testing.expectEqual(@as(usize, 0), problems.len);
-    return .{ .events = events.items, .response = text.response().?, .replay = replay };
+    return .{ .events = events.items, .response = text.response().?, .replay = replay, .unlisted = text.call.unlisted_events.count() };
 }
 
 /// The fixture `name` of the driver's provider, streamed as recorded: every exchange asked for, none refused.
 pub fn streamFixture(arena: Allocator, name: []const u8, options: Options) !Streamed {
     const fixture = try load(arena, options.folder orelse options.provider orelse options.driver.id, name);
     const streamed = try stream(arena, fixture.request, fixture.exchanges, options);
+    // What a provider was recorded sending, the vocabulary names.
+    try std.testing.expectEqual(@as(usize, 0), streamed.unlisted);
     if (streamed.replay.mismatch) |why| {
         std.debug.print("fixture {s}: {s}\n", .{ name, why });
         return error.TestUnexpectedRequest;
