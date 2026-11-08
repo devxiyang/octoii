@@ -82,7 +82,8 @@ pub fn begin(call: *Call, options: seam.SignInOptions) Error!seam.SignIn {
         .host_id = (if (earlier) |given| given.host_id else null) orelse try std.fmt.allocPrint(call.arena, "urn:uuid:{s}", .{try call.host.newId(call.arena)}),
         .client_id = if (earlier) |given| given.client_id else null,
         .subject = if (earlier) |given| given.subject else null,
-        .redirect_uri = options.redirect_uri,
+        // The attempt outlives the options, which last only as long as the call that begins it.
+        .redirect_uri = try call.arena.dupe(u8, options.redirect_uri),
     };
     return .{ .url = try authorizeUrl(call.arena, attempt, options.agent_name_hint), .attempt = attempt, .finish = finish };
 }

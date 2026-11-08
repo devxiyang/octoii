@@ -280,6 +280,19 @@ test "a first sign-in with ChatGPT registers the app, checks the ID token and ke
     } }), try foundation.json.encode(a, attempt.host.saved.?.credential));
 }
 
+test "a sign-in with ChatGPT keeps its own copy of the redirect address, for the exchange after its caller is done" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const a = arena_state.allocator();
+    var issuer: Issuer = .{ .arena = a, .now_ms = now_ms };
+    const given = try a.dupe(u8, redirect_uri);
+    const attempt = try begun(a, &issuer, signedIn(3_600_000, &sign_in.scopes), given);
+    @memset(given, ' ');
+    const address = try callback(a, &.{ .{ "code", "code-1" }, .{ "state", oauth.valueOf(attempt.query, "state").? } });
+    try std.testing.expectEqual(null, try attempt.models.finishSignIn(a, "chatgpt", attempt.sign_in, address));
+    try std.testing.expectEqualStrings(redirect_uri, oauth.valueOf(issuer.forms.items[0], "redirect_uri").?);
+}
+
 test "signing in with ChatGPT again reuses the issued client and the host's id, offering no name" {
     var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_state.deinit();
