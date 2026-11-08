@@ -407,6 +407,8 @@ pub fn decodeAs(comptime T: type, call: *Call, value: Value, data: []const u8) E
     return foundation.json.decodeValue(T, call.arena, value) catch |err| switch (err) {
         error.OutOfMemory => error.OutOfMemory,
         else => {
+            // The event itself is what tells why, and too long for the message a person reads.
+            std.log.scoped(.ai).warn("an event outside the vocabulary, {t}: {s}", .{ err, data });
             var failure = try failure_.Failure.format(call.arena, .invalid_response, "The provider sent an event outside the vocabulary: {t}", .{err});
             failure.body = data;
             return call.fail(failure);
