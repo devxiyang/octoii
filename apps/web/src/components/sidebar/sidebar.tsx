@@ -1,5 +1,5 @@
 /**
- * The sidebar: the button that hides it and the brand; search, a project filter and a new thread, the project filtered
+ * The sidebar: the brand, and on its right the button that hides it; search, a project filter and a new thread, the project filtered
  * on named under them where one is; the threads of every project in one list, each card naming its project — those
  * pinned atop, then those open to the person, what asks them first, then those that work under their heading, and at
  * the foot, folded, those snoozed and the earlier, a line each, those archived not at all — a sub-thread on its
@@ -55,10 +55,10 @@ export function Sidebar(props: SidebarProps): ReactNode {
 		>
 			{edge}
 			<div className="flex h-[var(--topbar-height)] shrink-0 items-center gap-1.5 px-2">
+				<span className="min-w-0 flex-1 ps-2 text-sm font-semibold tracking-tight">Octoii</span>
 				<IconButton label="Hide sidebar" shortcut="⌘B" onClick={props.onHide}>
 					<PanelLeft className="size-4" />
 				</IconButton>
-				<span className="text-sm font-semibold tracking-tight">Octoii</span>
 			</div>
 			<div className="flex items-center gap-1 px-2 pb-2">
 				<label className="group flex h-control min-w-0 flex-1 items-center gap-2 rounded-md px-2 focus-within:ring-1 focus-within:ring-ring/70 hover:bg-sidebar-row-hover">
