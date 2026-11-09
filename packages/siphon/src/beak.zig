@@ -130,6 +130,40 @@ pub fn bytesAll(arena: Allocator, texts: []const []const u8) Allocator.Error![]h
     return out;
 }
 
+/// What a selector picks: the directories of its kinds carrying its labels, directly in one directory from a key on,
+/// or anywhere under one — as a fiber's wait takes it, and a watch through selectors.
+pub const Selector = struct {
+    kinds: []const []const u8,
+    labels: []const Label = &.{},
+    scope: Scope,
+
+    pub const Label = struct { name: []const u8, value: []const u8 };
+
+    /// Directly in `directory`, keyed from `from` on; or anywhere under a directory. A path of "" is the root.
+    pub const Scope = union(enum) {
+        in: struct { directory: []const u8, from: ?[]const u8 = null },
+        under: []const u8,
+    };
+};
+
+/// `selector` as beak.h takes it, what it names copied into `arena`.
+pub fn selectorOf(arena: Allocator, selector: Selector) Allocator.Error!h.beak_selector {
+    const kinds = try arena.alloc(h.beak_bytes, selector.kinds.len);
+    for (selector.kinds, kinds) |kind, *each| each.* = bytes(try arena.dupe(u8, kind));
+    const labels = try arena.alloc(h.beak_label, selector.labels.len);
+    for (selector.labels, labels) |label, *each| each.* = .{ .name = bytes(try arena.dupe(u8, label.name)), .value = bytes(try arena.dupe(u8, label.value)) };
+    var made: h.beak_selector = .{ .kinds = kinds.ptr, .kind_count = kinds.len, .labels = labels.ptr, .label_count = labels.len, .scope = h.BEAK_SCOPE_UNDER, .path = bytes(""), .from = bytes("") };
+    switch (selector.scope) {
+        .in => |in| {
+            made.scope = h.BEAK_SCOPE_IN;
+            made.path = bytes(try arena.dupe(u8, in.directory));
+            made.from = bytes(try arena.dupe(u8, in.from orelse ""));
+        },
+        .under => |under| made.path = bytes(try arena.dupe(u8, under)),
+    }
+    return made;
+}
+
 pub fn slice(given: h.beak_bytes) []const u8 {
     return if (given.len == 0) "" else given.ptr[0..given.len];
 }
@@ -324,6 +358,23 @@ pub const Volume = struct {
         }
     }
 
+    /// Stores `stored_bytes` as a file, for a commit to link wherever it is needed by its ref: the same bytes stored once,
+    /// however many names they have.
+    pub fn store(volume: Volume, stored_bytes: []const u8) Error!h.beak_stored {
+        var stored: h.beak_stored = undefined;
+        try check(h.beak_volume_store(volume.handle, bytes(stored_bytes), &stored));
+        return stored;
+    }
+
+    /// The bytes of the file `ref` names, from `offset`, at most `length`, in `arena`, as open_by_handle_at opens an
+    /// inode.
+    pub fn readRef(volume: Volume, arena: *const Allocator, ref: h.beak_ref, offset: u64, length: u64) Error![]const u8 {
+        const allocator = outputs(arena);
+        var read_bytes: h.beak_bytes = undefined;
+        try check(h.beak_volume_read_ref(volume.handle, &ref, offset, length, &allocator, &read_bytes));
+        return slice(read_bytes);
+    }
+
     /// The bytes of the file at `path` from `offset`, at most `length`, in `arena`.
     pub fn read(volume: Volume, arena: *const Allocator, path: []const u8, offset: u64, length: u64) Error![]const u8 {
         const allocator = outputs(arena);
@@ -359,14 +410,16 @@ pub const Volume = struct {
 
     /// The ways the changes after the commit `after` met `selectors`, the change sets read at most `limit`, in `arena`:
     /// a watch through selectors, read on from `through`.
-    pub fn matches(volume: Volume, arena: *const Allocator, after: u64, limit: usize, selectors: []const h.beak_selector) Error!Matches {
+    pub fn matches(volume: Volume, arena: *const Allocator, after: u64, limit: usize, selectors: []const Selector) Error!Matches {
+        const given = try arena.alloc(h.beak_selector, selectors.len);
+        for (selectors, given) |selector, *each| each.* = try selectorOf(arena.*, selector);
         const allocator = outputs(arena);
         var matched: [*c]h.beak_match = null;
         var count: usize = 0;
         var through: u64 = 0;
         var oldest: h.beak_optional = undefined;
         var latest: u64 = 0;
-        try check(h.beak_volume_matches(volume.handle, after, limit, selectors.ptr, selectors.len, &allocator, &matched, &count, &through, &oldest, &latest));
+        try check(h.beak_volume_matches(volume.handle, after, limit, given.ptr, given.len, &allocator, &matched, &count, &through, &oldest, &latest));
         return .{ .matches = items(h.beak_match, matched, count), .through = through, .oldest = if (get(oldest)) |seq| @intCast(seq) else null, .latest = latest };
     }
 
@@ -385,11 +438,7 @@ test "a watch through selectors tells the directories a selector picks, and wher
     var shelf = board;
     shelf.path = bytes("notes.shelf:2");
     const seq = try volume.commit(10, &.{ board, shelf });
-    const kinds = [_]h.beak_bytes{bytes("notes.board")};
-    var selector = std.mem.zeroes(h.beak_selector);
-    selector.kinds = &kinds;
-    selector.kind_count = kinds.len;
-    selector.scope = h.BEAK_SCOPE_UNDER;
+    const selector: Selector = .{ .kinds = &.{"notes.board"}, .scope = .{ .under = "" } };
     const found = try volume.matches(&arena, 0, 10, &.{selector});
     try std.testing.expectEqual(seq, found.through);
     try std.testing.expectEqual(1, found.matches.len);

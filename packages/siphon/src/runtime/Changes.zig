@@ -25,6 +25,39 @@ pub fn write(changes: *Changes, path: []const u8, bytes: []const u8) Allocator.E
     made.value = try changes.copied(bytes);
 }
 
+/// `bytes` written into the file at `path` from `offset`, as pwrite writes them.
+pub fn writeAt(changes: *Changes, path: []const u8, offset: u64, bytes: []const u8) Allocator.Error!void {
+    const made = try changes.added(h.BEAK_CHANGE_WRITE_AT, path);
+    made.offset = offset;
+    made.value = try changes.copied(bytes);
+}
+
+/// The file at `path` cut or grown to `length`, as truncate does.
+pub fn truncate(changes: *Changes, path: []const u8, length: u64) Allocator.Error!void {
+    const made = try changes.added(h.BEAK_CHANGE_TRUNCATE, path);
+    made.length = length;
+}
+
+/// The file at `path` made executable or not, as chmod +x and -x do.
+pub fn chmod(changes: *Changes, path: []const u8, executable: bool) Allocator.Error!void {
+    const made = try changes.added(h.BEAK_CHANGE_CHMOD, path);
+    made.executable = executable;
+}
+
+/// The name at `from` moved to `to`, as rename moves it.
+pub fn move(changes: *Changes, from: []const u8, to: []const u8) Allocator.Error!void {
+    const made = try changes.added(h.BEAK_CHANGE_MOVE, from);
+    made.to = try changes.copied(to);
+}
+
+/// The stored file `ref` names linked at `path`, executable or not, going at the time `at` where one is given.
+pub fn link(changes: *Changes, path: []const u8, ref: h.beak_ref, executable: bool, at: ?i64) Allocator.Error!void {
+    const made = try changes.added(h.BEAK_CHANGE_LINK, path);
+    made.ref = ref;
+    made.executable = executable;
+    made.at = beak.optional(at);
+}
+
 /// `bytes` added to the end of the file at `path`, made where there is none; the file takes bytes at its end alone.
 pub fn append(changes: *Changes, path: []const u8, bytes: []const u8) Allocator.Error!void {
     const made = try changes.added(h.BEAK_CHANGE_APPEND, path);
@@ -66,10 +99,11 @@ pub fn expire(changes: *Changes, path: []const u8, at: i64) Allocator.Error!void
     made.at = beak.optional(at);
 }
 
-/// The directory at `path` labelled `name` = `value`, as its kind's index finds it.
-pub fn label(changes: *Changes, path: []const u8, name: []const u8, value: []const u8) Allocator.Error!void {
+/// The directory at `path` labelled `name` = `value`, as its kind's index finds it; the label removed where `value` is
+/// null.
+pub fn label(changes: *Changes, path: []const u8, name: []const u8, value: ?[]const u8) Allocator.Error!void {
     const labels = try changes.arena.alloc(h.beak_name_change, 1);
-    labels[0] = .{ .name = try changes.copied(name), .remove = false, .value = try changes.copied(value) };
+    labels[0] = .{ .name = try changes.copied(name), .remove = value == null, .value = try changes.copied(value orelse "") };
     const made = try changes.added(h.BEAK_CHANGE_META, path);
     made.labels = labels.ptr;
     made.label_count = labels.len;
@@ -128,12 +162,31 @@ pub fn answer(changes: *Changes, process: []const u8, started: u64, key: []const
     made.value = try changes.copied(payload);
 }
 
-/// The process at `path`, and every one under it, asked to stop, for `reason`: their stop handlers run, their requests
-/// are cut off.
-pub fn terminate(changes: *Changes, path: []const u8, reason: []const u8) Allocator.Error!void {
+/// The process at `path`, and every one under it, sent `signal` for `reason`: terminate asks them to stop, their stop
+/// handlers run and their requests cut off; kill ends them; stop freezes them and continue thaws them.
+pub fn signal(changes: *Changes, path: []const u8, sent: h.beak_signal, reason: []const u8) Allocator.Error!void {
     const made = try changes.added(h.BEAK_CHANGE_SIGNAL, path);
-    made.signal = h.BEAK_SIGNAL_TERMINATE;
+    made.signal = sent;
     made.reason = try changes.copied(reason);
+}
+
+/// The process at `path`, and every one under it, asked to stop, for `reason`.
+pub fn terminate(changes: *Changes, path: []const u8, reason: []const u8) Allocator.Error!void {
+    try changes.signal(path, h.BEAK_SIGNAL_TERMINATE, reason);
+}
+
+/// The live process at `path` reset, as a service manager resets a failed unit: its restarts and attempt start over and
+/// it is held no longer, so it runs again.
+pub fn retry(changes: *Changes, path: []const u8) Allocator.Error!void {
+    _ = try changes.added(h.BEAK_CHANGE_RETRY, path);
+}
+
+/// The run `run` of the process at `path` ended with `ending`, as a host that runs phases itself ends the runs a step
+/// gave it.
+pub fn end(changes: *Changes, path: []const u8, run: u64, ending: h.beak_ending) Allocator.Error!void {
+    const made = try changes.added(h.BEAK_CHANGE_END, path);
+    made.run = run;
+    made.ending = ending;
 }
 
 /// The ended child process at `path` reaped: its directory goes, as a parent reaps a child it settled.

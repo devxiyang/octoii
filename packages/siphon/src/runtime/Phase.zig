@@ -107,53 +107,71 @@ pub fn next(phase: *Phase, checkpoint: anytype) !void {
     phase.ending = endingOf(h.BEAK_ENDING_NEXT, try phase.jsonOf(checkpoint));
 }
 
+/// What a fiber waits for, the first of it met ending the wait, as `poll` waits on descriptors and a timeout at once.
+pub const Wait = struct {
+    /// Processes, any of which ending ends the wait.
+    exits: []const []const u8 = &.{},
+    /// Directories, any of which changing from what the last commit left ends it — a name made, removed or relinked in
+    /// it, or its labels — as a process that ends changes its own.
+    changes: []const []const u8 = &.{},
+    /// Keys of mail, any of which in the fiber's mailbox ends it — at once, where it is there already.
+    mail: []const []const u8 = &.{},
+    /// A directory the selector picks written, one it picked leaving it, or a deletion that can take what it picks.
+    until: ?beak.Selector = null,
+    /// The time it ends at the latest.
+    at: ?i64 = null,
+};
+
+/// The fiber sleeps until the first of what `wait` names is met, then runs from `checkpoint`.
+pub fn waitFor(phase: *Phase, checkpoint: anytype, wait: Wait) !void {
+    const arena = phase.arena;
+    const on = try arena.alloc(h.beak_bytes, wait.exits.len);
+    for (wait.exits, on) |path, *each| each.* = beak.bytes(try arena.dupe(u8, path));
+    const versions = try arena.alloc(h.beak_version, wait.changes.len + wait.mail.len);
+    for (wait.changes, versions[0..wait.changes.len]) |path, *version| version.* = try phase.versionOf(path);
+    // A mail's directory waited on as one not there, the fiber wakes once it is there.
+    for (wait.mail, versions[wait.changes.len..]) |key, *version| version.* = .{ .path = beak.bytes(try phase.mailPath(key)), .changed_seq = beak.optional(null) };
+    const until: ?*h.beak_selector = if (wait.until) |selector| until: {
+        const made = try arena.create(h.beak_selector);
+        made.* = try beak.selectorOf(arena, selector);
+        break :until made;
+    } else null;
+    phase.ending = endingOf(h.BEAK_ENDING_WAIT, try phase.jsonOf(checkpoint));
+    phase.ending.wait = .{ .on = on.ptr, .on_count = on.len, .on_change = versions.ptr, .on_change_count = versions.len, .until = until, .at = beak.optional(wait.at) };
+}
+
+/// The directory at `path` as it stands now, for a wait on its change: its seq null for not there.
+fn versionOf(phase: *Phase, path: []const u8) !h.beak_version {
+    const found = try phase.runtime.volume.stat(&phase.arena, path);
+    const seq: ?i64 = if (found) |entry| (if (entry.directory) |directory| @intCast(directory.*.changed_seq) else null) else null;
+    return .{ .path = beak.bytes(try phase.arena.dupe(u8, path)), .changed_seq = beak.optional(seq) };
+}
+
 /// The fiber sleeps until the mail of `key` is in its mailbox — at once, where it is there already — then runs from
 /// `checkpoint`, as a receive of one type of message does: mail of any other key leaves it sleeping.
 pub fn waitForMail(phase: *Phase, checkpoint: anytype, key: []const u8) !void {
-    // Its directory waited on as one not there, the fiber wakes once it is there.
-    const versions = try phase.arena.dupe(h.beak_version, &.{.{ .path = beak.bytes(try phase.mailPath(key)), .changed_seq = beak.optional(null) }});
-    phase.waitOnChange(try phase.jsonOf(checkpoint), versions);
+    try phase.waitFor(checkpoint, .{ .mail = &.{key} });
 }
 
 /// The fiber sleeps until the process at `path` ends, then runs from `checkpoint`.
 pub fn waitForExit(phase: *Phase, checkpoint: anytype, path: []const u8) !void {
-    const on = try phase.arena.dupe(h.beak_bytes, &.{beak.bytes(try phase.arena.dupe(u8, path))});
-    phase.ending = endingOf(h.BEAK_ENDING_WAIT, try phase.jsonOf(checkpoint));
-    phase.ending.wait.on = on.ptr;
-    phase.ending.wait.on_count = on.len;
+    try phase.waitFor(checkpoint, .{ .exits = &.{path} });
 }
 
-/// The fiber sleeps until the directory at `path` changes from what the last commit left — a name made, removed or
-/// relinked in it, or its labels — then runs from `checkpoint`.
+/// The fiber sleeps until the directory at `path` changes from what the last commit left, then runs from `checkpoint`.
 pub fn waitForChange(phase: *Phase, checkpoint: anytype, path: []const u8) !void {
-    try phase.waitForAny(checkpoint, &.{path});
+    try phase.waitFor(checkpoint, .{ .changes = &.{path} });
 }
 
-/// The fiber sleeps until any of the directories at `paths` changes from what the last commit left — as a process
-/// that ends changes its own — then runs from `checkpoint`: as `poll` waits on many, the first to change ending the
-/// wait.
+/// The fiber sleeps until any of the directories at `paths` changes from what the last commit left, then runs from
+/// `checkpoint`: as `poll` waits on many, the first to change ending the wait.
 pub fn waitForAny(phase: *Phase, checkpoint: anytype, paths: []const []const u8) !void {
-    const versions = try phase.arena.alloc(h.beak_version, paths.len);
-    for (paths, versions) |path, *version| {
-        const found = try phase.runtime.volume.stat(&phase.arena, path);
-        const seq: ?i64 = if (found) |entry| (if (entry.directory) |directory| @intCast(directory.*.changed_seq) else null) else null;
-        version.* = .{ .path = beak.bytes(try phase.arena.dupe(u8, path)), .changed_seq = beak.optional(seq) };
-    }
-    phase.waitOnChange(try phase.jsonOf(checkpoint), versions);
-}
-
-/// The fiber sleeps until a directory stands otherwise than as its version in `versions` says — its seq null for not
-/// there — then runs from `checkpoint`; both live as long as the phase's arena.
-fn waitOnChange(phase: *Phase, checkpoint: []const u8, versions: []const h.beak_version) void {
-    phase.ending = endingOf(h.BEAK_ENDING_WAIT, checkpoint);
-    phase.ending.wait.on_change = versions.ptr;
-    phase.ending.wait.on_change_count = versions.len;
+    try phase.waitFor(checkpoint, .{ .changes = paths });
 }
 
 /// The fiber sleeps until the time `at`, then runs from `checkpoint`.
 pub fn waitUntil(phase: *Phase, checkpoint: anytype, at: i64) !void {
-    phase.ending = endingOf(h.BEAK_ENDING_WAIT, try phase.jsonOf(checkpoint));
-    phase.ending.wait.at = beak.optional(at);
+    try phase.waitFor(checkpoint, .{ .at = at });
 }
 
 /// The fiber ends, done, with `result`; null for none.

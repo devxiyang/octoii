@@ -392,3 +392,57 @@ test "a job runs off the loop and is finished on it once its task ends; as the r
     // Closed, the runtime cancelled the job that waited and let go of it, never finishing it.
     try std.testing.expect(slow.dropped and !slow.finished and !slow.ran);
 }
+
+/// A fiber that waits for the mail `k1` or the time 5000, whichever comes first, and ends saying which came.
+fn mailOrTime(_: ?*anyopaque, run: *Phase) anyerror!void {
+    if (run.checkpoint.len == 0) return run.waitFor("waiting", .{ .mail = &.{"k1"}, .at = 5_000 });
+    return run.done(if (try run.mailOf("k1") != null) "mail" else "time");
+}
+
+test "a fiber waiting for mail and a time at once wakes at whichever comes first" {
+    var clock: testing.Clock = .{ .now_ms = 1_000 };
+    const siphon = try testing.open(&clock, .memory);
+    defer siphon.close();
+    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    try siphon.runtime.register(.{ .kind = "test.waking", .phase = mailOrTime });
+    const by_mail = try testing.startFiber(siphon, arena, "f1", "test.waking");
+    const by_time = try testing.startFiber(siphon, arena, "f2", "test.waking");
+    for (0..3) |_| _ = try siphon.runtime.pump();
+    try std.testing.expectEqual(null, try testing.outcomeOf(siphon, &arena, by_mail));
+    try sendMail(siphon, arena, by_mail, "k1", "came");
+    try std.testing.expectEqualStrings("\"mail\"", (try testing.pumpUntilEnded(siphon, &arena, by_mail)).said);
+    try std.testing.expectEqual(null, try testing.outcomeOf(siphon, &arena, by_time));
+    clock.now_ms = 5_000;
+    try std.testing.expectEqualStrings("\"time\"", (try testing.pumpUntilEnded(siphon, &arena, by_time)).said);
+}
+
+/// A fiber that sleeps until a board of project a is there, then ends.
+fn untilBoard(_: ?*anyopaque, run: *Phase) anyerror!void {
+    if (run.checkpoint.len > 0) return run.done("woken");
+    return run.waitFor("watching", .{ .until = .{ .kinds = &.{"test.board"}, .labels = &.{.{ .name = "test.project", .value = "a" }}, .scope = .{ .under = "" } } });
+}
+
+test "a fiber waiting on a selector sleeps through directories it does not pick, and wakes as one it picks is made" {
+    var clock: testing.Clock = .{ .now_ms = 1_000 };
+    const siphon = try testing.open(&clock, .memory);
+    defer siphon.close();
+    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    try siphon.runtime.register(.{ .kind = "test.watching", .phase = untilBoard });
+    const fiber = try testing.startFiber(siphon, arena, "f1", "test.watching");
+    for (0..3) |_| _ = try siphon.runtime.pump();
+    var other: @import("runtime.zig").Changes = .{ .arena = arena };
+    try other.mkdir("test.board:1");
+    try other.label("test.board:1", "test.project", "b");
+    _ = try siphon.runtime.commit(&other);
+    for (0..3) |_| _ = try siphon.runtime.pump();
+    try std.testing.expectEqual(null, try testing.outcomeOf(siphon, &arena, fiber));
+    var picked: @import("runtime.zig").Changes = .{ .arena = arena };
+    try picked.mkdir("test.board:2");
+    try picked.label("test.board:2", "test.project", "a");
+    _ = try siphon.runtime.commit(&picked);
+    try std.testing.expectEqualStrings("\"woken\"", (try testing.pumpUntilEnded(siphon, &arena, fiber)).said);
+}
