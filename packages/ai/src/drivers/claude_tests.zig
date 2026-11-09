@@ -78,7 +78,7 @@ const Gateway = struct {
 };
 
 const opus_and_sonnet =
-    \\{"data":[{"type":"model","id":"claude-opus-5-5","display_name":"Opus 5.5","created_at":"1970-01-01T00:00:00Z"},
+    \\{"data":[{"type":"model","id":"claude-opus-5-5","display_name":"Opus 5.5","created_at":"1970-01-01T00:00:00Z","max_input_tokens":1000000},
     \\ {"type":"model","id":"sonnet","display_name":"Sonnet","created_at":"1970-01-01T00:00:00Z"}],"has_more":false}
 ;
 
@@ -89,7 +89,7 @@ fn modelsOver(arena: Allocator, gateway: *Gateway) !*Models {
     return Models.init(arena, .{ .providers = providers, .host = test_host.host(gateway.network()) });
 }
 
-test "Claude's models are those the gateway lists, costing nothing, and it stands connected as Claude Code is signed in" {
+test "Claude's models are those the gateway lists, in the window Claude Code gives each, costing nothing, and it stands connected as Claude Code is signed in" {
     var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_allocator.deinit();
     const arena = arena_allocator.allocator();
@@ -103,7 +103,9 @@ test "Claude's models are those the gateway lists, costing nothing, and it stand
     const opus = (try models.find(arena, "claude/claude-opus-5-5")).?.model;
     try std.testing.expectEqualStrings("Opus 5.5", opus.name);
     try std.testing.expectEqualStrings("0", opus.pricing.?.prompt);
-    try std.testing.expect(try models.find(arena, "claude/sonnet") != null);
+    try std.testing.expectEqual(@as(?u64, 1_000_000), opus.context_length);
+    // A model whose window Claude Code did not tell is taken to have the window assumed of any.
+    try std.testing.expectEqual(@as(?u64, 200_000), (try models.find(arena, "claude/sonnet")).?.model.context_length);
     const signed_in = try models.status(arena, "claude");
     try std.testing.expect(signed_in.connected);
     try std.testing.expectEqualStrings("person@example.com (max)", signed_in.account.?);

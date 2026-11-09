@@ -71,15 +71,15 @@ fn deleted(call: *Call, url: []const u8) Error!void {
     response.close();
 }
 
-/// The gateway's listing of models, as Anthropic's API lists them: each by the name Claude Code takes, and the name a
-/// person reads.
-const Listing = struct { data: []const struct { id: []const u8, display_name: []const u8 = "" } };
+/// The gateway's listing of models, as Anthropic's API lists them: each by the name Claude Code takes, the name a
+/// person reads, and the window Claude Code gives it — the person's plan's — where it told.
+const Listing = struct { data: []const struct { id: []const u8, display_name: []const u8 = "", max_input_tokens: ?u64 = null } };
 
-/// The models Claude Code offers, each reading images, its window unknown till the gateway tells it, costing nothing.
+/// The models Claude Code offers, each reading images, in the window Claude Code gives it, costing nothing.
 fn list(call: *Call) Error![]const ModelFacts {
     const listing = try listings.answer(Listing, call, .{ .url = try modelsUrl(call) }) orelse return &.{};
     const facts = try call.arena.alloc(ModelFacts, listing.data.len);
-    for (listing.data, facts) |each, *made| made.* = listings.localModel(.{ .id = each.id, .name = each.display_name, .context_length = null, .reads_images = true });
+    for (listing.data, facts) |each, *made| made.* = listings.localModel(.{ .id = each.id, .name = each.display_name, .context_length = each.max_input_tokens, .reads_images = true });
     return facts;
 }
 

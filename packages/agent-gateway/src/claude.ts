@@ -64,6 +64,12 @@ export type Sessions = {
 	readonly list: () => Promise<readonly { readonly id: string; readonly changedAt: number }[]>;
 };
 
+/** A model Claude Code offers: its own row, and the window it gives the model, in tokens, where it told. */
+export type Offered = { readonly model: ModelInfo; readonly window: number | undefined };
+
+/** How many processes of Claude Code ask the windows of the models it offers at once: setting a model by its full name takes it a while. */
+const WINDOW_ASKERS = 3;
+
 /** How long a session no conversation holds may stand unused before it is collected. */
 const COLLECT_AFTER_MS = 24 * 60 * 60 * 1000;
 /** How often the folder is looked over for sessions to collect. */
@@ -74,7 +80,7 @@ export class Claude {
 	readonly #live = new Set<Session>();
 	readonly #sweeper: ReturnType<typeof setInterval>;
 	readonly #collector: ReturnType<typeof setInterval>;
-	#models: Promise<readonly ModelInfo[]> | undefined;
+	#models: Promise<readonly Offered[]> | undefined;
 
 	constructor(options: ClaudeOptions) {
 		this.#options = options;
@@ -150,13 +156,36 @@ export class Claude {
 		return false;
 	}
 
-	/** The models Claude Code offers the person, as it tells them, asked of a process started for it once. */
-	models(): Promise<readonly ModelInfo[]> {
-		this.#models ??= this.#asked((query) => query.supportedModels()).catch((error: unknown) => {
+	/**
+	 * The models Claude Code offers the person, as it tells them, each with the window it gives the model — the person's
+	 * plan's — asked once: the rows of a process started for them, then the windows of a few processes at once, each
+	 * setting its share of the models in turn and reading how much context it has.
+	 */
+	models(): Promise<readonly Offered[]> {
+		this.#models ??= this.#offered().catch((error: unknown) => {
 			this.#models = undefined;
 			throw error;
 		});
 		return this.#models;
+	}
+
+	async #offered(): Promise<readonly Offered[]> {
+		const models = await this.#asked((query) => query.supportedModels());
+		const windows = new Map<string, number>();
+		const shares = Array.from({ length: WINDOW_ASKERS }, (_, at) => models.filter((_, place) => place % WINDOW_ASKERS === at));
+		await Promise.all(
+			shares
+				.filter((share) => share.length > 0)
+				.map((share) =>
+					this.#asked(async (query) => {
+						for (const model of share) {
+							const window = await windowOf(query, model.value);
+							if (window !== undefined) windows.set(model.value, window);
+						}
+					}),
+				),
+		);
+		return models.map((model) => ({ model, window: windows.get(model.value) }));
 	}
 
 	/** The command a person signs Claude Code in with, for the account the gateway answers for. */
@@ -422,4 +451,15 @@ const EFFORTS: readonly NonNullable<Options["effort"]>[] = ["low", "medium", "hi
 /** The effort the request asks for, where it is one Claude Code takes. */
 function effortOf(effort: string | undefined): Options["effort"] {
 	return EFFORTS.find((each) => each === effort);
+}
+
+/** The window Claude Code gives the model `value`, in tokens, set on `query`; none where it would not set it or tell. */
+async function windowOf(query: Query, value: string): Promise<number | undefined> {
+	try {
+		await query.setModel(value);
+		const usage = await query.getContextUsage({ detail: "summary" });
+		return usage.rawMaxTokens > 0 ? usage.rawMaxTokens : undefined;
+	} catch {
+		return undefined;
+	}
 }

@@ -49,8 +49,25 @@ class Played {
 		this.#wake?.();
 	}
 
+	/** The models it offers: Opus, whose window is a million tokens, Haiku, two hundred thousand, and one it will not set. */
 	supportedModels(): Promise<{ value: string; displayName: string; description: string }[]> {
-		return Promise.resolve([{ value: "opus", displayName: "Opus", description: "" }]);
+		return Promise.resolve([
+			{ value: "opus", displayName: "Opus", description: "" },
+			{ value: "claude-haiku-4-5", displayName: "Haiku 4.5", description: "" },
+			{ value: "retired", displayName: "Retired", description: "" },
+		]);
+	}
+
+	#model = "opus";
+
+	setModel(value: string): Promise<void> {
+		if (value === "retired") return Promise.reject(new Error("no such model"));
+		this.#model = value;
+		return Promise.resolve();
+	}
+
+	getContextUsage(): Promise<{ rawMaxTokens: number }> {
+		return Promise.resolve({ rawMaxTokens: this.#model === "opus" ? 1_000_000 : 200_000 });
 	}
 
 	accountInfo(): Promise<AccountInfo> {
@@ -471,6 +488,20 @@ describe("Claude through Claude Code", () => {
 		await holds.hold("thread-1", "held");
 		await claude.collect();
 		expect(folder.removed).toEqual(["stale"]);
+		claude.close();
+	});
+
+	it("lists the models Claude Code offers, each with the window it gives it, where it tells", async () => {
+		const positions = await Positions.open(undefined);
+		const claude = claudeOf(positions, []);
+		const listed = await handlerOf({ claude })(new Request("http://gateway/claude/v1/models"));
+		expect(await listed.json()).toMatchObject({
+			data: [
+				{ id: "opus", display_name: "Opus", max_input_tokens: 1_000_000 },
+				{ id: "claude-haiku-4-5", display_name: "Haiku 4.5", max_input_tokens: 200_000 },
+				{ id: "retired", display_name: "Retired" },
+			],
+		});
 		claude.close();
 	});
 

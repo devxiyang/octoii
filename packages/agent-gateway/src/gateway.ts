@@ -84,11 +84,17 @@ async function signedOut(claude: Claude): Promise<Response> {
 	}
 }
 
-/** The models, as the API lists them: each by the name Claude Code takes, and the name a person reads. */
+/** The models, as the API lists them: each by the name Claude Code takes, the name a person reads, and its window where Claude Code told it. */
 async function models(claude: Claude): Promise<Response> {
 	try {
 		const offered = await claude.models();
-		const data = offered.map((model) => ({ type: "model", id: model.value, display_name: model.displayName, created_at: "1970-01-01T00:00:00Z" }));
+		const data = offered.map(({ model, window }) => ({
+			type: "model",
+			id: model.value,
+			display_name: model.displayName,
+			created_at: "1970-01-01T00:00:00Z",
+			max_input_tokens: window,
+		}));
 		return Response.json({ data, has_more: false, first_id: data[0]?.id ?? null, last_id: data.at(-1)?.id ?? null });
 	} catch (error) {
 		return errorResponse("api_error", error instanceof Error ? error.message : String(error));
