@@ -223,7 +223,7 @@ pub const Volume = struct {
     handle: h.beak_handle,
 
     pub fn open(device: h.beak_device, time: i64) Error!Volume {
-        const options: h.beak_volume_options = .{ .time = time, .running_max = 0, .term_grace_ms = optional(null) };
+        const options: h.beak_volume_options = .{ .time = time, .running_max = 0, .term_grace_ms = optional(null), .zombie_retention_ms = optional(null) };
         var handle: h.beak_handle = 0;
         try check(h.beak_volume_open(&device, &options, &handle));
         return .{ .handle = handle };
@@ -353,5 +353,47 @@ pub const Volume = struct {
         return .{ .sets = items(h.beak_change_set, sets, count), .oldest = if (get(oldest)) |seq| @intCast(seq) else null, .latest = latest };
     }
 
+    /// The ways the journal's changes after a commit met a set of selectors: each match, in order; the last commit read,
+    /// from which a reader reads on; the oldest commit the journal keeps; and the latest commit.
+    pub const Matches = struct { matches: []const h.beak_match, through: u64, oldest: ?u64, latest: u64 };
+
+    /// The ways the changes after the commit `after` met `selectors`, the change sets read at most `limit`, in `arena`:
+    /// a watch through selectors, read on from `through`.
+    pub fn matches(volume: Volume, arena: *const Allocator, after: u64, limit: usize, selectors: []const h.beak_selector) Error!Matches {
+        const allocator = outputs(arena);
+        var matched: [*c]h.beak_match = null;
+        var count: usize = 0;
+        var through: u64 = 0;
+        var oldest: h.beak_optional = undefined;
+        var latest: u64 = 0;
+        try check(h.beak_volume_matches(volume.handle, after, limit, selectors.ptr, selectors.len, &allocator, &matched, &count, &through, &oldest, &latest));
+        return .{ .matches = items(h.beak_match, matched, count), .through = through, .oldest = if (get(oldest)) |seq| @intCast(seq) else null, .latest = latest };
+    }
+
     const page_entries = 256;
 };
+
+test "a watch through selectors tells the directories a selector picks, and where to read on from" {
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const volume = try Volume.open(.{ .type = h.BEAK_DEVICE_MEMORY, .path = bytes("") }, 1);
+    defer volume.close();
+    var board = std.mem.zeroes(h.beak_change);
+    board.type = h.BEAK_CHANGE_MKDIR;
+    board.path = bytes("notes.board:1");
+    var shelf = board;
+    shelf.path = bytes("notes.shelf:2");
+    const seq = try volume.commit(10, &.{ board, shelf });
+    const kinds = [_]h.beak_bytes{bytes("notes.board")};
+    var selector = std.mem.zeroes(h.beak_selector);
+    selector.kinds = &kinds;
+    selector.kind_count = kinds.len;
+    selector.scope = h.BEAK_SCOPE_UNDER;
+    const found = try volume.matches(&arena, 0, 10, &.{selector});
+    try std.testing.expectEqual(seq, found.through);
+    try std.testing.expectEqual(1, found.matches.len);
+    try std.testing.expectEqual(@as(h.beak_match_how, h.BEAK_MATCH_WRITTEN), found.matches[0].how);
+    try std.testing.expectEqualStrings("notes.board:1", slice(found.matches[0].path));
+    try std.testing.expectEqual(0, (try volume.matches(&arena, found.through, 10, &.{selector})).matches.len);
+}

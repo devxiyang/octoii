@@ -47,7 +47,8 @@ pub fn build(b: *std.Build) void {
     withScriptEngine(b, tested, quickts, engine);
     tested.linkLibrary(codecs);
     tested.linkLibrary(grammar);
-    const tests = b.addTest(.{ .root_module = tested });
+    const filters = b.option([]const []const u8, "test-filter", "Run only the tests whose names hold this") orelse &.{};
+    const tests = b.addTest(.{ .root_module = tested, .filters = filters });
     const run_tests = b.addRunArtifact(tests);
     const test_step = b.step("test", "Run Siphon's tests");
     test_step.dependOn(&run_tests.step);
