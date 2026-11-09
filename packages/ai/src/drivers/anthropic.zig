@@ -24,11 +24,17 @@ pub const driver: seam.Driver = .{ .id = "anthropic", .name = "Anthropic", .cata
 pub const build = request_.build;
 
 fn text(call: *seam.Call, model: *const Model, request: *const vocabulary.ResponsesRequest) Error!seam.TextSource {
+    return textAt(call, model, request, base_url, &.{.{ .name = "x-api-key", .value = try call.apiKey() }});
+}
+
+/// The events of `request` as a server of Anthropic's Messages API at `default_url` — unless its provider names
+/// another — answers them, its requests sent with `credentials`, the headers that say who asks: for a driver whose
+/// server speaks Anthropic's API.
+pub fn textAt(call: *seam.Call, model: *const Model, request: *const vocabulary.ResponsesRequest, default_url: []const u8, credentials: []const foundation.http.Header) Error!seam.TextSource {
     const built = try request_.build(call, model, request.*);
-    const key = try call.apiKey();
     var headers: std.ArrayList(foundation.http.Header) = .empty;
+    try headers.appendSlice(call.arena, credentials);
     try headers.appendSlice(call.arena, &.{
-        .{ .name = "x-api-key", .value = key },
         .{ .name = "anthropic-version", .value = wire.api_version },
         .{ .name = "accept", .value = "text/event-stream" },
         .{ .name = "content-type", .value = "application/json" },
@@ -37,6 +43,7 @@ fn text(call: *seam.Call, model: *const Model, request: *const vocabulary.Respon
     const source = try call.arena.create(Source);
     source.* = .{
         .call = call,
+        .url = try call.arena.print("{s}/messages", .{call.baseUrl(default_url)}),
         .request = built.request,
         .options = try json.ownOptions(call.arena, request, "anthropic"),
         .headers = headers.items,
@@ -49,6 +56,8 @@ fn text(call: *seam.Call, model: *const Model, request: *const vocabulary.Respon
 /// The events of one response, each piece of a paused answer asked for in turn.
 const Source = struct {
     call: *seam.Call,
+    /// Where its requests go.
+    url: []const u8,
     request: wire.Request,
     /// The request's own settings for Anthropic, set over its body.
     options: ?std.json.ObjectMap,
@@ -64,7 +73,7 @@ const Source = struct {
         const body = foundation.json.merged(.{ source.request, source.options });
         const response = try http.send(call, .{
             .method = .POST,
-            .url = try call.arena.print("{s}/messages", .{call.baseUrl(base_url)}),
+            .url = source.url,
             .headers = source.headers,
             .body = try foundation.json.encode(call.arena, body),
         });

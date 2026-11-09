@@ -60,6 +60,7 @@ pub const drivers = struct {
     pub const google = @import("drivers/google.zig");
     pub const chatgpt = @import("drivers/chatgpt.zig");
     pub const deepgram = @import("drivers/deepgram.zig");
+    pub const claude = @import("drivers/claude.zig");
 };
 pub const testing = struct {
     pub const Host = @import("testing/host.zig").Host;
@@ -140,6 +141,7 @@ test {
     _ = @import("drivers/responses_providers_tests.zig");
     _ = @import("drivers/chat_completions_tests.zig");
     _ = @import("drivers/local_servers_tests.zig");
+    _ = @import("drivers/claude_tests.zig");
     _ = @import("drivers/google_tests.zig");
     _ = @import("drivers/chatgpt_tests.zig");
     _ = @import("drivers/openrouter_media_tests.zig");
