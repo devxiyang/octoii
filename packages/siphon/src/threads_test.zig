@@ -152,12 +152,14 @@ test "a thread's model, title, mode and how the person keeps it are changed as t
     try std.testing.expectEqualStrings("Named", manifest.title.?);
     try std.testing.expectEqualStrings("fake/other", manifest.model.?);
     try std.testing.expectEqualStrings("/w", manifest.workspace.?);
-    // How the person keeps it: pinned, archived, snoozed — each changed alone, the rest kept.
+    // How the person keeps it: pinned, archived, snoozed, seen — each changed alone, the rest kept.
     try threads.configure(siphon.runtime, arena, tid, .{ .pinned = true, .snoozed_until = 5_000 });
     try threads.configure(siphon.runtime, arena, tid, .{ .archived = true });
+    try threads.configure(siphon.runtime, arena, tid, .{ .seen_until = 7_000 });
     const kept = try threads.manifestOf(siphon.runtime.volume, &arena, thread);
     try std.testing.expect(kept.pinned and kept.archived);
     try std.testing.expectEqual(@as(?i64, 5_000), kept.snoozed_until);
+    try std.testing.expectEqual(@as(?i64, 7_000), kept.seen_until);
     try std.testing.expectEqualStrings("Named", kept.title.?);
     try std.testing.expectError(error.NoSuchThread, threads.configure(siphon.runtime, arena, "01990000-0000-7000-8000-000000000000", .{ .title = "x" }));
 }

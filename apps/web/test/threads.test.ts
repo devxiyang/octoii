@@ -3,9 +3,14 @@ import { describe, expect, it } from "bun:test";
 import type { Listed, State } from "@octoii-works/octoii-client";
 import {
 	activeAt,
+	arrivedAt,
+	canMarkUnread,
 	folderName,
+	isOpen,
+	isUnread,
 	lineOf,
 	matchingRows,
+	OPEN_FOR_MS,
 	projectOf,
 	projectsOf,
 	rowsBySection,
@@ -37,6 +42,18 @@ function idAt(ms: number): string {
 	return `${time.slice(0, 8)}-${time.slice(8)}-7000-8000-000000000001`;
 }
 
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+/** A thread a call of which asks the person to let it, the ask minted at `at`. */
+const asking = (at: number): State => ({
+	...idle,
+	status: "running",
+	began_at: at - 10,
+	processes: [{ key: "call", program: "siphon.call", state: "sleeping", requests: [{ key: idAt(at), name: "permission", answer: {} }] }],
+});
+
 describe("the threads", () => {
 	it("stand as what waits on the person first, then work, then how the last turn ended", () => {
 		const asking: State = {
@@ -61,39 +78,81 @@ describe("the threads", () => {
 	});
 
 	it("are found by their titles and projects, and those that work are kept apart", () => {
-		const rows = [row("2", "/w/octoii", idle, "Fix the build"), row("1", undefined, { ...idle, status: "running" })];
+		const rows = [row("2", "/w/octoii", { ...idle, ended_at: 900 }, "Fix the build"), row("1", undefined, { ...idle, status: "running" })];
 		expect(matchingRows(rows, "BUILD").map((each) => each.id)).toEqual(["2"]);
 		expect(matchingRows(rows, "octo").map((each) => each.id)).toEqual(["2"]);
-		const { active, working } = rowsBySection(rows, 0, standingsOf(rows));
-		expect([active.map((each) => each.id), working.map((each) => each.id)]).toEqual([["2"], ["1"]]);
+		const { open, working } = rowsBySection(rows, 1_000, standingsOf(rows));
+		expect([open.map((each) => each.id), working.map((each) => each.id)]).toEqual([["2"], ["1"]]);
 		expect([threadTitle(rows[0] ?? row("x", undefined)), threadTitle(rows[1] ?? row("x", undefined))]).toEqual(["Fix the build", "New thread"]);
+	});
+
+	it("stand open while they ask the person, or brought them something within a week; else among the earlier, by themselves", () => {
+		const now = 30 * DAY;
+		const rows = [
+			row("never ran", undefined),
+			row("last week", undefined, { ...idle, ended_at: now - 8 * DAY }),
+			row("this morning", undefined, { ...idle, ended_at: now - HOUR }),
+			row("asked long ago", undefined, asking(now - 20 * DAY)),
+			row("a minute ago", undefined, { ...idle, status: "failed", ended_at: now - MINUTE }),
+			row("last month", undefined, { ...idle, ended_at: now - 25 * DAY }),
+		];
+		const { open, earlier } = rowsBySection(rows, now, standingsOf(rows));
+		// What asks the person stands first, however long it has waited; then what came, the latest first.
+		expect(open.map((each) => each.id)).toEqual(["asked long ago", "a minute ago", "this morning"]);
+		expect(earlier.map((each) => each.id)).toEqual(["last week", "last month", "never ran"]);
+		expect(isOpen(rows[2] ?? row("x", undefined), standingsOf(rows)(rows[2] ?? row("x", undefined)), now + OPEN_FOR_MS)).toBe(false);
 	});
 
 	it("pinned stand atop, snoozed apart till their time comes, and archived in no section", () => {
 		const now = 1_000_000;
+		const resting: State = { ...idle, ended_at: now - 1 };
 		const rows = [
 			{ ...row("5", undefined), manifest: { ...row("5", undefined).manifest, pinned: true } },
-			{ ...row("4", undefined), manifest: { ...row("4", undefined).manifest, snoozed_until: now + 1 } },
-			{ ...row("3", undefined), manifest: { ...row("3", undefined).manifest, snoozed_until: now - 1 } },
-			{ ...row("2", undefined), manifest: { ...row("2", undefined).manifest, archived: true } },
-			row("1", undefined),
+			{ ...row("4", undefined, resting), manifest: { ...row("4", undefined).manifest, snoozed_until: now + 1 } },
+			{ ...row("3", undefined, resting), manifest: { ...row("3", undefined).manifest, snoozed_until: now - 1 } },
+			{ ...row("2", undefined, resting), manifest: { ...row("2", undefined).manifest, archived: true } },
+			row("1", undefined, resting),
 		];
 		const sections = rowsBySection(rows, now, standingsOf(rows));
 		expect(sections.pinned.map((each) => each.id)).toEqual(["5"]);
 		expect(sections.snoozed.map((each) => each.id)).toEqual(["4"]);
-		expect(sections.active.map((each) => each.id)).toEqual(["3", "1"]);
-		expect(sections.working).toEqual([]);
+		expect(sections.open.map((each) => each.id)).toEqual(["3", "1"]);
+		expect([sections.working, sections.earlier]).toEqual([[], []]);
+	});
+
+	it("brought the person something as they asked, or as their last turn ended; unread till the person has seen it", () => {
+		const resting = row("1", undefined, { ...idle, ended_at: 5_000 });
+		const standingOf = standingsOf([resting]);
+		expect(arrivedAt(resting, standingOf(resting))).toBe(5_000);
+		expect(isUnread(resting, standingOf(resting))).toBe(true);
+		const seen = { ...resting, manifest: { ...resting.manifest, seen_until: 5_000 } };
+		expect([isUnread(seen, standingOf(seen)), canMarkUnread(seen, standingOf(seen))]).toEqual([false, true]);
+		// A turn that ends after what was seen brings something new.
+		const again = { ...seen, state: { ...seen.state, ended_at: 9_000 } };
+		expect([isUnread(again, standingOf(again)), canMarkUnread(again, standingOf(again))]).toEqual([true, false]);
+		// What works, or never ran, brought nothing yet: never unread, nothing to mark unread.
+		const working = row("2", undefined, { ...idle, status: "running", began_at: 9_500 });
+		const never = row("3", undefined);
+		for (const each of [working, never]) {
+			expect(arrivedAt(each, standingsOf([each])(each))).toBe(0);
+			expect([isUnread(each, standingsOf([each])(each)), canMarkUnread(each, standingsOf([each])(each))]).toEqual([false, false]);
+		}
+		// What a sub-thread asks the person is its parent's to bring: the parent's card stands for it.
+		const parent = row("4", undefined, { ...idle, ended_at: 1_000 });
+		const sub = delegated(row("5", undefined, asking(7_000)), "4");
+		const tree = standingsOf([parent, sub]);
+		expect(arrivedAt(parent, tree(parent))).toBe(7_000);
 	});
 
 	it("stand for their sub-threads, which are in no section where they are among the rows", () => {
 		const parent = row("2", undefined);
 		const sub = delegated(row("3", undefined, { ...idle, status: "running", began_at: 50 }), "2");
-		const orphan = delegated(row("4", undefined), "9");
+		const orphan = delegated(row("4", undefined, { ...idle, ended_at: 60 }), "9");
 		const rows = [orphan, sub, parent];
-		const sections = rowsBySection(rows, 0, standingsOf(rows));
+		const sections = rowsBySection(rows, 100, standingsOf(rows));
 		// The parent works while its sub-thread does, though it is at rest itself.
 		expect(sections.working.map((each) => each.id)).toEqual(["2"]);
-		expect(sections.active.map((each) => each.id)).toEqual(["4"]);
+		expect(sections.open.map((each) => each.id)).toEqual(["4"]);
 		expect(subThreadsOf(rows, "2").map((each) => each.id)).toEqual(["3"]);
 		expect(
 			subThreadsBy(rows)
@@ -103,12 +162,6 @@ describe("the threads", () => {
 	});
 
 	it("stand with their sub-threads at any depth: waiting on the person first, since the newest ask; then working, since the first began", () => {
-		const asking = (at: number): State => ({
-			...idle,
-			status: "running",
-			began_at: at - 10,
-			processes: [{ key: "call", program: "siphon.call", state: "sleeping", requests: [{ key: idAt(at), name: "permission", answer: {} }] }],
-		});
 		const top = row("1", undefined, { ...idle, status: "running", began_at: 100 });
 		const middle = delegated(row("2", undefined, { ...idle, status: "running", began_at: 200 }), "1");
 		const deepest = delegated(row("3", undefined, asking(5_000)), "2");
@@ -120,7 +173,9 @@ describe("the threads", () => {
 		expect(standingOf(middle)).toEqual({ status: "asks", since: 5_000 });
 		// An archived sub-thread's ask is none of its parent's.
 		expect(standingOf(resting)).toEqual({ status: "working", since: 400 });
-		expect(standingOf(row("7", undefined, { ...idle, status: "failed", began_at: 700 }))).toEqual({ status: "failed", since: 700 });
+		// One at rest stands so since its last turn ended, or since it began where the end is not told.
+		expect(standingOf(row("7", undefined, { ...idle, status: "failed", began_at: 700, ended_at: 750 }))).toEqual({ status: "failed", since: 750 });
+		expect(standingOf(row("8", undefined, { ...idle, began_at: 800 }))).toEqual({ status: "ready", since: 800 });
 	});
 
 	it("are marked with those above them: the thread a sub-thread works for, and on up", () => {

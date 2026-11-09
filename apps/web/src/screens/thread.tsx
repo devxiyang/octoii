@@ -5,6 +5,7 @@
  * it, topmost, while it waits; and its details at the chat's top right, where the chat has room beside its column, the
  * column centred in the room the card leaves. Beside the chat, the right panel, where it is shown, which a path a
  * message names opens in; filling the chat's place where the person has it so, the chat kept as it was beneath it.
+ * What the thread brought is seen as it is shown.
  */
 import type { CSSProperties, ReactNode } from "react";
 import type { Conversation, Listed } from "@octoii-works/octoii-client";
@@ -24,6 +25,7 @@ import { placePanel, usePanelPlace } from "../components/state/panel.ts";
 import { useDetailsShown } from "../components/state/details.ts";
 import { cn } from "../components/ui/cn.ts";
 import { failed } from "../components/state/notices.ts";
+import { useSeen } from "../components/effects/seen.ts";
 
 /** What a thread's page is given: its thread, the device's settings, and the sidebar's state. */
 export type ThreadScreenProps = {
@@ -39,6 +41,7 @@ export function ThreadScreen(props: ThreadScreenProps): ReactNode {
 	const client = useClient();
 	const conversation = useConversation(thread);
 	const row = useThreads()?.find((each) => each.id === thread);
+	useSeen(thread);
 	const rows = rowsOf(conversation);
 	const project = row === undefined ? undefined : projectOf(row);
 	const panelPlace = usePanelPlace();

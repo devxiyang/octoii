@@ -1,7 +1,7 @@
 /**
  * What the person set for the device the page runs on, as the node keeps it for the device's session: the theme and its
- * palette, contrast and glass, how wide the chat grows, what sends a message, how the sidebar groups threads and how
- * wide it is, how wide the right panel is, how the diff lays out its sides, whether code views wrap their long lines,
+ * palette, contrast and glass, how wide the chat grows, what sends a message, how wide the sidebar and the right panel
+ * are, how the diff lays out its sides, whether code views wrap their long lines,
  * and whether the Files view shows its tree — each with its default where nothing is set. What is kept is read through the schema of what it may hold;
  * whatever else it holds is left.
  */
@@ -12,7 +12,6 @@ import { type Static, Type } from "typebox";
 const DeviceSchema = Type.Object({
 	theme: Type.Union([Type.Literal("system"), Type.Literal("light"), Type.Literal("dark")]),
 	send_shortcut: Type.Union([Type.Literal("enter"), Type.Literal("mod-enter")]),
-	sidebar_grouping: Type.Union([Type.Literal("status"), Type.Literal("project")]),
 	sidebar_width: Type.Number(),
 	panel_width: Type.Number(),
 	palette: Type.Union([
@@ -44,7 +43,6 @@ export type DeviceChange = Partial<Device>;
 export const DEVICE_DEFAULTS: Device = {
 	theme: "system",
 	send_shortcut: "enter",
-	sidebar_grouping: "status",
 	sidebar_width: 256,
 	panel_width: 560,
 	palette: "default",

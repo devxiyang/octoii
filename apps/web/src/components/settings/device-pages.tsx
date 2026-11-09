@@ -1,6 +1,6 @@
 /**
- * The settings of this device: general (how the sidebar groups threads, and how the code views — a file's and a
- * diff's — lay out what they show), appearance (light, dark or the system's, the palette, contrast, glass and the
+ * The settings of this device: general (how the code views — a file's and a diff's — lay out what they show),
+ * appearance (light, dark or the system's, the palette, contrast, glass and the
  * chat's width) and chat (what sends a message). The node keeps them for the device's session.
  */
 import type { ReactNode } from "react";
@@ -20,15 +20,6 @@ type DevicePageProps = { readonly device: Device; readonly set: (change: DeviceC
 export function GeneralPage(props: DevicePageProps): ReactNode {
 	return (
 		<Page>
-			<Section title="Sidebar">
-				<Row title="Group threads by project" description="List the active threads under their projects rather than by how they stand.">
-					<Switch
-						aria-label="Group threads by project"
-						checked={props.device.sidebar_grouping === "project"}
-						onCheckedChange={(on) => props.set({ sidebar_grouping: on ? "project" : "status" })}
-					/>
-				</Row>
-			</Section>
 			<Section title="Files and diffs">
 				<Row title="Wrap long lines" description="Long lines of a file and of a diff wrap onto the next, rather than scroll.">
 					<Switch aria-label="Wrap long lines" checked={props.device.wrap_lines} onCheckedChange={(wrap_lines) => props.set({ wrap_lines })} />

@@ -1,30 +1,30 @@
 /**
- * A thread's row in the sidebar: a card of its title over its project's monogram and name, its model, how many
- * sub-threads it delegated to, and on the right how it stands with them — waiting on the person, running for how long,
- * the time going on, or failed — when it began where it is at rest, or till when it is snoozed. Its sub-threads have no
- * cards: they open from its timeline and its details. A right click opens the thread's menu: pin it, snooze it till a time,
+ * A thread's row in the sidebar. A card for one pinned, open to the person, working or snoozed: its project over its
+ * title — the project's monogram in its hue and its name, which shows the project's threads alone, how many sub-threads
+ * it delegated to, and on the right how it stands with them: waiting on the person, running for how long, failed, when
+ * it came to rest, or till when it is snoozed — the title in full weight while what it brought is unread. A line for
+ * one of the earlier: its monogram, its title and how it stands. Its sub-threads have no rows: they open from its
+ * timeline and its details. A right click opens the thread's menu: mark it unread, pin it, snooze it till a time,
  * rename it, show its project's threads alone, copy its id, archive it, or delete it once the person says so again.
  */
 import { type ReactNode, useState } from "react";
 import type { Configured, Listed } from "@octoii-works/octoii-client";
 import { useClient } from "@octoii-works/octoii-client/react";
-import { AlarmClock, AlarmClockOff, Archive, Bot, Copy, FolderTree, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
-import { isPinned, isSnoozed, projectOf, snoozeTimes, threadTitle, type ThreadStanding } from "../../core/threads.ts";
-import { type Directory, modelLabel } from "../../core/models.ts";
+import { AlarmClock, AlarmClockOff, Archive, Bot, CircleDot, Copy, FolderTree, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
+import { canMarkUnread, isPinned, isSnoozed, isUnread, type Project, projectOf, snoozeTimes, threadTitle, type ThreadStanding } from "../../core/threads.ts";
 import { runningTime, shortAgo, wakeLabel } from "../../core/time.ts";
 import { Counting } from "../effects/now.ts";
 import { go } from "../state/navigation.ts";
+import { failed } from "../state/notices.ts";
 import { ContextMenu, ContextMenuPopup, ContextMenuTrigger, MenuItem, MenuItemLabel, MenuPopup, MenuSeparator, MenuSub, MenuSubTrigger } from "../ui/menu.tsx";
 import { cn } from "../ui/cn.ts";
 import { Monogram } from "../ui/monogram.tsx";
 import { StatusMark } from "../thread/status-mark.tsx";
 import { DeleteDialog } from "./delete-dialog.tsx";
-import { failed } from "../state/notices.ts";
 
 /**
  * What a row shows besides its thread: how it stands with its sub-threads and how many they are, whether it is the
- * thread shown or the one a sub-thread shown works for, the time now, the models its model is named from, and the
- * project filter.
+ * thread shown or the one a sub-thread shown works for, the time now, and the project filter.
  */
 type RowProps = {
 	readonly row: Listed;
@@ -32,51 +32,32 @@ type RowProps = {
 	readonly subThreads: number;
 	readonly current: boolean;
 	readonly now: number;
-	readonly directory: Directory | undefined;
 	readonly onFilter: (folder: string) => void;
 };
 
 /** A thread's card. */
 export function ThreadCard(props: RowProps): ReactNode {
-	const { row, current } = props;
+	const { row, standing } = props;
 	const [renaming, setRenaming] = useState(false);
 	const [deleting, setDeleting] = useState(false);
-	const { status } = props.standing;
-	// What waits on the person, what failed and the thread shown stand out; what works or rests recedes.
-	const recede = status === "working" || (status === "ready" && !current);
 	const project = projectOf(row);
-	const model = row.manifest.model;
 	return (
 		<li className="py-px">
 			<ContextMenu>
 				<ContextMenuTrigger
-					aria-current={current ? "page" : undefined}
-					className="group/row relative block w-full cursor-pointer rounded-lg border border-transparent px-2.5 py-2 hover:bg-sidebar-row-hover data-popup-open:bg-sidebar-row-hover aria-[current=page]:border-sidebar-border aria-[current=page]:bg-sidebar-row-active aria-[current=page]:shadow-xs/5"
+					aria-current={props.current ? "page" : undefined}
+					className="group/row relative grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-x-1.5 gap-y-1 rounded-lg border border-transparent px-2.5 py-2 hover:bg-sidebar-row-hover data-popup-open:bg-sidebar-row-hover aria-[current=page]:border-sidebar-border aria-[current=page]:bg-sidebar-row-active aria-[current=page]:shadow-xs/5"
 					onClick={() => go({ place: "thread", thread: row.id })}
 				>
-					{renaming ? (
-						<TitleField row={row} onDone={() => setRenaming(false)} />
-					) : (
-						<div className={cn("truncate text-sm", recede ? "text-sidebar-foreground/80" : "font-medium text-sidebar-foreground")}>{threadTitle(row)}</div>
-					)}
-					<div className="mt-0.5 flex h-4 items-center gap-1.5 text-xs text-sidebar-muted">
-						<Monogram name={project?.name ?? "No project"} faded={project === undefined} />
-						<span className="max-w-1/2 shrink-0 truncate">{project?.name ?? "No project"}</span>
-						{model === undefined ? (
-							<span className="flex-1" />
-						) : (
-							<>
-								<span aria-hidden>·</span>
-								<span className="min-w-0 flex-1 truncate">{modelLabel(model, props.directory)}</span>
-							</>
-						)}
-						{props.subThreads === 0 ? null : (
-							<span title={`${String(props.subThreads)} sub-threads`} className="flex shrink-0 items-center gap-0.5 tabular-nums">
-								<Bot className="size-3.5" />
-								{props.subThreads}
-							</span>
-						)}
-						<StatusSlot row={row} standing={props.standing} now={props.now} />
+					<Monogram name={project?.name ?? "No project"} size="md" faded={project === undefined} />
+					<div className="flex h-5 min-w-0 items-center gap-1.5 text-xs">
+						<ProjectName project={project} onFilter={props.onFilter} />
+						<span className="flex-1" />
+						<SubThreads count={props.subThreads} />
+						<StatusSlot row={row} standing={standing} now={props.now} />
+					</div>
+					<div className="col-start-2 flex min-w-0 items-center">
+						{renaming ? <TitleField row={row} onDone={() => setRenaming(false)} /> : <Title row={row} standing={standing} />}
 					</div>
 				</ContextMenuTrigger>
 				<RowMenu {...props} onRename={() => setRenaming(true)} onDelete={() => setDeleting(true)} />
@@ -84,6 +65,83 @@ export function ThreadCard(props: RowProps): ReactNode {
 			<DeleteDialog row={row} open={deleting} onOpenChange={setDeleting} />
 		</li>
 	);
+}
+
+/** One of the earlier threads, as a line: its project's monogram, its title, and how it stands. */
+export function ThreadLine(props: RowProps): ReactNode {
+	const { row, standing } = props;
+	const [renaming, setRenaming] = useState(false);
+	const [deleting, setDeleting] = useState(false);
+	const project = projectOf(row);
+	return (
+		<li>
+			<ContextMenu>
+				<ContextMenuTrigger
+					aria-current={props.current ? "page" : undefined}
+					className="group/row flex h-control w-full cursor-pointer items-center gap-1.5 rounded-lg border border-transparent px-2.5 text-xs hover:bg-sidebar-row-hover data-popup-open:bg-sidebar-row-hover aria-[current=page]:border-sidebar-border aria-[current=page]:bg-sidebar-row-active"
+					onClick={() => go({ place: "thread", thread: row.id })}
+				>
+					<Monogram name={project?.name ?? "No project"} faded />
+					{renaming ? (
+						<TitleField row={row} onDone={() => setRenaming(false)} />
+					) : (
+						<span className="min-w-0 flex-1 truncate text-ui text-sidebar-foreground/70 group-hover/row:text-sidebar-foreground">{threadTitle(row)}</span>
+					)}
+					<span className="text-sidebar-muted">
+						<StatusSlot row={row} standing={standing} now={props.now} />
+					</span>
+				</ContextMenuTrigger>
+				<RowMenu {...props} onRename={() => setRenaming(true)} onDelete={() => setDeleting(true)} />
+			</ContextMenu>
+			<DeleteDialog row={row} open={deleting} onOpenChange={setDeleting} />
+		</li>
+	);
+}
+
+/** The project's name, which shows the project's threads alone; words of no project where the thread works in none. */
+function ProjectName(props: { readonly project: Project | undefined; readonly onFilter: (folder: string) => void }): ReactNode {
+	const { project } = props;
+	if (project === undefined) return <span className="truncate text-sidebar-muted">No project</span>;
+	return (
+		<button
+			type="button"
+			title={`Show ${project.name}'s threads alone`}
+			className="min-w-0 truncate font-medium text-sidebar-foreground hover:underline"
+			onClick={(event) => {
+				event.stopPropagation();
+				props.onFilter(project.folder);
+			}}
+		>
+			{project.name}
+		</button>
+	);
+}
+
+/** A thread's title: in full weight while what it brought is unread, quieter once seen. */
+function Title(props: { readonly row: Listed; readonly standing: ThreadStanding }): ReactNode {
+	const unread = isUnread(props.row, props.standing);
+	return (
+		<span className={cn("min-w-0 flex-1 truncate text-sm", unread ? "font-medium text-sidebar-foreground" : "text-sidebar-foreground/80")}>
+			{threadTitle(props.row)}
+		</span>
+	);
+}
+
+/** How many sub-threads a thread delegated to; nothing where it delegated to none. */
+function SubThreads(props: { readonly count: number }): ReactNode {
+	if (props.count === 0) return null;
+	return (
+		<span title={`${String(props.count)} sub-threads`} className="flex shrink-0 items-center gap-0.5 text-sidebar-muted tabular-nums">
+			<Bot className="size-3.5" />
+			{props.count}
+		</span>
+	);
+}
+
+/** How the thread's changes go to the node, what it refused told as a notice. */
+function useChange(row: Listed): (changes: Configured) => void {
+	const client = useClient();
+	return (changes) => void client.configure(row.id, changes).catch((error: unknown) => failed("The thread could not be changed", error));
 }
 
 /** The field a title is written in, over the row's title: Enter keeps it; Escape or leaving drops it. */
@@ -113,21 +171,21 @@ function TitleField(props: { readonly row: Listed; readonly onDone: () => void }
 				if (event.key === "Enter") keep();
 				if (event.key === "Escape") props.onDone();
 			}}
-			className="-my-0.5 h-6 w-full rounded border border-primary bg-background px-1 text-sm outline-none"
+			className="-my-0.5 h-6 w-full min-w-0 flex-1 rounded border border-primary bg-background px-1 text-sm outline-none"
 		/>
 	);
 }
 
 /**
  * How a thread stands with its sub-threads, by its mark and its words: waiting on the person, running for how long,
- * the time going on, or failed; when it began where it is at rest, or till when it is snoozed.
+ * failed, or how long ago it came to rest; till when it is snoozed.
  */
 function StatusSlot(props: { readonly row: Listed; readonly standing: ThreadStanding; readonly now: number }): ReactNode {
 	const { row, standing, now } = props;
 	const until = row.manifest.snoozed_until;
 	if (until !== undefined && until > now) {
 		return (
-			<span className="flex shrink-0 items-center gap-1 tabular-nums">
+			<span className="flex shrink-0 items-center gap-1 text-sidebar-muted tabular-nums">
 				<AlarmClock className="size-3.5" />
 				{wakeLabel(until, now)}
 			</span>
@@ -154,7 +212,7 @@ function StatusSlot(props: { readonly row: Listed; readonly standing: ThreadStan
 				</Standing>
 			);
 		case "ready":
-			return <span className="shrink-0 tabular-nums">{shortAgo(now - standing.since)}</span>;
+			return <span className="shrink-0 text-sidebar-muted tabular-nums">{shortAgo(now - standing.since)}</span>;
 	}
 }
 
@@ -168,22 +226,26 @@ function Standing(props: { readonly mark: ReactNode; readonly className: string;
 	);
 }
 
-/** A thread's menu: pin it, snooze it, rename it, show its project's threads alone, copy its id, archive it or delete it. */
+/** A thread's menu: mark it unread, pin it, snooze it, rename it, show its project's threads alone, copy its id, archive it or delete it. */
 function RowMenu(props: RowProps & { readonly onRename: () => void; readonly onDelete: () => void }): ReactNode {
-	const { row } = props;
-	const client = useClient();
+	const { row, standing, now } = props;
+	const change = useChange(row);
 	const project = projectOf(row);
 	const pinned = isPinned(row);
-	const change = (changes: Configured): void =>
-		void client.configure(row.id, changes).catch((error: unknown) => failed("The thread could not be changed", error));
 	return (
 		<ContextMenuPopup className="w-56">
+			{canMarkUnread(row, standing) ? (
+				<MenuItem onClick={() => change({ seen_until: 0 })}>
+					<CircleDot />
+					<MenuItemLabel>Mark as unread</MenuItemLabel>
+				</MenuItem>
+			) : null}
 			<MenuItem onClick={() => change({ pinned: !pinned })}>
 				{pinned ? <PinOff /> : <Pin />}
 				<MenuItemLabel>{pinned ? "Unpin thread" : "Pin thread"}</MenuItemLabel>
 			</MenuItem>
-			{isSnoozed(row, props.now) ? (
-				<MenuItem onClick={() => change({ snoozed_until: props.now })}>
+			{isSnoozed(row, now) ? (
+				<MenuItem onClick={() => change({ snoozed_until: now })}>
 					<AlarmClockOff />
 					<MenuItemLabel>Unsnooze</MenuItemLabel>
 				</MenuItem>
@@ -194,10 +256,10 @@ function RowMenu(props: RowProps & { readonly onRename: () => void; readonly onD
 						<MenuItemLabel>Snooze</MenuItemLabel>
 					</MenuSubTrigger>
 					<MenuPopup side="right" align="start" sideOffset={6} className="w-48">
-						{snoozeTimes(props.now).map((time) => (
+						{snoozeTimes(now).map((time) => (
 							<MenuItem key={time.label} onClick={() => change({ snoozed_until: time.until })}>
 								<MenuItemLabel>{time.label}</MenuItemLabel>
-								<span className="ms-auto text-xs text-muted-foreground tabular-nums">{wakeLabel(time.until, props.now)}</span>
+								<span className="ms-auto text-xs text-muted-foreground tabular-nums">{wakeLabel(time.until, now)}</span>
 							</MenuItem>
 						))}
 					</MenuPopup>

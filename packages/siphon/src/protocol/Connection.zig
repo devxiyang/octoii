@@ -608,7 +608,7 @@ fn grantsRevoke(connection: *Connection, arena: Allocator, id: []const u8, given
 }
 
 /// A thread's manifest changed as the person changes it — its model, title, mode or effort; whether it is pinned or
-/// archived, and till when it is snoozed — each one given in place of the one it had.
+/// archived, and till when it is snoozed and seen — each one given in place of the one it had.
 fn threadsConfigure(connection: *Connection, arena: Allocator, id: []const u8, given: struct { thread: []const u8, changes: threads.Configured }) !void {
     try threads.configure(connection.clients.runtime, arena, given.thread, given.changes);
     return connection.answer(arena, id, nothing);

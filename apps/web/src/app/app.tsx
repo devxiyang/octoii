@@ -52,7 +52,6 @@ export function App(): ReactNode {
 						{sidebarHidden && !drawerOpen ? null : (
 							<Sidebar
 								route={route}
-								grouping={device.sidebar_grouping}
 								onHide={() => {
 									setSidebarHidden(true);
 									setDrawerAt(undefined);

@@ -1,18 +1,17 @@
 /**
- * The sidebar: the button that hides it and the brand; search, a project filter and a new thread; the threads, newest
- * first, each section under its heading — those pinned atop, those
- * that work under them, those at rest under those, or under their projects where the device groups them so, and those
- * snoozed folded at the foot, those archived not at all — a sub-thread on its parent's card, by their count and how
- * they stand; and settings at its foot. Its right edge drags it wider or narrower, the width kept for the device.
+ * The sidebar: the button that hides it and the brand; search, a project filter and a new thread, the project filtered
+ * on named under them where one is; the threads of every project in one list, each card naming its project — those
+ * pinned atop, then those open to the person, what asks them first, then those that work under their heading, and at
+ * the foot, folded, those snoozed and the earlier, a line each, those archived not at all — a sub-thread on its
+ * parent's card, by their count and how they stand; and settings at its foot. Its right edge drags it wider or
+ * narrower, the width kept for the device.
  */
 import { type ReactNode, useState } from "react";
 import type { Listed } from "@octoii-works/octoii-client";
 import { useThreads } from "@octoii-works/octoii-client/react";
-import { Activity, AlarmClock, FolderOpen, ListFilter, MessagesSquare, PanelLeft, Pin, Search, Settings, SquarePen, X } from "lucide-react";
-import type { Directory } from "../../core/models.ts";
+import { Activity, AlarmClock, FolderOpen, History, ListFilter, PanelLeft, Pin, Search, Settings, SquarePen, X } from "lucide-react";
 import type { Overlay, Route } from "../../core/route.ts";
 import { lineOf, matchingRows, type Project, projectOf, projectsOf, rowsBySection, standingsOf, subThreadsBy } from "../../core/threads.ts";
-import { useDirectory } from "../composer/directory.ts";
 import { useNow } from "../effects/now.ts";
 import { useDevice } from "../state/device.ts";
 import { go } from "../state/navigation.ts";
@@ -23,15 +22,11 @@ import { Menu, MenuItemLabel, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuSepa
 import { Monogram } from "../ui/monogram.tsx";
 import { cn } from "../ui/cn.ts";
 import { useDragSize } from "../ui/resize.tsx";
-import { ThreadCard } from "./thread-row.tsx";
+import { ThreadCard, ThreadLine } from "./thread-row.tsx";
 
-/**
- * What the sidebar is given: the place shown, how it groups threads, how it hides and opens settings over the chat, and
- * how it stands where the page is narrow — out of the way, or a drawer over the page.
- */
+/** What the sidebar is given: the place shown, how it hides and opens settings over the chat, and how it stands where the page is narrow — out of the way, or a drawer over the page. */
 export type SidebarProps = {
 	readonly route: Route;
-	readonly grouping: "status" | "project";
 	readonly onHide: () => void;
 	readonly onOverlay: (over: Overlay) => void;
 	readonly className?: string;
@@ -46,8 +41,8 @@ export function Sidebar(props: SidebarProps): ReactNode {
 	const [folder, setFolder] = useState<string | undefined>(undefined);
 	const rows = useThreads();
 	const projects = projectsOf(rows ?? []);
+	const chosen = projects.find((project) => project.folder === folder);
 	const now = useNow(30_000);
-	const directory = useDirectory();
 	const shown = matchingRows(rows ?? [], query).filter((row) => folder === undefined || projectOf(row)?.folder === folder);
 	// The thread shown is marked, or where a sub-thread is shown, the one whose card stands for it.
 	const current = props.route.place === "thread" ? lineOf(rows ?? [], props.route.thread) : [];
@@ -85,11 +80,12 @@ export function Sidebar(props: SidebarProps): ReactNode {
 					<SquarePen className="size-4" />
 				</IconButton>
 			</div>
+			{chosen === undefined ? null : <Filtered project={chosen} onClear={() => setFolder(undefined)} />}
 			<div className="min-h-0 flex-1 overflow-y-auto px-2 scrollbar-none">
 				{rows === undefined ? null : shown.length === 0 ? (
 					<p className="py-6 text-center text-xs text-muted-foreground/60">{query === "" ? "No threads yet" : "No threads found"}</p>
 				) : (
-					<ThreadList rows={shown} all={rows} current={current} now={now} directory={directory} grouping={props.grouping} onFilter={setFolder} />
+					<ThreadList rows={shown} all={rows} current={current} now={now} onFilter={setFolder} />
 				)}
 			</div>
 			<div className="flex items-center gap-1 px-2 pt-1 pb-2">
@@ -101,68 +97,69 @@ export function Sidebar(props: SidebarProps): ReactNode {
 	);
 }
 
-/** The threads pinned, those that work, those at rest, by project where the device groups them so, and those snoozed at the foot. */
+/** The project the list shows the threads of alone, by its monogram and name, and the button that shows every project's again. */
+function Filtered(props: { readonly project: Project; readonly onClear: () => void }): ReactNode {
+	return (
+		<div className="px-2 pb-2">
+			<span className="flex h-control-sm items-center gap-1.5 rounded-md bg-sidebar-row-active ps-2 pe-1 text-xs shadow-xs/5">
+				<Monogram name={props.project.name} />
+				<span className="min-w-0 flex-1 truncate font-medium">{props.project.name}</span>
+				<IconButton label="Show every project" size="icon-micro" onClick={props.onClear}>
+					<X />
+				</IconButton>
+			</span>
+		</div>
+	);
+}
+
+/**
+ * The threads pinned, then those open to the person under a hairline where some are pinned, those that work under
+ * their heading, and at the foot, folded, those snoozed and the earlier.
+ */
 function ThreadList(props: {
 	readonly rows: readonly Listed[];
 	readonly all: readonly Listed[];
 	readonly current: readonly string[];
 	readonly now: number;
-	readonly directory: Directory | undefined;
-	readonly grouping: "status" | "project";
 	readonly onFilter: (folder: string) => void;
 }): ReactNode {
 	// How a thread stands, and how many sub-threads it has, are read from every thread: a search that hides a sub-thread
 	// hides nothing of how its parent stands.
 	const standingOf = standingsOf(props.all);
 	const delegated = subThreadsBy(props.all);
-	const { pinned, active, working, snoozed } = rowsBySection(props.rows, props.now, standingOf);
-	const card = (row: Listed): ReactNode => (
-		<ThreadCard
-			key={row.id}
-			row={row}
-			standing={standingOf(row)}
-			subThreads={delegated.get(row.id)?.length ?? 0}
-			current={props.current.includes(row.id)}
-			now={props.now}
-			directory={props.directory}
-			onFilter={props.onFilter}
-		/>
-	);
+	const { pinned, open, working, snoozed, earlier } = rowsBySection(props.rows, props.now, standingOf);
+	const rowProps = (row: Listed) => ({
+		row,
+		standing: standingOf(row),
+		subThreads: delegated.get(row.id)?.length ?? 0,
+		current: props.current.includes(row.id),
+		now: props.now,
+		onFilter: props.onFilter,
+	});
+	const card = (row: Listed): ReactNode => <ThreadCard key={row.id} {...rowProps(row)} />;
 	return (
 		<div className="flex min-h-full flex-col">
 			<Shelf title="Pinned" count={pinned.length} icon={<Pin className="size-3.5" />}>
 				{pinned.map(card)}
 			</Shelf>
+			{open.length === 0 ? null : (
+				<ul className={cn("flex flex-col pb-1", pinned.length > 0 && "mt-1 border-t border-sidebar-border pt-1")}>{open.map(card)}</ul>
+			)}
 			<Shelf title="Working" count={working.length} icon={<Activity className="size-3.5" />}>
 				{working.map(card)}
 			</Shelf>
-			{props.grouping === "project" ? (
-				<ByProject rows={active} card={card} />
-			) : (
-				<Shelf title="Threads" count={active.length} icon={<MessagesSquare className="size-3.5" />}>
-					{active.map(card)}
-				</Shelf>
-			)}
 			<div className="mt-auto pt-3">
 				<Shelf title="Snoozed" count={snoozed.length} icon={<AlarmClock className="size-3.5" />} folded>
 					{snoozed.map(card)}
 				</Shelf>
+				<Shelf title="Earlier" count={earlier.length} icon={<History className="size-3.5" />} folded>
+					{earlier.map((row) => (
+						<ThreadLine key={row.id} {...rowProps(row)} />
+					))}
+				</Shelf>
 			</div>
 		</div>
 	);
-}
-
-/** The threads under their projects' headings, the project its newest thread works in first; those of no project last. */
-function ByProject(props: { readonly rows: readonly Listed[]; readonly card: (row: Listed) => ReactNode }): ReactNode {
-	const groups = [...projectsOf(props.rows).map((project) => ({ title: project.name, folder: project.folder })), { title: "No project", folder: undefined }];
-	return groups.map((group) => {
-		const rows = props.rows.filter((row) => projectOf(row)?.folder === group.folder);
-		return (
-			<Shelf key={group.folder ?? ""} title={group.title} count={rows.length} icon={<Monogram name={group.title} />}>
-				{rows.map(props.card)}
-			</Shelf>
-		);
-	});
 }
 
 /** A section: its heading, its count and a chevron that folds it, folded at first where `folded` says; nothing where it holds no rows. */
@@ -191,17 +188,16 @@ function Shelf(props: {
 /** The value the project filter holds where it shows every project. */
 const ALL_PROJECTS = "";
 
-/** The project filter: all projects, or one. */
+/** The project filter: all projects, or one, which the list names over it where it is chosen. */
 function ProjectFilter(props: {
 	readonly projects: readonly Project[];
 	readonly chosen: string | undefined;
 	readonly onChoose: (folder: string | undefined) => void;
 }): ReactNode {
-	const chosen = props.projects.find((project) => project.folder === props.chosen);
 	return (
 		<Menu>
 			<MenuTrigger render={<IconButton label="Filter by project" />}>
-				{chosen === undefined ? <ListFilter /> : <Monogram name={chosen.name} size="md" />}
+				<ListFilter />
 			</MenuTrigger>
 			<MenuPopup align="end" className="w-60">
 				<MenuRadioGroup value={props.chosen ?? ALL_PROJECTS} onValueChange={(folder: string) => props.onChoose(folder === ALL_PROJECTS ? undefined : folder)}>

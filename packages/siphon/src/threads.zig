@@ -57,6 +57,10 @@ pub const Manifest = struct {
     /// Till when the person snoozed it, in ms since the epoch, kept out of their threads till then; a time past, or
     /// none, not snoozed.
     snoozed_until: ?i64 = null,
+    /// Till when the person has seen what it brought them — a turn's end, what it asks — in ms since the epoch, by
+    /// the thread's own times; what came after is new to them. None, nothing seen. The one thing of how they keep a
+    /// thread its log cannot tell: looking at a thread leaves nothing in it.
+    seen_until: ?i64 = null,
     /// The thread, and its call, that delegated it, where it is a sub-thread; the thread also its label
     /// `siphon.parent`, which the label index finds its sub-threads by, the empty value where it has none.
     parent: ?Parent = null,
@@ -285,9 +289,9 @@ pub fn inboxed(changes: *Changes, thread: []const u8, id: []const u8, input: Inp
     try changes.write(try inboxFile(changes.arena, thread, id), try foundation.json.encode(changes.arena, delivered));
 }
 
-/// What of a thread's manifest the person changes as it goes — each left out kept: the model its turns ask, from its next request on; its
-/// title; and the mode its calls follow, from its next call on — each one given in place of the one it had, each left
-/// out kept.
+/// What of a thread's manifest the person changes as it goes: the model its turns ask, from its next request on; its
+/// title; the mode its calls follow, from its next call on; and how they keep it — pinned, archived, snoozed till
+/// when, seen till when — each one given in place of the one it had, each left out kept.
 pub const Configured = struct {
     model: ?[]const u8 = null,
     title: ?[]const u8 = null,
@@ -296,6 +300,7 @@ pub const Configured = struct {
     pinned: ?bool = null,
     archived: ?bool = null,
     snoozed_until: ?i64 = null,
+    seen_until: ?i64 = null,
 };
 
 /// Changes the manifest of the thread `tid` as `configured` says, in one commit.

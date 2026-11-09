@@ -65,6 +65,8 @@ export const ManifestSchema = Type.Object({
 	archived: Type.Optional(Type.Boolean()),
 	/** Till when the person snoozed it, in ms since the epoch; a time past, or none, not snoozed. */
 	snoozed_until: Type.Optional(Type.Number()),
+	/** Till when the person has seen what it brought them, in ms since the epoch by its own times; what came after is new. */
+	seen_until: Type.Optional(Type.Number()),
 	/** The thread that delegated it, and Siphon's id of the call that did, where it is a sub-thread. */
 	parent: Type.Optional(Type.Object({ thread: Type.String(), call: Type.String() })),
 	/** The version of `ai`'s vocabulary its log is kept in. */
@@ -81,6 +83,7 @@ export const ConfiguredSchema = Type.Object({
 	pinned: Type.Optional(Type.Boolean()),
 	archived: Type.Optional(Type.Boolean()),
 	snoozed_until: Type.Optional(Type.Number()),
+	seen_until: Type.Optional(Type.Number()),
 });
 export type Configured = Static<typeof ConfiguredSchema>;
 
