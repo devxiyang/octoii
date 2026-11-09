@@ -161,6 +161,15 @@ test "a thread's model, title, mode and how the person keeps it are changed as t
     try std.testing.expectEqual(@as(?i64, 5_000), kept.snoozed_until);
     try std.testing.expectEqual(@as(?i64, 7_000), kept.seen_until);
     try std.testing.expectEqualStrings("Named", kept.title.?);
+    // The snooze ends at its time, Beak taking it away as the volume steps then — told as any change is.
+    clock.now_ms = 5_000;
+    for (0..3) |_| _ = try siphon.runtime.pump();
+    try std.testing.expectEqual(@as(?i64, null), (try threads.manifestOf(siphon.runtime.volume, &arena, thread)).snoozed_until);
+    // Snoozed again, and woken by a time past.
+    try threads.configure(siphon.runtime, arena, tid, .{ .snoozed_until = 9_000 });
+    try std.testing.expectEqual(@as(?i64, 9_000), (try threads.manifestOf(siphon.runtime.volume, &arena, thread)).snoozed_until);
+    try threads.configure(siphon.runtime, arena, tid, .{ .snoozed_until = clock.now_ms });
+    try std.testing.expectEqual(@as(?i64, null), (try threads.manifestOf(siphon.runtime.volume, &arena, thread)).snoozed_until);
     try std.testing.expectError(error.NoSuchThread, threads.configure(siphon.runtime, arena, "01990000-0000-7000-8000-000000000000", .{ .title = "x" }));
 }
 

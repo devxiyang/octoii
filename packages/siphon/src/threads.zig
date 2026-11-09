@@ -54,8 +54,9 @@ pub const Manifest = struct {
     pinned: bool = false,
     /// Whether the person archived it, which keeps it out of their threads.
     archived: bool = false,
-    /// Till when the person snoozed it, in ms since the epoch, kept out of their threads till then; a time past, or
-    /// none, not snoozed.
+    /// Till when the person snoozed it, in ms since the epoch, kept out of their threads till then; none, not snoozed.
+    /// Kept as the time of the thread's `siphon.snooze`, never in `thread.json`: Beak removes the name as its time
+    /// comes, and the journal tells of it then, so whoever lists the threads hears the snooze end as it ends.
     snoozed_until: ?i64 = null,
     /// Till when the person has seen what it brought them — a turn's end, what it asks — in ms since the epoch, by
     /// the thread's own times; what came after is new to them. None, nothing seen. The one thing of how they keep a
@@ -334,7 +335,8 @@ pub const Configured = struct {
     seen_until: ?i64 = null,
 };
 
-/// Changes the manifest of the thread `tid` as `configured` says, in one commit.
+/// Changes the manifest of the thread `tid` as `configured` says, in one commit: a snooze till a time to come as the
+/// thread's `siphon.snooze`, which goes at that time, and one till a time past as none.
 pub fn configure(runtime: *Runtime, arena: Allocator, tid: []const u8, configured: Configured) !void {
     const thread = try pathOf(arena, tid);
     if (try runtime.volume.stat(&arena, thread) == null) return error.NoSuchThread;
@@ -344,9 +346,20 @@ pub fn configure(runtime: *Runtime, arena: Allocator, tid: []const u8, configure
         if (@field(configured, name)) |value| @field(manifest, name) = value;
     }
     var changes: Changes = .{ .arena = arena };
+    if (configured.snoozed_until) |until| {
+        const snooze = try beak.join(arena, thread, snooze_name);
+        if (until > runtime.now()) {
+            try changes.write(snooze, "");
+            try changes.expire(snooze, until);
+        } else if (manifest.snoozed_until != null) try changes.delete(snooze);
+    }
+    manifest.snoozed_until = null;
     try changes.write(try beak.join(arena, thread, "thread.json"), try foundation.json.encode(arena, manifest));
     _ = try runtime.commit(&changes);
 }
+
+/// The name in a thread's directory that holds, by its time, till when the person snoozed it: there while it sleeps.
+const snooze_name = "siphon.snooze";
 
 /// Delivers `input` to the thread `tid`, kept in its inbox till its fiber takes it; the input's id. Delivered again
 /// under the same `operation` within a day, it is the input already delivered.
@@ -659,9 +672,12 @@ pub fn takeInputs(writer: *log.Writer) ![]const Taken {
     return taken;
 }
 
-/// The manifest of the thread at `thread`.
+/// The manifest of the thread at `thread`: its `thread.json`, and the time of its snooze, where it sleeps.
 pub fn manifestOf(volume: beak.Volume, arena: *const Allocator, thread: []const u8) !Manifest {
-    return foundation.json.decode(Manifest, arena.*, try volume.readAll(arena, try beak.join(arena.*, thread, "thread.json")));
+    var manifest = try foundation.json.decode(Manifest, arena.*, try volume.readAll(arena, try beak.join(arena.*, thread, "thread.json")));
+    const snooze = try volume.stat(arena, try beak.join(arena.*, thread, snooze_name));
+    manifest.snoozed_until = if (snooze) |entry| beak.get(entry.expires) else null;
+    return manifest;
 }
 
 /// The file that holds the input `id` while it waits in the inbox of the thread at `thread`.
