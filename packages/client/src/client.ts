@@ -92,6 +92,8 @@ export type Client = {
 	renameAccount(account: string, name: string): Promise<void>;
 	/** Removes the account `account`, and the credential the node kept for it. */
 	removeAccount(account: string): Promise<void>;
+	/** Has the thread go on at `at`, in milliseconds since the epoch, unless the person goes on first; at no time, where `at` is none. */
+	resume(thread: string, at: number | undefined): Promise<void>;
 	/** The models a thread may run with. */
 	models(): Promise<readonly Model[]>;
 	/** Opens a terminal for the thread, at the size of the view that opens it: its id, the thread's terminals told first. */
@@ -207,6 +209,9 @@ export function createClient(options: ClientOptions): Client {
 		},
 		removeAccount: async (account) => {
 			await connection.call("accounts.remove", { account });
+		},
+		resume: async (thread, at) => {
+			await connection.call("threads.resume", { thread, ...(at === undefined ? {} : { at }) });
 		},
 		models: async () => (await connection.call("models.list", {})).models,
 		openTerminal: async (thread, size) => (await connection.call("terminals.open", { thread, ...size })).terminal,

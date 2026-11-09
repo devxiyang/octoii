@@ -505,6 +505,7 @@ const methods = [_]Method{
     method("threads.create", .@"threads.operate", threadsCreate),
     method("threads.configure", .@"threads.operate", threadsConfigure),
     method("threads.delete", .@"threads.operate", threadsDelete),
+    method("threads.resume", .@"threads.operate", threadsResume),
     method("threads.deliver", .@"threads.operate", threadsDeliver),
     method("threads.withdraw", .@"threads.operate", threadsWithdraw),
     method("threads.stop", .@"threads.operate", threadsStop),
@@ -626,6 +627,12 @@ fn threadsDelete(connection: *Connection, arena: Allocator, id: []const u8, give
     const deleted = try threads.delete(connection.clients.runtime, arena, given.thread);
     for (deleted) |tid| connection.clients.forgetThread(tid);
     connection.clients.forgetConversations(deleted);
+    return connection.answer(arena, id, nothing);
+}
+
+/// A thread had go on at `at`, unless the person goes on first — or no more, where `at` is null.
+fn threadsResume(connection: *Connection, arena: Allocator, id: []const u8, given: struct { thread: []const u8, at: ?i64 = null }) !void {
+    try threads.resumeAt(connection.clients.runtime, arena, given.thread, given.at);
     return connection.answer(arena, id, nothing);
 }
 

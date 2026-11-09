@@ -14,6 +14,7 @@ import { ArrowDown, ShieldQuestion } from "lucide-react";
 import { type ContextProp, Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import type { TimelineRow } from "../../core/timeline.ts";
 import { AskInline } from "../composer/asks.tsx";
+import { LimitedCard } from "./limited.tsx";
 import { useRoomKept } from "../effects/room.ts";
 import { cn } from "../ui/cn.ts";
 import { SummedUp, Turn } from "./turn.tsx";
@@ -106,6 +107,12 @@ function Row(props: { readonly thread: string; readonly parent: string | undefin
 			return (
 				<div className="pb-8">
 					<AskInline thread={props.thread} ask={row.ask} />
+				</div>
+			);
+		case "limited":
+			return (
+				<div className="pb-8">
+					<LimitedCard thread={props.thread} limited={row.limited} resumingAt={row.resumingAt} />
 				</div>
 			);
 	}

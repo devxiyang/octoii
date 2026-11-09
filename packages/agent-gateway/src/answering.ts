@@ -65,10 +65,10 @@ export class Answering {
 	}
 
 	/** Ends the answer as failed: as the API's error before its stream began, else as an error event in it. */
-	fail(type: ErrorType, words: string): void {
+	fail(type: ErrorType, words: string, headers: Readonly<Record<string, string>> = {}): void {
 		if (this.ended) return;
 		this.ended = true;
-		if (!this.started) return this.#respond(errorResponse(type, words));
+		if (!this.started) return this.#respond(errorResponse(type, words, headers));
 		this.#controller?.enqueue(this.#encoder.encode(sse("error", { type: "error", error: { type, message: words } })));
 		this.#controller?.close();
 	}

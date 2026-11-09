@@ -5,10 +5,15 @@
 //! `siphon.provider`, and annotated with the name the person gave it; each change one commit. The providers models are
 //! reached through are the host's, then the accounts', in the order they were added; each change sets them anew, those
 //! set before kept till Siphon closes, as a request made while they were set may hold them still.
+//!
+//! A provider's quota used up — its plan's limit, as the provider told of a request it refused — stands till it is
+//! given again: a file `siphon.limits/<provider>`, which expires then, so the limit stands as long as it does, whatever
+//! account the provider is, the host's own or one the person added.
 const Accounts = @This();
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+const foundation = @import("foundation");
 const ai = @import("ai");
 const beak = @import("beak.zig");
 const runtime_ = @import("runtime.zig");
@@ -149,4 +154,54 @@ fn nameOf(name: []const u8) error{InvalidName}![]const u8 {
 
 pub fn pathOf(arena: Allocator, id: []const u8) Allocator.Error![]const u8 {
     return std.mem.concat(arena, u8, &.{ kind, ":", id });
+}
+
+/// The folder of the quotas used up, a file for each provider's.
+const limits = "siphon.limits";
+
+/// A provider's quota used up: when it is given again, in milliseconds since the epoch, and how long the window it is
+/// counted over lasts, in minutes, where the provider said.
+pub const UsedUp = struct { reset_at_ms: i64, window_minutes: ?u32 = null };
+
+/// A thread limited by its model's quota: the provider whose quota it is, by its id, and its quota as it stands.
+pub const Limited = struct { provider: []const u8, reset_at_ms: i64, window_minutes: ?u32 = null };
+
+/// Keeps, with `changes`, that the quota of the provider `provider` is used up as `used_up` says, till it is given again.
+pub fn keepUsedUp(changes: *Changes, provider: []const u8, used_up: UsedUp) Allocator.Error!void {
+    if (!isProvider(provider)) return;
+    const path = try beak.join(changes.arena, limits, provider);
+    try changes.mkdir(limits);
+    try changes.write(path, try foundation.json.encode(changes.arena, used_up));
+    try changes.expire(path, used_up.reset_at_ms);
+}
+
+/// The quota of the provider `provider`, where it is used up still at `now_ms`; null where it is not, or was given again.
+pub fn usedUp(volume: beak.Volume, arena: Allocator, provider: []const u8, now_ms: i64) !?UsedUp {
+    if (!isProvider(provider)) return null;
+    const text = volume.readAll(&arena, try beak.join(arena, limits, provider)) catch |err| switch (err) {
+        error.NotFound => return null,
+        else => return err,
+    };
+    const used_up = try foundation.json.decode(UsedUp, arena, text);
+    return if (used_up.reset_at_ms > now_ms) used_up else null;
+}
+
+/// The provider of the model a reference names, by its id: what comes before its first `/`.
+pub fn providerOf(model: []const u8) []const u8 {
+    return model[0 .. std.mem.indexOfScalar(u8, model, '/') orelse model.len];
+}
+
+/// Whether `provider` names a provider a file may be named by: neither empty, nor holding a slash or a NUL.
+fn isProvider(provider: []const u8) bool {
+    return provider.len > 0 and std.mem.indexOfAny(u8, provider, "/\x00") == null;
+}
+
+/// `ms` since the epoch as a person reads a time, to the minute, in UTC.
+pub fn utcOf(arena: Allocator, ms: i64) Allocator.Error![]const u8 {
+    const seconds: u64 = @intCast(@max(0, @divFloor(ms, std.time.ms_per_s)));
+    const epoch: std.time.epoch.EpochSeconds = .{ .secs = seconds };
+    const year_day = epoch.getEpochDay().calculateYearDay();
+    const month_day = year_day.calculateMonthDay();
+    const day_seconds = epoch.getDaySeconds();
+    return std.fmt.allocPrint(arena, "{d}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2} UTC", .{ year_day.year, month_day.month.numeric(), month_day.day_index + 1, day_seconds.getHoursIntoDay(), day_seconds.getMinutesIntoHour() });
 }

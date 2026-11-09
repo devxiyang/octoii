@@ -20,7 +20,8 @@ pub const FailureKind = enum {
     aborted,
 };
 
-/// An error's `octoii`: the failure's kind, whether it is retryable, how long to wait and the HTTP status.
+/// An error's `octoii`: the failure's kind, whether it is retryable, how long to wait and the HTTP status; and, for a
+/// quota used up, when it is given again and over what window it is counted.
 pub const FailureExtension = struct {
     kind: FailureKind,
     retryable: bool,
@@ -28,6 +29,11 @@ pub const FailureExtension = struct {
     retry_after_ms: ?u64 = null,
     /// The HTTP status the provider answered with.
     status: ?u16 = null,
+    /// When a quota used up is given again, in milliseconds since the epoch, where the provider says.
+    reset_at_ms: ?i64 = null,
+    /// How long the window a quota is counted over lasts, in minutes — 300 for five hours, 10080 for a week — where
+    /// the provider says.
+    window_minutes: ?u32 = null,
 };
 
 /// A file's `octoii`: a stored file, what a file is where no data URL says, and its name where its content has no

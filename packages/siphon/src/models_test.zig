@@ -1,6 +1,7 @@
 //! A thread's model asked through `ai`, over a fake provider that answers from a script: the request rendered from the
 //! log, the reply kept as it came, a failure that may pass asked again after its wait, one that cannot failing the turn;
-//! a window too full for its model, or refused as too long, recapped and asked again in a window of its own.
+//! a quota used up limiting its account till it is given again; a window too full for its model, or refused as too
+//! long, recapped and asked again in a window of its own.
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const foundation = @import("foundation");
@@ -144,6 +145,64 @@ test "a failure that may pass is asked again once its wait passes; one that cann
     // The failed attempt and the reply that came after are answers of two requests.
     try std.testing.expect(!std.mem.eql(u8, limited.request, (try foundation.json.decode(log.Reply, arena, lines[3])).request));
 }
+
+test "a quota used up limits its account till it is given again: the thread stands limited, and a turn fails unasked" {
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var used_up: ai.failure.Failure = .init(.quota, "the plan's limit is used up");
+    used_up.reset_at_ms = 3_600_000;
+    used_up.window_minutes = 300;
+    var fake: ai.testing.Fake = .init(arena, &.{ .{ .events = &.{}, .failure = used_up }, try reply(arena, "Back") });
+    const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
+    var clock: testing.Clock = .{ .now_ms = 1_000 };
+    const siphon = try openOver(&clock, &providers);
+    defer siphon.close();
+    const tid = try threads.create(siphon.runtime, arena, .{ .title = "Test", .model = "fake/m" }, "create");
+    _ = try threads.deliver(siphon.runtime, arena, tid, said("hello"), "op-1");
+    try std.testing.expectEqual(threads.Status.failed, (try testing.pumpUntilSettled(siphon, arena, tid)).status);
+    const limited = (try threads.listedOf(siphon.runtime, arena, tid)).?.standing.limited.?;
+    try std.testing.expectEqualStrings("fake", limited.provider);
+    try std.testing.expectEqual(@as(i64, 3_600_000), limited.reset_at_ms);
+    try std.testing.expectEqual(@as(?u32, 300), limited.window_minutes);
+    // Its account used up, another turn fails before its model is asked, saying till when.
+    _ = try threads.deliver(siphon.runtime, arena, tid, said("again"), "op-2");
+    try std.testing.expectEqual(threads.Status.failed, (try testing.pumpUntilSettled(siphon, arena, tid)).status);
+    try std.testing.expectEqual(@as(usize, 1), fake.requests.items.len);
+    const lines = try log.lines(siphon.runtime.volume, &arena, try threads.pathOf(arena, tid));
+    const ended = try foundation.json.decode(log.TurnEnd, arena, lines[lines.len - 1]);
+    try std.testing.expectEqualStrings("its model's account is used up till 1970-01-01 01:00 UTC", ended.reason.?);
+    // Asked to go on as the quota is given again, it waits: what the person sends meanwhile ends that.
+    try threads.resumeAt(siphon.runtime, arena, tid, 3_600_000);
+    try testing.pumpUntil(siphon, Resuming{ .siphon = siphon, .arena = arena, .tid = tid, .at = 3_600_000 }, Resuming.stands);
+    _ = try threads.deliver(siphon.runtime, arena, tid, said("still there?"), "op-3");
+    try testing.pumpUntil(siphon, Resuming{ .siphon = siphon, .arena = arena, .tid = tid, .at = null }, Resuming.stands);
+    try std.testing.expectEqual(threads.Status.failed, (try testing.pumpUntilSettled(siphon, arena, tid)).status);
+    try threads.resumeAt(siphon.runtime, arena, tid, 3_600_000);
+    try testing.pumpUntil(siphon, Resuming{ .siphon = siphon, .arena = arena, .tid = tid, .at = 3_600_000 }, Resuming.stands);
+    // Given again, its quota limits it no more, and it goes on with the person's word to go on.
+    clock.now_ms = 3_600_001;
+    try std.testing.expect((try threads.listedOf(siphon.runtime, arena, tid)).?.standing.limited == null);
+    try testing.pumpUntil(siphon, Resuming{ .siphon = siphon, .arena = arena, .tid = tid, .at = null }, Resuming.stands);
+    try std.testing.expectEqual(threads.Status.replied, (try testing.pumpUntilSettled(siphon, arena, tid)).status);
+    try std.testing.expectEqual(@as(usize, 2), fake.requests.items.len);
+    const sent = fake.requests.items[1].input.?.parts;
+    const last = sent[sent.len - 1].input_message.content.text;
+    try std.testing.expectEqualStrings(@import("agent.zig").resume_.word, last);
+}
+
+/// Whether the thread `tid` goes on at `at`, or at no time where `at` is null, as its standing shows.
+const Resuming = struct {
+    siphon: *Siphon,
+    arena: Allocator,
+    tid: []const u8,
+    at: ?i64,
+
+    fn stands(resuming: Resuming) bool {
+        const listed = (threads.listedOf(resuming.siphon.runtime, resuming.arena, resuming.tid) catch return false) orelse return false;
+        return listed.standing.resuming_at == resuming.at;
+    }
+};
 
 /// The types of the entries the log of the thread `tid` holds, in order, as `expected` names them.
 fn expectKinds(siphon: *Siphon, arena: Allocator, tid: []const u8, expected: []const []const u8) ![]const []const u8 {

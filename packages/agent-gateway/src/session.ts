@@ -5,7 +5,15 @@
  * keeps that position, so a session closed later is resumed there. A message that called a tool the client never
  * offered leaves the session to answer itself, which no request follows: it is closed, and keeps no position.
  */
-import type { HookCallback, McpSdkServerConfigWithInstance, Options, Query, SDKMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import type {
+	HookCallback,
+	McpSdkServerConfigWithInstance,
+	Options,
+	Query,
+	SDKMessage,
+	SDKRateLimitInfo,
+	SDKUserMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { Type } from "typebox";
@@ -53,6 +61,8 @@ export class Session {
 	#reading: Promise<IteratorResult<SDKMessage>> | undefined;
 	/** The session's id in Claude Code, as its first message tells it. */
 	#id: string | undefined;
+	/** How the plan's limits stood as Claude Code last told. */
+	#limit: SDKRateLimitInfo | undefined;
 	#state: State = "answering";
 	/** The hash of the conversation the session stands at, as its last answer left it. */
 	position: string | undefined;
@@ -168,12 +178,15 @@ export class Session {
 				return;
 			case "assistant":
 				if (message.parent_tool_use_id !== null) return;
-				if (message.error !== undefined) return stream.fail(assistantErrorType(message.error), wordsOf(message.message.content));
+				if (message.error !== undefined) return stream.fail(assistantErrorType(message.error), wordsOf(message.message.content), usedUpHeaders(this.#limit));
 				stream.entry(message.message.id, message.uuid);
 				return;
 			case "result":
 				this.#state = "idle";
-				if (!stream.ended) stream.fail(resultErrorType(message), resultWords(message));
+				if (!stream.ended) stream.fail(resultErrorType(message), resultWords(message), usedUpHeaders(this.#limit));
+				return;
+			case "rate_limit_event":
+				this.#limit = message.rate_limit_info;
 				return;
 			default:
 				return;
@@ -270,6 +283,19 @@ function wordsOf(content: readonly { readonly type: string }[]): string {
 }
 
 /** The API's error type for an error Claude Code's assistant message carries. */
+/**
+ * A plan's limit used up, as Anthropic's unified limits tell of a request refused for it: that it was refused, when the
+ * limit is given again, in seconds since the epoch, and the limit it hit; none where the plan's limits refused nothing.
+ */
+export function usedUpHeaders(limit: SDKRateLimitInfo | undefined): Readonly<Record<string, string>> {
+	if (limit?.status !== "rejected") return {};
+	return {
+		"anthropic-ratelimit-unified-status": "rejected",
+		...(limit.resetsAt === undefined ? {} : { "anthropic-ratelimit-unified-reset": String(limit.resetsAt) }),
+		...(limit.rateLimitType === undefined ? {} : { "anthropic-ratelimit-unified-representative-claim": limit.rateLimitType }),
+	};
+}
+
 function assistantErrorType(error: string): ErrorType {
 	switch (error) {
 		case "authentication_failed":

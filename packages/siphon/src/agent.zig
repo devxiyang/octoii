@@ -12,6 +12,7 @@ pub const turn = @import("agent/turn.zig");
 pub const thread = @import("agent/thread.zig");
 pub const title = @import("agent/title.zig");
 pub const delegate = @import("agent/delegate.zig");
+pub const resume_ = @import("agent/resume.zig");
 pub const review = @import("agent/review.zig");
 
 test {
@@ -25,5 +26,6 @@ test {
     _ = thread;
     _ = title;
     _ = delegate;
+    _ = resume_;
     _ = review;
 }

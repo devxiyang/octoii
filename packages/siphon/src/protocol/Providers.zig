@@ -60,9 +60,9 @@ fn connectsOf(provider: *const ai.driver.Provider) Connects {
 }
 
 /// A provider as a client is told of it: its id and name, how it is connected, and the kind of credential the host
-/// keeps for it — `api_key`, `oauth` or `none` — none where it keeps none; and, for an account the person added, the
-/// host's provider it is another of and the name it was given.
-const Listed = struct { id: []const u8, name: []const u8, connects: Connects, credential: ?[]const u8 = null, account: ?Added = null };
+/// keeps for it — `api_key`, `oauth` or `none` — none where it keeps none; for an account the person added, the host's
+/// provider it is another of and the name it was given; and its quota, where it is used up still.
+const Listed = struct { id: []const u8, name: []const u8, connects: Connects, credential: ?[]const u8 = null, account: ?Added = null, used_up: ?Accounts.UsedUp = null };
 
 /// An account the person added, as a provider listed tells of it: the host's provider it is another of, by its id, and
 /// the name it was given.
@@ -81,6 +81,7 @@ pub fn list(connection: *Connection, arena: Allocator, id: []const u8, _: struct
         for (added) |account| if (std.mem.eql(u8, account.id, provider_id)) {
             each.account = .{ .of = account.provider, .name = account.name };
         };
+        each.used_up = try Accounts.usedUp(clients.runtime.volume, arena, provider_id, clients.runtime.now());
     }
     return connection.answer(arena, id, .{ .providers = listed });
 }

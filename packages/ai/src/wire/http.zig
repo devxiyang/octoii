@@ -47,6 +47,9 @@ pub const Details = struct {
     retryable: ?bool = null,
     code: ?[]const u8 = null,
     retry_after_ms: ?u64 = null,
+    /// For a quota used up: when it is given again, in milliseconds since the epoch, and the window it is counted over.
+    reset_at_ms: ?i64 = null,
+    window_minutes: ?u32 = null,
 };
 
 /// Reads the provider's own account of a failure from its body, in `arena`; null where it gives none.
@@ -54,7 +57,8 @@ pub const DetailsOf = *const fn (arena: Allocator, body: []const u8) ?Details;
 
 /// The failure a response that is not ok stands for, its body read and the response closed: its kind by its status,
 /// unless `details` says, with the wait its headers ask for, else the one its body gives, else for a rate limit the
-/// reset of its spent limits; retryable as its `x-should-retry` says, else as its kind is.
+/// reset of its spent limits; retryable as its `x-should-retry` says, else as its kind is; a quota used up given again
+/// when its body says, else once that wait is over.
 pub fn failureOf(call: *Call, response: http.Response, details: ?DetailsOf) Error!Failure {
     defer response.close();
     const body = response.body.allocRemaining(call.arena, .limited(failure_body_max)) catch |err| switch (err) {
@@ -63,7 +67,9 @@ pub fn failureOf(call: *Call, response: http.Response, details: ?DetailsOf) Erro
     };
     const own: Details = if (details) |read| read(call.arena, body) orelse .{} else .{};
     const kind = own.kind orelse kindOfStatus(response.status);
-    const said = retryAfterMs(response.headers, call.nowMs()) orelse own.retry_after_ms;
+    const now_ms = call.nowMs();
+    const said = retryAfterMs(response.headers, now_ms) orelse own.retry_after_ms;
+    const reset_at_ms = own.reset_at_ms orelse if (kind == .quota) if (said) |wait| now_ms + @as(i64, @intCast(wait)) else null else null;
     return .{
         .kind = kind,
         .message = own.message orelse if (body.len == 0)
@@ -75,6 +81,8 @@ pub fn failureOf(call: *Call, response: http.Response, details: ?DetailsOf) Erro
         .status = response.status,
         .code = own.code,
         .body = body,
+        .reset_at_ms = reset_at_ms,
+        .window_minutes = own.window_minutes,
     };
 }
 

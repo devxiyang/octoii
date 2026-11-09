@@ -12,6 +12,7 @@ const Runtime = runtime_.Runtime;
 const Phase = runtime_.Phase;
 const Request = runtime_.Request;
 const threads = @import("../threads.zig");
+const accounts = @import("../accounts.zig");
 const log = threads.log;
 const tools = @import("../tools.zig");
 const Tool = tools.Tool;
@@ -85,8 +86,13 @@ fn begin(phase: *Phase, thread: []const u8, gathering: []const u8, gathered: sys
     if (gathered.asked) |asked| try trust.ask(phase, thread, asked);
     const taken = try threads.takeInputs(&writer);
     if (taken.len == 0) return phase.next(null);
-    const left = try threads.budgetLeft(phase.runtime.volume, phase.arena, thread, try threads.manifestOf(phase.runtime.volume, &phase.arena, thread));
+    const manifest = try threads.manifestOf(phase.runtime.volume, &phase.arena, thread);
+    const left = try threads.budgetLeft(phase.runtime.volume, phase.arena, thread, manifest);
     if (left != null and left.? == 0) return failTaken(phase, &writer, thread, taken, "its thread's budget is spent");
+    // A turn on an account whose quota is used up fails before its model is asked, as one on a spent budget does.
+    if (manifest.model) |model| if (try accounts.usedUp(phase.runtime.volume, phase.arena, accounts.providerOf(model), phase.time)) |used_up| {
+        return failTaken(phase, &writer, thread, taken, try phase.arena.print("its model's account is used up till {s}", .{try accounts.utcOf(phase.arena, used_up.reset_at_ms)}));
+    };
     try title.startFor(phase, thread);
     const turn = try phase.mint();
     try phase.start(turn, threads.turn_program, null);

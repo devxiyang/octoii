@@ -474,4 +474,35 @@ describe("Claude through Claude Code", () => {
 		signedIn.close();
 		signedOut.close();
 	});
+
+	it("refuses an answer the plan's used-up limit refused as Anthropic's unified limits tell of it", async () => {
+		const plays: Played[] = [];
+		const claude = claudeOf(await Positions.open(undefined), plays);
+		const answering = claude.answer({ model: "opus", messages: [{ role: "user", content: "Hi" }] }, signal());
+		const played = await startedAt(plays, 0);
+		await played.heard();
+		// SAFETY: the test plays Claude Code: a limit's event and the message it made of the refusal, as the backend reads them.
+		const limited = {
+			type: "rate_limit_event",
+			rate_limit_info: { status: "rejected", resetsAt: 1_762_000_000, rateLimitType: "five_hour" },
+			uuid: "l1",
+			session_id: "",
+		} as never;
+		// SAFETY: as above.
+		const refused = {
+			type: "assistant",
+			error: "rate_limit",
+			message: { id: "m0", content: [{ type: "text", text: "Limit reached." }] },
+			parent_tool_use_id: null,
+			uuid: "u0",
+			session_id: "",
+		} as never;
+		played.say(init("S1"), limited, refused);
+		const response = await answering;
+		expect(response.status).toBe(429);
+		expect(response.headers.get("anthropic-ratelimit-unified-status")).toBe("rejected");
+		expect(response.headers.get("anthropic-ratelimit-unified-reset")).toBe("1762000000");
+		expect(response.headers.get("anthropic-ratelimit-unified-representative-claim")).toBe("five_hour");
+		claude.close();
+	});
 });

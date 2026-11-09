@@ -307,6 +307,17 @@ export type ThreadAsk = Static<typeof AskSchema>;
  * used, the inputs waiting in its inbox, what it asks the person, and whether it compacts — never its fibers, which its
  * state shows whoever follows it.
  */
+/**
+ * A provider's quota used up: when it is given again, in milliseconds since the epoch, and how long the window it is
+ * counted over lasts, in minutes — 300 for five hours, 10080 for a week — where the provider said.
+ */
+export const UsedUpSchema = Type.Object({ reset_at_ms: Type.Number(), window_minutes: Type.Optional(Type.Number()) });
+export type UsedUp = Static<typeof UsedUpSchema>;
+
+/** A thread limited by its model's quota: the provider whose quota it is, by its id, and its quota as it stands. */
+export const LimitedSchema = Type.Object({ provider: Type.String(), reset_at_ms: Type.Number(), window_minutes: Type.Optional(Type.Number()) });
+export type Limited = Static<typeof LimitedSchema>;
+
 export const StandingSchema = Type.Object({
 	status: StatusSchema,
 	began_at: Type.Optional(Type.Number()),
@@ -315,6 +326,10 @@ export const StandingSchema = Type.Object({
 	inbox: Type.Array(InboundSchema),
 	asks: Type.Array(AskSchema),
 	compacting: Type.Boolean(),
+	/** Where its latest turn failed and its model's quota is used up still, that quota. */
+	limited: Type.Optional(LimitedSchema),
+	/** When it goes on, where the person asked it to at a time. */
+	resuming_at: Type.Optional(Type.Number()),
 });
 export type Standing = Static<typeof StandingSchema>;
 
@@ -403,6 +418,8 @@ export const ProviderSchema = Type.Object({
 	connects: ConnectsSchema,
 	credential: Type.Optional(Type.String()),
 	account: Type.Optional(AddedSchema),
+	/** Its quota, where it is used up still. */
+	used_up: Type.Optional(UsedUpSchema),
 });
 export type Provider = Static<typeof ProviderSchema>;
 
@@ -696,6 +713,7 @@ export const METHODS = {
 	},
 	"threads.configure": { params: Type.Object({ thread: Type.String(), changes: ConfiguredSchema }), result: Nothing },
 	"threads.delete": { params: Type.Object({ thread: Type.String() }), result: Nothing },
+	"threads.resume": { params: Type.Object({ thread: Type.String(), at: Type.Optional(Type.Number()) }), result: Nothing },
 	"threads.deliver": {
 		params: Type.Object({ thread: Type.String(), input: InputGivenSchema, operation: Type.String() }),
 		result: Type.Object({ input: Type.String() }),

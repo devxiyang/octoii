@@ -10,7 +10,7 @@
  * is read once and kept, as the client keeps it the same; a call's line is kept while its call and what it waits on the
  * person for are the same — so a thread that grows is read again only where it grew.
  */
-import { type Ask, type Call, type Conversation, type Entry, matches, type Step, type Turn } from "@octoii-works/octoii-client";
+import { type Ask, type Call, type Conversation, type Entry, type Limited, matches, type Standing, type Step, type Turn } from "@octoii-works/octoii-client";
 
 /** A compaction of the thread's, as its log holds it. */
 type Compaction = Conversation["compactions"][number];
@@ -140,7 +140,15 @@ const FunctionCallSchema = Type.Object({ type: Type.Literal("function_call"), ca
 export type TimelineRow =
 	| { readonly kind: "turn"; readonly key: string; readonly turn: TimelineTurn }
 	| { readonly kind: "summed-up"; readonly key: string }
-	| { readonly kind: "ask"; readonly key: string; readonly ask: Ask };
+	| { readonly kind: "ask"; readonly key: string; readonly ask: Ask }
+	| { readonly kind: "limited"; readonly key: string; readonly limited: Limited; readonly resumingAt: number | undefined };
+
+/** `rows`, and, where the thread its model's quota limits as `standing` says, the card of that at their end. */
+export function withLimited(rows: readonly TimelineRow[], standing: Standing | undefined): readonly TimelineRow[] {
+	const limited = standing?.limited;
+	if (limited === undefined) return rows;
+	return [...rows, { kind: "limited", key: "limited", limited, resumingAt: standing?.resuming_at }];
+}
 
 /**
  * The rows of a conversation, in the order their ids give, as ids are minted in the order the log is written: each turn

@@ -23,6 +23,10 @@ pub const Failure = struct {
     code: ?[]const u8 = null,
     /// The provider's report of the failure as it sent it.
     body: ?[]const u8 = null,
+    /// When a quota used up is given again, in milliseconds since the epoch, where the provider says.
+    reset_at_ms: ?i64 = null,
+    /// How long the window a quota is counted over lasts, in minutes, where the provider says.
+    window_minutes: ?u32 = null,
 
     /// A failure of `kind`, retryable as its kind is.
     pub fn init(kind: Kind, message: []const u8) Failure {
@@ -36,7 +40,7 @@ pub const Failure = struct {
 
     /// The failure as an error's `octoii` carries it.
     pub fn extension(failure: Failure) vocabulary.extensions.FailureExtension {
-        return .{ .kind = failure.kind, .retryable = failure.retryable, .retry_after_ms = failure.retry_after_ms, .status = failure.status };
+        return .{ .kind = failure.kind, .retryable = failure.retryable, .retry_after_ms = failure.retry_after_ms, .status = failure.status, .reset_at_ms = failure.reset_at_ms, .window_minutes = failure.window_minutes };
     }
 
     /// The failure as a failed response's `error`: its code the provider's, else the failure's kind.
@@ -52,6 +56,8 @@ pub const Failure = struct {
             .retryable = carried.retryable,
             .retry_after_ms = carried.retry_after_ms,
             .status = carried.status,
+            .reset_at_ms = carried.reset_at_ms,
+            .window_minutes = carried.window_minutes,
             .code = if (std.mem.eql(u8, code, @tagName(carried.kind))) null else code,
         };
     }

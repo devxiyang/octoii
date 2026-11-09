@@ -15,6 +15,7 @@ const Runtime = runtime_.Runtime;
 const Phase = runtime_.Phase;
 const Request = runtime_.Request;
 const threads = @import("../threads.zig");
+const accounts = @import("../accounts.zig");
 const log = threads.log;
 const Window = threads.Window;
 const tools = @import("../tools.zig");
@@ -49,7 +50,8 @@ const retry_after_most_ms = 15 * std.time.ms_per_min;
 /// time.
 const Checkpoint = union(enum) {
     asking: struct { attempt: u32, compacted: bool = false },
-    asked: struct { attempt: u32, key: []const u8, compacted: bool = false },
+    /// The model asked, by its reference, whose quota a failure tells of.
+    asked: struct { attempt: u32, key: []const u8, compacted: bool = false, model: ?[]const u8 = null },
     compacting: struct {},
     calling: Calling,
 
@@ -78,16 +80,19 @@ fn turnPhase(context: ?*anyopaque, phase: *Phase) anyerror!void {
             if (!asking.compacted and try isFull(models, phase, thread, window)) return compact(phase, thread);
             return ask(phase, thread, window, asking.attempt, asking.compacted);
         },
-        .asked => |asked| return answered(phase, turns.table, thread, asked.key, asked.attempt, asked.compacted),
+        .asked => |asked| return answered(phase, turns.table, thread, asked),
         .compacting => return compactionEnded(phase, thread),
         .calling => |calling| return called(phase, turns.table, thread, calling),
     }
 }
 
-/// The model's answer to the request of `key`: its reply appended once, whole, and the calls it made started; asked
+/// The model's answer to the request `asked` made: its reply appended once, whole, and the calls it made started; asked
 /// again where it was cut off, or failed in a way that may pass; the window compacted where its provider refused the
-/// request as too long, once for one request.
-fn answered(phase: *Phase, table: *Table, thread: []const u8, key: []const u8, attempt: u32, compacted: bool) !void {
+/// request as too long, once for one request; its account's quota kept used up where the provider said it was.
+fn answered(phase: *Phase, table: *Table, thread: []const u8, asked: @FieldType(Checkpoint, "asked")) !void {
+    const key = asked.key;
+    const attempt = asked.attempt;
+    const compacted = asked.compacted;
     const answer = try phase.mailOf(key) orelse return phase.waitForMail(Phase.kept, key);
     try phase.take(key);
     if (answer.interrupted()) {
@@ -103,6 +108,7 @@ fn answered(phase: *Phase, table: *Table, thread: []const u8, key: []const u8, a
     try models_.charge(&phase.changes, phase.path, response);
     if (response.status == .failed) {
         try keepFailure(phase, thread, key, answer.payload);
+        if (asked.model) |model| if (response.@"error") |failure| try keepUsedUp(phase, model, failure.octoii);
         if (phase.stop_handler) return phase.stopped(null);
         const too_long = if (response.@"error") |failure| failure.octoii.kind == .context_overflow else false;
         if (too_long and !compacted and try compaction.cutOf(phase.arena, try windowOf(phase, thread)) != null) return compact(phase, thread);
@@ -164,6 +170,14 @@ fn compactionEnded(phase: *Phase, thread: []const u8) !void {
 
 /// Keeps the answer `payload` of the model request of `key`, which came to nothing, as a failure: for the record, never
 /// sent to the model.
+/// Keeps the quota of the account of `model` used up, where `failure` says it is till a time to come.
+fn keepUsedUp(phase: *Phase, model: []const u8, failure: vocabulary.extensions.FailureExtension) !void {
+    if (failure.kind != .quota) return;
+    const reset = failure.reset_at_ms orelse return;
+    if (reset <= phase.time) return;
+    try accounts.keepUsedUp(&phase.changes, accounts.providerOf(model), .{ .reset_at_ms = reset, .window_minutes = failure.window_minutes });
+}
+
 fn keepFailure(phase: *Phase, thread: []const u8, key: []const u8, payload: []const u8) !void {
     var writer: log.Writer = try .init(phase, thread);
     _ = try writer.append(log.Failure{ .id = try phase.mint(), .request = key, .response = try foundation.json.Raw.of(phase.arena, payload) });
@@ -249,5 +263,5 @@ fn ask(phase: *Phase, thread: []const u8, window: Window, attempt: u32, compacte
     };
     const key = try phase.mint();
     try phase.request(models_.model_request, key, models_.ModelRequest{ .thread = threads.idOf(thread), .until = until, .model = manifest.model });
-    return phase.waitForMail(Checkpoint{ .asked = .{ .attempt = attempt, .key = key, .compacted = compacted } }, key);
+    return phase.waitForMail(Checkpoint{ .asked = .{ .attempt = attempt, .key = key, .compacted = compacted, .model = manifest.model } }, key);
 }

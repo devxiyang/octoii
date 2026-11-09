@@ -13,7 +13,7 @@ import { useClient, useConversation, useThreads } from "@octoii-works/octoii-cli
 import type { Device } from "../core/device.ts";
 import { projectOf, statusOf, titleOf } from "../core/threads.ts";
 import { contentOf } from "../core/attachments.ts";
-import { firstSaid, rowsOf } from "../core/timeline.ts";
+import { firstSaid, rowsOf, withLimited } from "../core/timeline.ts";
 import { Composer } from "../components/composer/composer.tsx";
 import { Queued } from "../components/composer/queued.tsx";
 import { ChatHeader } from "../components/thread/header.tsx";
@@ -42,7 +42,7 @@ export function ThreadScreen(props: ThreadScreenProps): ReactNode {
 	const conversation = useConversation(thread);
 	const row = useThreads()?.find((each) => each.id === thread);
 	useSeen(thread);
-	const rows = rowsOf(conversation);
+	const rows = withLimited(rowsOf(conversation), row?.standing);
 	const project = row === undefined ? undefined : projectOf(row);
 	const panelPlace = usePanelPlace();
 	const detailsShown = useDetailsShown();

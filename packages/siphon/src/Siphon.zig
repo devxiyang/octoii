@@ -173,6 +173,7 @@ pub fn open(allocator: Allocator, host: Host, options: Options) !*Siphon {
     try agent.delegate.register(runtime, &siphon.tools);
     try agent.turn.register(runtime, &siphon.turns);
     try agent.compacting.register(runtime);
+    try agent.resume_.register(runtime);
     try agent.models.register(runtime, models);
     try agent.review.register(runtime, models);
     return siphon;

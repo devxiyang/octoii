@@ -22,6 +22,8 @@ const Gateway = struct {
     conversations: bool = false,
     /// The account Claude Code is signed in as; none, not signed in.
     account: ?[]const u8 = null,
+    /// Whether the plan's five hours are used up, till the time it names, in seconds since the epoch.
+    used_up_till: ?[]const u8 = null,
     asked: std.ArrayList([]const u8) = .empty,
     conversation: ?[]const u8 = null,
 
@@ -44,6 +46,18 @@ const Gateway = struct {
             if (gateway.account) |account| return answered(gateway, 200, account);
             return answered(gateway, 401, "{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"Claude Code is not signed in on this computer: run `claude` and sign in.\"}}");
         }
+        if (gateway.used_up_till) |reset| if (std.mem.endsWith(u8, request.url, "/v1/messages")) {
+            const headers = try gateway.arena.dupe(http.Header, &.{
+                .{ .name = "content-type", .value = "application/json" },
+                .{ .name = "anthropic-ratelimit-unified-status", .value = "rejected" },
+                .{ .name = "anthropic-ratelimit-unified-reset", .value = reset },
+                .{ .name = "anthropic-ratelimit-unified-representative-claim", .value = "five_hour" },
+            });
+            const reader = try gateway.arena.create(foundation.replay.ChunkReader);
+            const said = "{\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\",\"message\":\"Claude's five-hour limit is used up.\"}}";
+            reader.* = .init(try gateway.arena.dupe([]const u8, &.{said}), try gateway.arena.alloc(u8, 4096));
+            return .{ .status = 429, .headers = headers, .body = &reader.reader, .context = reader, .vtable = &.{ .failure = failure, .close = close } };
+        };
         if (gateway.rest) |rest| return rest.send(request);
         return error.Transport;
     }
@@ -148,4 +162,22 @@ test "an account the person added is reached at its own address on the gateway" 
     try models.refresh();
     try std.testing.expect((try models.status(arena, "01a1c11e-f9f4-7a31-8479-6c80a9b3dc03")).connected);
     try std.testing.expectEqualStrings("gateway://claude/accounts/01a1c11e-f9f4-7a31-8479-6c80a9b3dc03/v1/account", gateway.asked.items[gateway.asked.items.len - 1]);
+}
+
+test "a plan's limit used up fails as a quota, given again when the gateway says, over the window it names" {
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var gateway: Gateway = .{ .arena = arena, .listing = opus_and_sonnet, .used_up_till = "1762000000" };
+    const models = try modelsOver(arena, &gateway);
+    try models.refresh();
+    const fixture = try fixtures.load(arena, "anthropic", "text");
+    var request = fixture.request;
+    request.model = "claude/claude-opus-5-5";
+    const response = try models.create(arena, request);
+    const failed = response.@"error".?.octoii;
+    try std.testing.expectEqual(vocabulary.FailureKind.quota, failed.kind);
+    try std.testing.expect(!failed.retryable);
+    try std.testing.expectEqual(@as(?i64, 1_762_000_000_000), failed.reset_at_ms);
+    try std.testing.expectEqual(@as(?u32, 300), failed.window_minutes);
 }

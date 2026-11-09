@@ -138,8 +138,8 @@ export function statusOf(type: ErrorType): number {
 }
 
 /** An error as the API answers one, before any stream: its status and body. */
-export function errorResponse(type: ErrorType, message: string): Response {
-	return Response.json({ type: "error", error: { type, message } }, { status: statusOf(type) });
+export function errorResponse(type: ErrorType, message: string, headers: Readonly<Record<string, string>> = {}): Response {
+	return Response.json({ type: "error", error: { type, message } }, { status: statusOf(type), headers });
 }
 
 /** An event as a server-sent event's lines: its type, then its data, then the blank line that ends it. */

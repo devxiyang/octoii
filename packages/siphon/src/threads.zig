@@ -15,6 +15,7 @@ const Runtime = runtime_.Runtime;
 const Phase = runtime_.Phase;
 const Changes = runtime_.Changes;
 const operations = @import("operations.zig");
+const accounts = @import("accounts.zig");
 pub const log = @import("threads/log.zig");
 pub const Window = @import("threads/Window.zig");
 pub const stored = @import("threads/stored.zig");
@@ -30,6 +31,9 @@ pub const turn_program = "siphon.turn";
 /// The program of the fiber that compacts a thread's window, and its key, beside the thread's main fiber.
 pub const compact_program = "siphon.compact";
 pub const compact_key = "compact";
+/// The program of the fiber that goes on at a time the person asked, and its key, beside the thread's main fiber.
+pub const resume_program = "siphon.resume";
+pub const resume_key = "resume";
 
 /// What a thread runs with and how it is shown, as its `thread.json` holds it.
 pub const Manifest = struct {
@@ -363,6 +367,8 @@ pub fn configure(runtime: *Runtime, arena: Allocator, tid: []const u8, configure
         if (@field(configured, name)) |value| @field(manifest, name) = value;
     }
     var changes: Changes = .{ .arena = arena };
+    // Given another model, the thread goes on as the person goes on with it, not at the time they asked before.
+    if (configured.model != null) try resumeEnded(&changes, runtime, arena, thread);
     if (configured.pinned) |pinned| try changes.label(thread, pinned_label, labelled(pinned));
     if (configured.archived) |archived| try changes.label(thread, archived_label, labelled(archived));
     if (configured.seen_until) |seen| try changes.annotate(thread, &.{.{ .name = seen_annotation, .value = try arena.print("{d}", .{seen}) }});
@@ -392,6 +398,7 @@ pub fn deliver(runtime: *Runtime, arena: Allocator, tid: []const u8, input: Inpu
     var changes: Changes = .{ .arena = arena };
     try inboxed(&changes, thread, id, input, operation);
     try revived(&changes, runtime, arena, thread);
+    if (std.mem.eql(u8, input.actor, "person")) try resumeEnded(&changes, runtime, arena, thread);
     try operations.record(&changes, operation, .{ .method = "threads.deliver", .thread = tid, .result = id }, time);
     _ = try runtime.commit(&changes);
     return id;
@@ -580,17 +587,56 @@ fn asksOf(runtime: *const Runtime, arena: Allocator, thread: []const u8) ![]cons
 
 /// How the thread at `thread`, whose directory `entry` shows, stands, as a list of them shows it.
 pub fn standingOf(runtime: *const Runtime, arena: Allocator, thread: []const u8, entry: *const h.beak_entry) !Standing {
-    const status = beak.annotationOf(entry, status_annotation) orelse return error.DamagedThread;
+    const status = std.meta.stringToEnum(Status, beak.annotationOf(entry, status_annotation) orelse return error.DamagedThread) orelse return error.DamagedThread;
     const compactor = try runtime.volume.stat(&arena, try beak.childPath(arena, thread, compact_key));
     return .{
-        .status = std.meta.stringToEnum(Status, status) orelse return error.DamagedThread,
+        .status = status,
         .began_at = try timeOf(entry, began_annotation),
         .ended_at = try timeOf(entry, ended_annotation),
         .usage = try usageOf(runtime.volume, arena, thread),
         .inbox = try inboxOf(runtime.volume, arena, thread),
         .asks = try asksOf(runtime, arena, thread),
         .compacting = if (compactor) |found| beak.outcomeOf(found) == null else false,
+        .limited = if (status == .failed) try limitedOf(runtime, arena, thread) else null,
+        .resuming_at = try resumingAt(runtime.volume, arena, thread),
     };
+}
+
+/// When the thread at `thread` goes on, where the person asked it to at a time: its resume, while it sleeps.
+fn resumingAt(volume: beak.Volume, arena: Allocator, thread: []const u8) !?i64 {
+    const entry = try volume.stat(&arena, try beak.childPath(arena, thread, resume_key)) orelse return null;
+    const record = (entry.directory orelse return null).*.process orelse return null;
+    if (record.*.state != h.BEAK_PROCESS_SLEEPING) return null;
+    return beak.get(record.*.waits_until);
+}
+
+/// Has the thread `tid` go on at `at`, sending the person's word to go on then, unless they send their own first or
+/// give it another model; none where `at` is null, the resume armed before ended.
+pub fn resumeAt(runtime: *Runtime, arena: Allocator, tid: []const u8, at: ?i64) !void {
+    const thread = try pathOf(arena, tid);
+    if (try runtime.volume.stat(&arena, thread) == null) return error.NoSuchThread;
+    var ending: Changes = .{ .arena = arena };
+    try resumeEnded(&ending, runtime, arena, thread);
+    if (ending.items().len > 0) _ = try runtime.commit(&ending);
+    const time = at orelse return;
+    var changes: Changes = .{ .arena = arena };
+    try changes.start(thread, resume_key, resume_program, runtime.versionOf(resume_program).?, try foundation.json.encode(arena, .{ .at = time }), "");
+    _ = try runtime.commit(&changes);
+}
+
+/// Adds to `changes` the end of the resume armed for the thread at `thread`, where one is, as the person went on.
+fn resumeEnded(changes: *Changes, runtime: *const Runtime, arena: Allocator, thread: []const u8) !void {
+    const fiber = try beak.childPath(arena, thread, resume_key);
+    if (try runtime.volume.stat(&arena, fiber) == null) return;
+    try changes.deleteKilling(fiber, "the person went on");
+}
+
+/// The quota of the model of the thread at `thread`, where it is used up still.
+fn limitedOf(runtime: *const Runtime, arena: Allocator, thread: []const u8) !?accounts.Limited {
+    const model = (try manifestOf(runtime.volume, &arena, thread)).model orelse return null;
+    const provider = accounts.providerOf(model);
+    const used_up = try accounts.usedUp(runtime.volume, arena, provider, runtime.now()) orelse return null;
+    return .{ .provider = provider, .reset_at_ms = used_up.reset_at_ms, .window_minutes = used_up.window_minutes };
 }
 
 /// How a process stands, as Beak's record of it says.
@@ -659,7 +705,8 @@ pub const Listed = struct { id: []const u8, manifest: Manifest, standing: Standi
 
 /// How a thread stands, as a list of them shows it: its status and the times of its latest turn, what its model
 /// requests used, the inputs waiting in its inbox, what it asks the person — each request a person answers, by the
-/// fiber that waits on it — and whether it compacts.
+/// fiber that waits on it — whether it compacts, and, where its latest turn failed and its model's quota is used up
+/// still, that quota.
 pub const Standing = struct {
     status: Status,
     began_at: ?i64 = null,
@@ -668,6 +715,9 @@ pub const Standing = struct {
     inbox: []const Inbound = &.{},
     asks: []const Ask = &.{},
     compacting: bool = false,
+    limited: ?accounts.Limited = null,
+    /// When it goes on, where the person asked it to at a time.
+    resuming_at: ?i64 = null,
 };
 
 /// A request a fiber of a thread waits on a person's answer to: the fiber, by its key, and the request as it was made.

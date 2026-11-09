@@ -77,7 +77,17 @@ const Source = struct {
             .headers = source.headers,
             .body = try foundation.json.encode(call.arena, body),
         });
-        if (response.status < 200 or response.status >= 300) return call.fail(try http.failureOf(call, response, details));
+        if (response.status < 200 or response.status >= 300) {
+            const used_up = usedUp(response.headers);
+            var failure = try http.failureOf(call, response, details);
+            if (used_up) |limit| {
+                failure.kind = .quota;
+                failure.retryable = false;
+                failure.reset_at_ms = limit.reset_at_ms orelse failure.reset_at_ms;
+                failure.window_minutes = limit.window_minutes;
+            }
+            return call.fail(failure);
+        }
         source.events = .init(call, response);
     }
 
@@ -120,6 +130,27 @@ const Source = struct {
         source.events = null;
     }
 };
+
+/// A plan's limit used up, as Anthropic's unified limits tell of a request they refused: when it is given again, in
+/// milliseconds since the epoch, and the minutes of the window of the limit it hit, each where they say.
+const UsedUp = struct { reset_at_ms: ?i64, window_minutes: ?u32 };
+
+/// The plan's limit a refused request used up, by its unified limits' headers; none where they say none was.
+fn usedUp(headers: []const foundation.http.Header) ?UsedUp {
+    const status = foundation.http.find(headers, "anthropic-ratelimit-unified-status") orelse return null;
+    if (!std.ascii.eqlIgnoreCase(std.mem.trim(u8, status, " "), "rejected")) return null;
+    const reset = foundation.http.find(headers, "anthropic-ratelimit-unified-reset");
+    const seconds = if (reset) |given| std.fmt.parseInt(i64, std.mem.trim(u8, given, " "), 10) catch null else null;
+    const claim = foundation.http.find(headers, "anthropic-ratelimit-unified-representative-claim");
+    return .{ .reset_at_ms = if (seconds) |at| at * std.time.ms_per_s else null, .window_minutes = if (claim) |name| windowMinutesOf(std.mem.trim(u8, name, " ")) else null };
+}
+
+/// The minutes of the window a unified limit's claim is counted over: five hours, or a week, whatever models it holds.
+fn windowMinutesOf(claim: []const u8) ?u32 {
+    if (std.mem.eql(u8, claim, "five_hour")) return 5 * 60;
+    if (std.mem.startsWith(u8, claim, "seven_day")) return 7 * 24 * 60;
+    return null;
+}
 
 /// What Anthropic's body says of a refusal before the stream: its kind by its error's type, its message and its code;
 /// for a driver whose server speaks Anthropic's API.
