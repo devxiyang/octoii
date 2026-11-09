@@ -50,6 +50,9 @@ pub const Manifest = struct {
     mode: Mode = default_mode,
     /// How hard its model reasons; none, as the model does where it is not told.
     effort: ?Effort = null,
+    /// The most its model requests may cost in all, in billionths of a US dollar; none, no bound. Each turn may spend
+    /// what is left of it, as a cgroup's `*.max` bounds its group: Beak stops a turn its requests' cost takes past it.
+    budget_nanodollars: ?u64 = null,
     /// Whether the person pinned it, which keeps it atop their threads.
     pinned: bool = false,
     /// Whether the person archived it, which keeps it out of their threads.
@@ -220,6 +223,17 @@ pub const Usage = struct {
     }
 };
 
+/// The annotation that bounds a turn's cost, as Beak bounds a group by its counter.
+pub const cost_limit = h.BEAK_MAX_ANNOTATION_PREFIX ++ Usage.counterName("cost_nanodollars");
+
+/// What the budget of the thread at `thread`, whose manifest is `manifest`, leaves its next turn: the budget less what
+/// its model requests cost so far, as its main fiber's usage holds the whole thread's; none where it has no budget.
+pub fn budgetLeft(volume: beak.Volume, arena: Allocator, thread: []const u8, manifest: Manifest) !?u64 {
+    const budget = manifest.budget_nanodollars orelse return null;
+    const spent = if (try usageOf(volume, arena, thread)) |usage| usage.cost_nanodollars else 0;
+    return budget -| spent;
+}
+
 /// What the model requests of the thread at `thread` used, as its main fiber's usage holds it; none before its first.
 fn usageOf(volume: beak.Volume, arena: Allocator, thread: []const u8) !?Usage {
     const entry = try volume.stat(&arena, try mainOf(arena, thread)) orelse return null;
@@ -327,6 +341,8 @@ pub const Configured = struct {
     title: ?[]const u8 = null,
     mode: ?Mode = null,
     effort: ?Effort = null,
+    /// A budget, or 0 for none.
+    budget_nanodollars: ?u64 = null,
     pinned: ?bool = null,
     archived: ?bool = null,
     snoozed_until: ?i64 = null,
@@ -352,6 +368,7 @@ pub fn configure(runtime: *Runtime, arena: Allocator, tid: []const u8, configure
         } else if (manifest.snoozed_until != null) try changes.delete(snooze);
     }
     manifest.snoozed_until = null;
+    if (manifest.budget_nanodollars == 0) manifest.budget_nanodollars = null;
     try changes.write(try beak.join(arena, thread, "thread.json"), try foundation.json.encode(arena, manifest));
     _ = try runtime.commit(&changes);
 }

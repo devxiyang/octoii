@@ -59,6 +59,8 @@ export const ManifestSchema = Type.Object({
 	mode: ModeSchema,
 	/** How hard its model reasons; none, as the model does where it is not told. */
 	effort: Type.Optional(EffortSchema),
+	/** The most its model requests may cost in all, in billionths of a US dollar; none, no bound: a turn past what is left is stopped. */
+	budget_nanodollars: Type.Optional(Type.Number()),
 	/** Whether the person pinned it, which keeps it atop their threads. */
 	pinned: Type.Optional(Type.Boolean()),
 	/** Whether the person archived it, which keeps it out of their threads. */
@@ -78,6 +80,8 @@ export const ConfiguredSchema = Type.Object({
 	title: Type.Optional(Type.String()),
 	mode: Type.Optional(ModeSchema),
 	effort: Type.Optional(EffortSchema),
+	/** A budget, or 0 for none. */
+	budget_nanodollars: Type.Optional(Type.Number()),
 	pinned: Type.Optional(Type.Boolean()),
 	archived: Type.Optional(Type.Boolean()),
 	snoozed_until: Type.Optional(Type.Number()),

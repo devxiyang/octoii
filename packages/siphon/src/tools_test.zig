@@ -685,3 +685,55 @@ test "the calls of a reply that read alone run at once, and one that may act run
     try expectEntries(siphon, arena, tid, &.{ "system", "input", "reply", "result ok", "result ok", "result ok", "reply", "turn-end" });
     try std.testing.expect(lone.alone.load(.acquire));
 }
+
+/// Charges `cost` billionths of a dollar to the fiber at `path`, and every one above it, as a model request's would be.
+fn chargeCost(siphon: *Siphon, arena: Allocator, path: []const u8, cost: u64) !void {
+    const beak = @import("beak.zig");
+    var changes: @import("runtime.zig").Changes = .{ .arena = arena };
+    try changes.charge(path, &.{.{ .name = beak.bytes("cost-nanodollars"), .value = cost }});
+    _ = try siphon.runtime.commit(&changes);
+}
+
+test "a thread whose budget is spent fails its next turn before its model is asked" {
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var fake: ai.testing.Fake = .init(arena, &.{try message(arena, "hi")});
+    const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
+    var clock: testing.Clock = .{ .now_ms = 1_000 };
+    const siphon = try openOver(&clock, .memory, &providers);
+    defer siphon.close();
+    const tid = try threads.create(siphon.runtime, arena, .{ .title = "Test", .model = "fake/m", .budget_nanodollars = 1_000 }, "create");
+    try chargeCost(siphon, arena, try threads.mainOf(arena, try threads.pathOf(arena, tid)), 1_000);
+    _ = try threads.deliver(siphon.runtime, arena, tid, said("hello"), "op-1");
+    try std.testing.expectEqual(threads.Status.failed, (try testing.pumpUntilSettled(siphon, arena, tid)).status);
+    try expectEntries(siphon, arena, tid, &.{ "system", "input", "turn-end" });
+    try std.testing.expectEqual(@as(usize, 0), fake.requests.items.len);
+}
+
+test "a turn spends what its thread's budget leaves it, and is stopped as its cost passes that" {
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var fake: ai.testing.Fake = .init(arena, &.{try streamed(arena, &.{call("c1", "deploy", "{}")})});
+    const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
+    var clock: testing.Clock = .{ .now_ms = 1_000 };
+    const siphon = try openOver(&clock, .memory, &providers);
+    defer siphon.close();
+    var slow: Slow = .{};
+    try siphon.tools.add(slow.tool());
+    const tid = try threads.create(siphon.runtime, arena, .{ .title = "Test", .model = "fake/m", .mode = .@"full-access", .budget_nanodollars = 1_500 }, "create");
+    const thread = try threads.pathOf(arena, tid);
+    try chargeCost(siphon, arena, try threads.mainOf(arena, thread), 1_000);
+    _ = try threads.deliver(siphon.runtime, arena, tid, said("deploy"), "op-1");
+    try testing.pumpUntil(siphon, &slow, Slow.hasBegun);
+    // The turn is bound by what the budget left it, as a cgroup by its `*.max`.
+    const turn = (try threads.turnOf(siphon.runtime.volume, &arena, thread)).?;
+    const entry = (try siphon.runtime.volume.stat(&arena, turn)).?;
+    try std.testing.expectEqualStrings("500", @import("beak.zig").annotationOf(entry, threads.cost_limit).?);
+    try chargeCost(siphon, arena, turn, 600);
+    try std.testing.expectEqual(threads.Status.stopped, (try testing.pumpUntilSettled(siphon, arena, tid)).status);
+    const lines = try log.lines(siphon.runtime.volume, &arena, thread);
+    const end = try foundation.json.decode(log.TurnEnd, arena, lines[lines.len - 1]);
+    try std.testing.expectEqualStrings("its thread's budget ran out", end.reason.?);
+}

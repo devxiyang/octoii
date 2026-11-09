@@ -85,9 +85,13 @@ fn begin(phase: *Phase, thread: []const u8, gathering: []const u8, gathered: sys
     if (gathered.asked) |asked| try trust.ask(phase, thread, asked);
     const taken = try threads.takeInputs(&writer);
     if (taken.len == 0) return phase.next(null);
+    const left = try threads.budgetLeft(phase.runtime.volume, phase.arena, thread, try threads.manifestOf(phase.runtime.volume, &phase.arena, thread));
+    if (left != null and left.? == 0) return failTaken(phase, &writer, thread, taken, "its thread's budget is spent");
     try title.startFor(phase, thread);
     const turn = try phase.mint();
     try phase.start(turn, threads.turn_program, null);
+    // What the budget leaves bounds the turn's group, as a cgroup's `*.max` does: Beak stops it past that.
+    if (left) |amount| try phase.changes.annotate(try beak.childPath(phase.arena, phase.path, turn), &.{.{ .name = threads.cost_limit, .value = try phase.arena.print("{d}", .{amount}) }});
     try threads.setRunning(&phase.changes, thread, phase.time, taken[0].address);
     const running: Standing = .{ .running = .{ .turn = turn, .began = taken[0].address } };
     return phase.waitForExit(running, try beak.childPath(phase.arena, phase.path, turn));
@@ -99,9 +103,13 @@ fn failBefore(phase: *Phase, thread: []const u8, why: []const u8) !void {
     var writer: log.Writer = try .init(phase, thread);
     const taken = try threads.takeInputs(&writer);
     if (taken.len == 0) return phase.next(null);
-    const reason = try phase.arena.print("what the model is told could not be gathered: {s}", .{why});
+    return failTaken(phase, &writer, thread, taken, try phase.arena.print("what the model is told could not be gathered: {s}", .{why}));
+}
+
+/// Ends the inputs `taken` as a turn that failed before its model was asked, for `reason`: begun and ended in the same
+/// commit, those they reply to told so.
+fn failTaken(phase: *Phase, writer: *log.Writer, thread: []const u8, taken: []const threads.Taken, reason: []const u8) !void {
     _ = try writer.append(log.TurnEnd{ .id = try phase.mint(), .outcome = .failed, .reason = reason });
-    // A turn that failed at once began and ended in the same commit.
     try threads.setRunning(&phase.changes, thread, phase.time, null);
     try threads.setEnded(&phase.changes, thread, .failed, phase.time);
     for (taken) |each| if (each.reply_to) |reply_to| try threads.tellEnded(&phase.changes, phase.runtime.volume, reply_to, .{ .failed = reason });
@@ -132,7 +140,8 @@ fn settle(phase: *Phase, thread: []const u8, turn: []const u8, outcome: *const h
     const end: log.TurnEnd = switch (outcome.status) {
         h.BEAK_OUTCOME_COMPLETED => .{ .id = id, .turn = running.turn, .outcome = .replied },
         h.BEAK_OUTCOME_FAILED => .{ .id = id, .turn = running.turn, .outcome = .failed, .reason = said },
-        else => .{ .id = id, .turn = running.turn, .outcome = .stopped, .reason = beak.slice(outcome.reason) },
+        // Stopped as its requests' cost passed what the budget left it, it is told so in the thread's words.
+        else => .{ .id = id, .turn = running.turn, .outcome = .stopped, .reason = if (std.mem.eql(u8, beak.slice(outcome.reason), h.BEAK_LIMIT_REASON)) "its thread's budget ran out" else beak.slice(outcome.reason) },
     };
     _ = try writer.append(end);
     try threads.setEnded(&phase.changes, thread, end.outcome, phase.time);
