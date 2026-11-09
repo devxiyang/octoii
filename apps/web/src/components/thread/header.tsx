@@ -1,8 +1,9 @@
 /**
- * The chat's header: the sidebar's button where the sidebar is hidden — always where the page is narrow, the sidebar
- * a drawer over it there — the project and the thread's title as a
- * breadcrumb, a pill of how the thread stands while it works, waits on the person or failed, and on its right what the
- * page puts there — a thread's details' buttons — and the right panel's button where the panel is hidden.
+ * The chat's header: the sidebar's button where the sidebar is not beside the chat — hidden, or a drawer over the page
+ * where it is narrow — the project and the thread's title as a breadcrumb, the project by its mark alone where the
+ * page is narrow, so that the title has the room; a pill of how the thread stands while it works, waits on the person
+ * or failed; and on its right what the page puts there — a thread's details' buttons — and the right panel's button
+ * where the panel is hidden.
  */
 import type { ReactNode } from "react";
 import { PanelLeft, PanelRight } from "lucide-react";
@@ -31,17 +32,13 @@ export function ChatHeader(props: HeaderProps): ReactNode {
 				<IconButton label="Show sidebar" shortcut="⌘B" onClick={props.onShowSidebar} className="-ml-1">
 					<PanelLeft className="size-4" />
 				</IconButton>
-			) : (
-				<IconButton label="Show sidebar" onClick={props.onShowSidebar} className="-ml-1 md:hidden">
-					<PanelLeft className="size-4" />
-				</IconButton>
-			)}
+			) : null}
 			<div className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
 				{props.project === undefined ? null : (
 					<>
 						<ProjectMark project={props.project} />
-						<span className="max-w-40 truncate text-muted-foreground">{props.project.name}</span>
-						<span className="text-muted-foreground/60">/</span>
+						<span className="max-w-40 truncate text-muted-foreground max-sm:hidden">{props.project.name}</span>
+						<span className="text-muted-foreground/60 max-sm:hidden">/</span>
 					</>
 				)}
 				<h2 className="min-w-0 truncate font-medium text-foreground">{props.title}</h2>

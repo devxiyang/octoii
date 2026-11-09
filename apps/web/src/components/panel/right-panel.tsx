@@ -143,10 +143,12 @@ export function RightPanel(props: RightPanelProps): ReactNode {
 					</Tabs.List>
 					<OpenMenu openings={openings} />
 					<span className="flex-1" />
+					{/* Where the page is narrow, as a phone's, the panel takes the chat's whole place already. */}
 					<ToggleButton
 						label={full ? "Give the chat its place back" : "Fill the chat's place"}
 						pressed={full}
 						onPressedChange={(on) => placePanel(on ? "full" : "beside")}
+						className="max-md:hidden"
 					>
 						{full ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
 					</ToggleButton>

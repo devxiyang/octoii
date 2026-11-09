@@ -1,7 +1,7 @@
 /*
  * The page's ground: Inter for the interface where the system has no font of its own, Latin alone, so the page carries
  * one small file; every border its token and every outline the ring; the root filling the window; thin scrollbars;
- * and lighter icon strokes.
+ * lighter icon strokes; and fields written at 16px at least where the pointer is a finger.
  */
 
 @font-face {
@@ -67,5 +67,18 @@
 
 	::-webkit-scrollbar-track {
 		background: transparent;
+	}
+}
+
+/*
+ * A phone zooms into a field whose text is under 16px as the field takes the focus: where the pointer is a finger,
+ * fields are written at 16px at least — outside the layers, so that no utility sizes one smaller.
+ */
+@media (pointer: coarse) {
+	input,
+	textarea,
+	select,
+	[contenteditable="true"] {
+		font-size: max(16px, 1em);
 	}
 }

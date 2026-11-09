@@ -11,13 +11,14 @@ import { type FormEvent, type ReactNode, useState, useTransition } from "react";
 import { Tabs } from "@base-ui/react/tabs";
 import type { Provider } from "@octoii-works/octoii-client";
 import { useClient } from "@octoii-works/octoii-client/react";
-import { Plus, RefreshCw } from "lucide-react";
+import { ChevronLeft, Plus, RefreshCw } from "lucide-react";
 import { isSignInReturn } from "../../core/sign-in.ts";
 import { useOnFocus } from "../effects/focus.ts";
 import { useRead } from "../effects/read.ts";
 import { type Finishing, useSignInFinish } from "../effects/sign-in.ts";
 import { takeSignInReturn } from "../state/sign-in.ts";
-import { Button } from "../ui/button.tsx";
+import { Button, IconButton } from "../ui/button.tsx";
+import { cn } from "../ui/cn.ts";
 import { Field } from "../ui/input.tsx";
 import { Dialog, DialogClose, DialogDescription, DialogPopup, DialogTitle } from "../ui/dialog.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu.tsx";
@@ -64,11 +65,14 @@ export function ProvidersPage(): ReactNode {
 	);
 }
 
-/** The providers on the left, the chosen one's details on the right, and the models listed again. */
+/**
+ * The providers on the left, the chosen one's details on the right, and the models listed again — where the page is
+ * narrow, the list alone till one is chosen, then its details alone, a button going back to the list.
+ */
 function ProviderList(props: {
 	readonly chosen: string | undefined;
 	readonly finishing: Finishing | undefined;
-	readonly onChoose: (provider: string) => void;
+	readonly onChoose: (provider: string | undefined) => void;
 	readonly onChanged: () => void;
 }): ReactNode {
 	const client = useClient();
@@ -86,7 +90,7 @@ function ProviderList(props: {
 		});
 	return (
 		<Page>
-			<section className="flex flex-col gap-2">
+			<section className="@container/providers flex flex-col gap-2">
 				<SectionHeading
 					title="Providers"
 					action={
@@ -101,9 +105,12 @@ function ProviderList(props: {
 					value={shown?.id ?? null}
 					onValueChange={(id: string) => props.onChoose(id)}
 					orientation="vertical"
-					className="grid min-h-96 grid-cols-[14rem_minmax(0,1fr)] overflow-hidden rounded-xl border border-border/60 bg-card/40 shadow-xs"
+					className="grid min-h-96 grid-cols-1 overflow-hidden rounded-xl border border-border/60 bg-card/40 shadow-xs @xl/providers:grid-cols-[14rem_minmax(0,1fr)]"
 				>
-					<Tabs.List aria-label="Providers" className="flex flex-col overflow-y-auto border-r border-border/60">
+					<Tabs.List
+						aria-label="Providers"
+						className={cn("flex flex-col overflow-y-auto border-border/60 @xl/providers:border-r", props.chosen !== undefined && "@max-xl/providers:hidden")}
+					>
 						{providers.map((each) => (
 							<Tabs.Tab
 								key={each.id}
@@ -132,8 +139,8 @@ function ProviderList(props: {
 						/>
 					</Tabs.List>
 					{providers.map((each) => (
-						<Tabs.Panel key={each.id} value={each.id} className="min-w-0 outline-none">
-							<ProviderDetails provider={each} onChanged={props.onChanged} onChoose={props.onChoose} />
+						<Tabs.Panel key={each.id} value={each.id} className={cn("min-w-0 outline-none", props.chosen === undefined && "@max-xl/providers:hidden")}>
+							<ProviderDetails provider={each} onChanged={props.onChanged} onBack={() => props.onChoose(undefined)} />
 						</Tabs.Panel>
 					))}
 				</Tabs.Root>
@@ -155,8 +162,8 @@ function SignInOutcome(props: { readonly finishing: Finishing; readonly provider
 	);
 }
 
-/** The chosen provider: how it stands, as it is asked, then what connects it, and its accounts. */
-function ProviderDetails(props: { readonly provider: Provider; readonly onChanged: () => void; readonly onChoose: (provider: string) => void }): ReactNode {
+/** The chosen provider: how it stands, as it is asked, then what connects it, and its accounts; where the page is narrow, a button back to the list. */
+function ProviderDetails(props: { readonly provider: Provider; readonly onChanged: () => void; readonly onBack: () => void }): ReactNode {
 	const { provider } = props;
 	const status = useRead("providers.status", { provider: provider.id });
 	const [refused, setRefused] = useState<string | undefined>(undefined);
@@ -170,6 +177,9 @@ function ProviderDetails(props: { readonly provider: Provider; readonly onChange
 	return (
 		<div className="[&>*+*]:border-t [&>*+*]:border-border/40">
 			<div className="flex items-center gap-2.5 px-3.5 pt-4 pb-2">
+				<IconButton label="All providers" onClick={props.onBack} className="-ms-1.5 @xl/providers:hidden">
+					<ChevronLeft className="size-4" />
+				</IconButton>
 				<Monogram name={provider.name} size="md" />
 				<h4 className="flex-1 text-base font-semibold">{provider.name}</h4>
 				{provider.account === undefined ? <span className="font-mono text-xs text-muted-foreground">{provider.id}</span> : null}

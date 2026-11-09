@@ -23,10 +23,10 @@ export const buttonVariants = cva(
 				sm: "h-control-sm gap-1.5 px-[calc(--spacing(2.5)-1px)] text-ui",
 				xs: "h-control-xs gap-1 px-[calc(--spacing(2)-1px)] text-xs [&_svg:not([class*='size-'])]:size-3.5",
 				compact: "h-control-sm gap-1 rounded-md px-[calc(--spacing(2)-1px)] text-xs [&_svg:not([class*='size-'])]:size-3.5",
-				icon: "size-control",
-				"icon-sm": "size-control-sm",
-				"icon-xs": "size-control-xs rounded-md [&_svg:not([class*='size-'])]:size-3.5",
-				"icon-micro": "size-control-2xs rounded-sm [&_svg:not([class*='size-'])]:size-3",
+				icon: "size-control touch-target",
+				"icon-sm": "size-control-sm touch-target",
+				"icon-xs": "size-control-xs touch-target rounded-md [&_svg:not([class*='size-'])]:size-3.5",
+				"icon-micro": "size-control-2xs touch-target rounded-sm [&_svg:not([class*='size-'])]:size-3",
 			},
 			variant: {
 				default:

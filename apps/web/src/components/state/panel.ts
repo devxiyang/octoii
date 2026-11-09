@@ -120,6 +120,14 @@ export function openFile(thread: string, path: string): void {
 	changeThread(thread, shownPlace(), (place) => ({ ...withShown(place, "files"), file: path }));
 }
 
+/** Puts away the file read in `thread`'s Files view, its tree shown in its place. */
+export function closeFile(thread: string): void {
+	changeThread(thread, panel.place, (place) => {
+		const { file: _closed, ...rest } = place;
+		return rest;
+	});
+}
+
 /** Shows the changes `scope` asks for in `thread`'s Diff view. */
 export function showChanges(thread: string, scope: ChangesScope): void {
 	changeThread(thread, panel.place, (place) => ({ ...place, scope }));

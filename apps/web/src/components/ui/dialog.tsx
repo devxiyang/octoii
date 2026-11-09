@@ -22,11 +22,14 @@ export const DialogDescription = DialogPrimitive.Description;
 /** A button that closes its dialog; `render` makes it the button it shows as. */
 export const DialogClose = DialogPrimitive.Close;
 
-/** Where a dialog's popup sits: centred, as tall as its content; near the top, for a palette; or filling the room, for settings. */
+/**
+ * Where a dialog's popup sits: centred, as tall as its content; near the top, for a palette; or filling the room, for
+ * settings — the whole screen where the page is narrow, as a phone's.
+ */
 const PLACEMENTS = {
 	center: "grid-rows-[1fr_auto_1fr] sm:p-6 lg:p-10",
 	top: "grid-rows-[12vh_auto_1fr]",
-	fill: "grid-rows-[1fr_minmax(0,100%)_1fr] sm:p-6 lg:p-10",
+	fill: "grid-rows-[1fr_minmax(0,100%)_1fr] p-0 md:p-6 lg:p-10",
 } as const;
 
 /** A dialog's popup over its veil. */

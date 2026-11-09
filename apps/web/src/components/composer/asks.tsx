@@ -241,10 +241,10 @@ function Permission(props: {
 					)}
 					<div className="flex items-center justify-end gap-2">
 						<Button size="sm" variant="outline" onClick={() => setDenying(true)}>
-							Deny <Kbd>Esc</Kbd>
+							Deny <Kbd className="pointer-coarse:hidden">Esc</Kbd>
 						</Button>
 						<Button size="sm" variant="default" onClick={allow}>
-							Allow <Kbd className="bg-primary-foreground/15 text-primary-foreground/80">⌘↵</Kbd>
+							Allow <Kbd className="bg-primary-foreground/15 text-primary-foreground/80 pointer-coarse:hidden">⌘↵</Kbd>
 						</Button>
 					</div>
 				</div>
@@ -418,7 +418,7 @@ function OptionWords(props: { readonly option: Option; readonly place: number })
 				<span className="text-sm font-medium">{props.option.label}</span>
 				{props.option.description === undefined ? null : <span className="text-xs text-muted-foreground">{props.option.description}</span>}
 			</span>
-			{props.place < DIGITS.length ? <Kbd>{DIGITS[props.place]}</Kbd> : null}
+			{props.place < DIGITS.length ? <Kbd className="pointer-coarse:hidden">{DIGITS[props.place]}</Kbd> : null}
 		</>
 	);
 }

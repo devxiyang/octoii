@@ -198,7 +198,7 @@ function Foot(props: {
 	const latest = (): void => list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" });
 	return (
 		// The foot lets the turns under it be pointed at, but for what it holds.
-		<div ref={measure} className="pointer-events-none absolute inset-x-0 bottom-0 pt-6 pb-4">
+		<div ref={measure} className="pointer-events-none absolute inset-x-0 bottom-0 pt-6 pb-[max(--spacing(4),env(safe-area-inset-bottom))]">
 			<div className="pointer-events-auto relative chat-column">
 				{atBottom ? null : waiting > 0 ? (
 					<button

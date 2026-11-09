@@ -42,7 +42,7 @@ export function Row(props: { readonly title: string; readonly description?: stri
 	);
 }
 
-/** A page of settings: its sections, one under another. */
+/** A page of settings: its sections, one under another, closer to the edges where the page is narrow. */
 export function Page(props: { readonly children: ReactNode }): ReactNode {
-	return <div className="mx-auto flex w-full max-w-[40rem] flex-col gap-6 px-6 py-5">{props.children}</div>;
+	return <div className="mx-auto flex w-full max-w-[40rem] flex-col gap-6 px-6 py-5 max-sm:px-4">{props.children}</div>;
 }

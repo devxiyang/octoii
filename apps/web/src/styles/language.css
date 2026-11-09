@@ -81,9 +81,24 @@
 	@apply flex flex-col gap-0.5;
 }
 
-/* A chevron that waits: seen as its line is pointed at, focused or open. */
+/* A chevron that waits: seen as its line is pointed at, focused or open — always where the pointer is a finger, which points at nothing. */
 @utility quiet-chevron {
-	@apply text-muted-foreground/70 opacity-0 transition-opacity group-hover/fold:opacity-100 group-focus-visible/fold:opacity-100 group-data-panel-open/fold:opacity-100;
+	@apply text-muted-foreground/70 opacity-0 transition-opacity group-hover/fold:opacity-100 group-focus-visible/fold:opacity-100 group-data-panel-open/fold:opacity-100 pointer-coarse:opacity-100;
+}
+
+/* A control a finger hits: where the pointer is a finger, it is hit 44px across at least, about its middle, however small it is drawn. */
+@utility touch-target {
+	@media (pointer: coarse) {
+		&::after {
+			content: "";
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			width: max(100%, 44px);
+			height: max(100%, 44px);
+			transform: translate(-50%, -50%);
+		}
+	}
 }
 
 /* A line that tells how something went — how long a turn worked, that it works still — quieter than what it tells of. */

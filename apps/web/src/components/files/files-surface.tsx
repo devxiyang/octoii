@@ -2,13 +2,15 @@
  * The Files surface: the thread's folder as a tree on the right — its folders opening as they are clicked — with a
  * search over its paths above it and a button that reads the folder again; and on the left the file chosen, under the
  * names on the way to it, beside them what wraps its long lines and what hides the tree, as the device keeps them, the
- * tree always shown while no file is. What it shows is the panel's, kept for the thread, so a file or folder opened
- * anywhere shows here; a folder a search finds is shown in the tree, every folder on the way to it opened.
+ * tree always shown while no file is. Where the surface is narrow, as on a phone, the tree and the file take its whole
+ * width in turn: the tree till a file is chosen, then the file, with a button back to the tree. What it shows is the
+ * panel's, kept for the thread, so a file or folder opened anywhere shows here; a folder a search finds is shown in the
+ * tree, every folder on the way to it opened.
  */
 import { type ReactNode, useState } from "react";
 import { ListTree, RefreshCw, Search, WrapText } from "lucide-react";
 import { useDevice } from "../state/device.ts";
-import { revealFolder, useThreadPanel } from "../state/panel.ts";
+import { closeFile, revealFolder, useThreadPanel } from "../state/panel.ts";
 import { IconButton, ToggleButton } from "../ui/button.tsx";
 import { cn } from "../ui/cn.ts";
 import { Input } from "../ui/input.tsx";
@@ -36,9 +38,10 @@ function FolderSurface(props: { readonly thread: string; readonly folder: string
 		revealFolder(thread, folder, path);
 		setSearch("");
 	};
+	const reading = place.file !== undefined;
 	return (
-		<div className="flex min-h-0 flex-1">
-			<div className="flex min-w-0 flex-1 flex-col">
+		<div className="@container/files flex min-h-0 flex-1">
+			<div className={cn("flex min-w-0 flex-1 flex-col", !reading && "@max-xl/files:hidden")}>
 				{place.file === undefined ? (
 					<p className="px-6 py-10 text-center text-xs text-muted-foreground/70">Choose a file in the tree to read it.</p>
 				) : (
@@ -52,15 +55,29 @@ function FolderSurface(props: { readonly thread: string; readonly folder: string
 								<ToggleButton label="Wrap long lines" pressed={device.wrap_lines} onPressedChange={(wrap_lines) => set({ wrap_lines })}>
 									<WrapText className="size-3.5" />
 								</ToggleButton>
-								<ToggleButton label="Show the tree" pressed={device.files_tree} onPressedChange={(files_tree) => set({ files_tree })}>
+								<ToggleButton
+									label="Show the tree"
+									pressed={device.files_tree}
+									onPressedChange={(files_tree) => set({ files_tree })}
+									className="@max-xl/files:hidden"
+								>
 									<ListTree className="size-3.5" />
 								</ToggleButton>
+								<IconButton label="Back to the tree" onClick={() => closeFile(thread)} className="@xl/files:hidden">
+									<ListTree className="size-3.5" />
+								</IconButton>
 							</>
 						}
 					/>
 				)}
 			</div>
-			<div className={cn("flex w-64 shrink-0 flex-col border-l border-border/60", !treeShown && "hidden")}>
+			<div
+				className={cn(
+					"flex w-64 shrink-0 flex-col border-l border-border/60 @max-xl/files:w-full @max-xl/files:border-l-0",
+					!treeShown && "hidden",
+					reading && "@max-xl/files:hidden",
+				)}
+			>
 				<div className="m-2 flex items-center gap-1">
 					<IconButton label="Read the folder again" onClick={() => setGeneration(generation + 1)}>
 						<RefreshCw className="size-3.5" />

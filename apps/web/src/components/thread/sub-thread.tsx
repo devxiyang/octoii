@@ -133,7 +133,7 @@ function SubThreadRow(props: {
 			)}
 			{props.time === undefined ? null : <span className="shrink-0 text-xs text-muted-foreground/80 tabular-nums">{props.time}</span>}
 			{props.thread === undefined ? null : (
-				<ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70 opacity-0 transition-opacity group-hover/sub-thread:opacity-100 group-focus-visible/sub-thread:opacity-100" />
+				<ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70 opacity-0 transition-opacity group-hover/sub-thread:opacity-100 group-focus-visible/sub-thread:opacity-100 pointer-coarse:opacity-100" />
 			)}
 		</>
 	);

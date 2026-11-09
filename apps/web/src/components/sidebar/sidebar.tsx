@@ -3,8 +3,8 @@
  * on named under them where one is; the threads of every project in one list, each card naming its project — those
  * pinned atop, then those open to the person, what asks them first, then those that work under their heading, and at
  * the foot, folded, those snoozed and the earlier, a line each, those archived not at all — a sub-thread on its
- * parent's card, by their count and how they stand; and settings at its foot. Its right edge drags it wider or
- * narrower, the width kept for the device.
+ * parent's card, by their count and how they stand; and settings at its foot. Beside the chat, its right edge drags it
+ * wider or narrower, the width kept for the device; where the page is narrow, it is a drawer over the page instead.
  */
 import { type ReactNode, useState } from "react";
 import type { Listed } from "@octoii-works/octoii-client";
@@ -22,22 +22,47 @@ import { Input } from "../ui/input.tsx";
 import { Menu, MenuItemLabel, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "../ui/menu.tsx";
 import { ProjectMark } from "../files/project-mark.tsx";
 import { cn } from "../ui/cn.ts";
+import { Drawer, DrawerPopup, DrawerSwipeArea, DrawerTitle } from "../ui/drawer.tsx";
 import { useDragSize } from "../ui/resize.tsx";
 import { ThreadCard, ThreadLine } from "./thread-row.tsx";
 
-/** What the sidebar is given: the place shown, how it hides and opens settings over the chat, and how it stands where the page is narrow — out of the way, or a drawer over the page. */
+/** What the sidebar is given: the place shown, and how it hides and opens settings over the chat. */
 export type SidebarProps = {
 	readonly route: Route;
 	readonly onHide: () => void;
 	readonly onOverlay: (over: Overlay) => void;
-	readonly className?: string;
 };
 
 /** How narrow and how wide the sidebar may be dragged. */
 const SIDEBAR_BOUNDS = { min: 200, max: 480, grows: "right" } as const;
 
-/** The sidebar. */
+/** The sidebar beside the chat, its right edge dragged to make it wider or narrower. */
 export function Sidebar(props: SidebarProps): ReactNode {
+	const { device, set } = useDevice();
+	const { size: width, edge } = useDragSize(device.sidebar_width, SIDEBAR_BOUNDS, (width) => set({ sidebar_width: width }));
+	return (
+		<aside style={{ width }} className="relative flex h-full shrink-0 flex-col border-e border-sidebar-border bg-sidebar text-sidebar-foreground">
+			{edge}
+			<SidebarBody {...props} />
+		</aside>
+	);
+}
+
+/** The sidebar as a drawer over the page, swiped in from its left edge; open while `open` says, closed as `onHide` asks. */
+export function SidebarDrawer(props: SidebarProps & { readonly open: boolean; readonly onOpenChange: (open: boolean) => void }): ReactNode {
+	return (
+		<Drawer open={props.open} onOpenChange={props.onOpenChange}>
+			<DrawerSwipeArea />
+			<DrawerPopup className="bg-sidebar text-sidebar-foreground">
+				<DrawerTitle className="sr-only">Threads</DrawerTitle>
+				<SidebarBody route={props.route} onHide={props.onHide} onOverlay={props.onOverlay} />
+			</DrawerPopup>
+		</Drawer>
+	);
+}
+
+/** What the sidebar holds, beside the chat or in a drawer. */
+function SidebarBody(props: SidebarProps): ReactNode {
 	const [query, setQuery] = useState("");
 	const [folder, setFolder] = useState<string | undefined>(undefined);
 	const rows = useThreads();
@@ -47,14 +72,8 @@ export function Sidebar(props: SidebarProps): ReactNode {
 	const shown = matchingRows(rows ?? [], query).filter((row) => folder === undefined || projectOf(row)?.folder === folder);
 	// The thread shown is marked, or where a sub-thread is shown, the one whose card stands for it.
 	const current = props.route.place === "thread" ? lineOf(rows ?? [], props.route.thread) : [];
-	const { device, set } = useDevice();
-	const { size: width, edge } = useDragSize(device.sidebar_width, SIDEBAR_BOUNDS, (width) => set({ sidebar_width: width }));
 	return (
-		<aside
-			style={{ width }}
-			className={cn("relative flex h-full shrink-0 flex-col border-e border-sidebar-border bg-sidebar text-sidebar-foreground", props.className)}
-		>
-			{edge}
+		<>
 			<div className="flex h-[var(--topbar-height)] shrink-0 items-center gap-1.5 px-2">
 				<span className="min-w-0 flex-1 ps-2 text-sm font-semibold tracking-tight">Octoii</span>
 				<IconButton label="Hide sidebar" shortcut="⌘B" onClick={props.onHide}>
@@ -97,7 +116,7 @@ export function Sidebar(props: SidebarProps): ReactNode {
 					<Settings className="size-4" />
 				</IconButton>
 			</div>
-		</aside>
+		</>
 	);
 }
 
