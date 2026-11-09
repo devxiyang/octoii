@@ -1,8 +1,8 @@
 /**
  * The gateway's HTTP, as its channel carries it: Anthropic's Messages API for each agent behind it, under the agent's
  * name — `POST /claude/v1/messages` answers a conversation, the one its `conversation-id` names; `GET /claude/v1/models`
- * lists the models the agent offers; `DELETE /claude/v1/conversations/{id}` lets go of what a conversation that ended
- * holds.
+ * lists the models the agent offers; `GET /claude/v1/account` tells who the agent is signed in as;
+ * `DELETE /claude/v1/conversations/{id}` lets go of what a conversation that ended holds.
  */
 import { errorResponse, RequestSchema } from "./anthropic.ts";
 import type { Handler } from "./channel.ts";
@@ -18,6 +18,7 @@ export function handlerOf(agents: Agents): Handler {
 		const path = new URL(request.url).pathname;
 		if (path === "/claude/v1/messages" && request.method === "POST") return messages(agents.claude, request);
 		if (path === "/claude/v1/models" && request.method === "GET") return models(agents.claude);
+		if (path === "/claude/v1/account" && request.method === "GET") return account(agents.claude);
 		const ended = CONVERSATION.exec(path)?.[1];
 		if (ended !== undefined && request.method === "DELETE") return forgotten(agents.claude, ended);
 		return errorResponse("not_found_error", `No ${request.method} ${path} here.`);
@@ -51,6 +52,17 @@ function decodedOf(escaped: string): string | undefined {
 		return decodeURIComponent(escaped);
 	} catch {
 		return undefined;
+	}
+}
+
+/** Who Claude Code is signed in as — its email, organization and plan — or that it is signed in as nobody. */
+async function account(claude: Claude): Promise<Response> {
+	try {
+		const signed = await claude.account();
+		if (signed === undefined) return errorResponse("authentication_error", "Claude Code is not signed in on this computer: run `claude` and sign in.");
+		return Response.json({ email: signed.email, organization: signed.organization ?? null, subscription_type: signed.subscriptionType ?? null });
+	} catch (error) {
+		return errorResponse("api_error", error instanceof Error ? error.message : String(error));
 	}
 }
 

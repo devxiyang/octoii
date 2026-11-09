@@ -121,8 +121,9 @@ const Source = struct {
     }
 };
 
-/// What Anthropic's body says of a refusal before the stream: its kind by its error's type, its message and its code.
-fn details(arena: Allocator, body: []const u8) ?http.Details {
+/// What Anthropic's body says of a refusal before the stream: its kind by its error's type, its message and its code;
+/// for a driver whose server speaks Anthropic's API.
+pub fn details(arena: Allocator, body: []const u8) ?http.Details {
     const parsed = foundation.json.decode(struct { type: []const u8, @"error": wire.Error }, arena, body) catch return null;
     if (!std.mem.eql(u8, parsed.type, "error")) return null;
     return .{ .kind = stream.kindOf(parsed.@"error"), .message = parsed.@"error".message, .code = parsed.@"error".type };

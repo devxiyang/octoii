@@ -4,11 +4,12 @@
  * as Claude Code calls them, through its hook first.
  */
 import { describe, expect, it } from "bun:test";
-import type { Options, PreToolUseHookInput, SDKMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { AccountInfo, Options, PreToolUseHookInput, SDKMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { Message, Request } from "../src/anthropic.ts";
 import { Claude, type Sessions } from "../src/claude.ts";
+import { handlerOf } from "../src/gateway.ts";
 import { Holds } from "../src/holds.ts";
 import { chainOf, Positions } from "../src/positions.ts";
 import type { Run } from "../src/session.ts";
@@ -16,14 +17,16 @@ import type { Run } from "../src/session.ts";
 /** A process of Claude Code as the test plays it. */
 class Played {
 	readonly options: Options;
+	readonly #account: AccountInfo;
 	readonly #prompt: AsyncIterator<SDKUserMessage>;
 	readonly #out: SDKMessage[] = [];
 	#wake: (() => void) | undefined;
 	closed = false;
 	#client: Promise<Client> | undefined;
 
-	constructor(params: { readonly prompt: AsyncIterable<SDKUserMessage>; readonly options: Options }) {
+	constructor(params: { readonly prompt: AsyncIterable<SDKUserMessage>; readonly options: Options }, account: AccountInfo) {
 		this.options = params.options;
+		this.#account = account;
 		this.#prompt = params.prompt[Symbol.asyncIterator]();
 	}
 
@@ -48,6 +51,10 @@ class Played {
 
 	supportedModels(): Promise<{ value: string; displayName: string; description: string }[]> {
 		return Promise.resolve([{ value: "opus", displayName: "Opus", description: "" }]);
+	}
+
+	accountInfo(): Promise<AccountInfo> {
+		return Promise.resolve(this.#account);
 	}
 
 	/** What the process is fed next: a message of the person's, its blocks. */
@@ -168,9 +175,13 @@ class Folder implements Sessions {
 }
 
 /** A backend whose processes of Claude Code the test plays, `plays` each as it starts. */
-function claudeOf(positions: Positions, plays: Played[], kept: { readonly holds?: Holds; readonly folder?: Folder; readonly now?: number } = {}): Claude {
+function claudeOf(
+	positions: Positions,
+	plays: Played[],
+	kept: { readonly holds?: Holds; readonly folder?: Folder; readonly now?: number; readonly account?: AccountInfo } = {},
+): Claude {
 	const run: Run = (params) => {
-		const played = new Played(params);
+		const played = new Played(params, kept.account ?? {});
 		plays.push(played);
 		// SAFETY: of a Query the backend uses its messages, close and supportedModels, which the played process has.
 		return played as never;
@@ -448,5 +459,18 @@ describe("Claude through Claude Code", () => {
 		await claude.collect();
 		expect(folder.removed).toEqual(["stale"]);
 		claude.close();
+	});
+
+	it("tells who Claude Code is signed in as, or that it is signed in as nobody", async () => {
+		const positions = await Positions.open(undefined);
+		const signedIn = claudeOf(positions, [], { account: { email: "person@example.com", subscriptionType: "max" } });
+		const signed = await handlerOf({ claude: signedIn })(new Request("http://gateway/claude/v1/account"));
+		expect(await signed.json()).toEqual({ email: "person@example.com", organization: null, subscription_type: "max" });
+		const signedOut = claudeOf(positions, []);
+		const nobody = await handlerOf({ claude: signedOut })(new Request("http://gateway/claude/v1/account"));
+		expect(nobody.status).toBe(401);
+		expect(await nobody.json()).toMatchObject({ error: { type: "authentication_error" } });
+		signedIn.close();
+		signedOut.close();
 	});
 });

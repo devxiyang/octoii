@@ -1,6 +1,6 @@
-//! Claude through the agent gateway: its models as the gateway lists them, its standing as the gateway answers, and a
-//! text request sent to the gateway as Anthropic's API takes one, with no key — the recorded Anthropic exchange
-//! replayed at the gateway's address.
+//! Claude through the agent gateway: its models as the gateway lists them, its standing as the account the gateway
+//! tells Claude Code is signed in as, and a text request sent to the gateway as Anthropic's API takes one, with no key —
+//! the recorded Anthropic exchange replayed at the gateway's address — naming its conversation, which ends there too.
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const foundation = @import("foundation");
@@ -20,6 +20,8 @@ const Gateway = struct {
     rest: ?http.Http = null,
     /// Whether it lets conversations go.
     conversations: bool = false,
+    /// The account Claude Code is signed in as; none, not signed in.
+    account: ?[]const u8 = null,
     asked: std.ArrayList([]const u8) = .empty,
     conversation: ?[]const u8 = null,
 
@@ -38,6 +40,10 @@ const Gateway = struct {
         }
         try gateway.asked.append(gateway.arena, try gateway.arena.print("{s}{s}", .{ request.url, if (keyed) " keyed" else "" }));
         if (std.mem.eql(u8, request.url, claude.base_url ++ "/models")) return answered(gateway, 200, gateway.listing orelse return error.Transport);
+        if (std.mem.eql(u8, request.url, claude.base_url ++ "/account")) {
+            if (gateway.account) |account| return answered(gateway, 200, account);
+            return answered(gateway, 401, "{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"Claude Code is not signed in on this computer: run `claude` and sign in.\"}}");
+        }
         if (gateway.rest) |rest| return rest.send(request);
         return error.Transport;
     }
@@ -68,22 +74,24 @@ fn modelsOver(arena: Allocator, gateway: *Gateway) !*Models {
     return Models.init(arena, .{ .providers = providers, .host = test_host.host(gateway.network()) });
 }
 
-test "Claude's models are those the gateway lists, costing nothing, and it stands connected where the gateway answers" {
+test "Claude's models are those the gateway lists, costing nothing, and it stands connected as Claude Code is signed in" {
     var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_allocator.deinit();
     const arena = arena_allocator.allocator();
-    var gateway: Gateway = .{ .arena = arena, .listing = opus_and_sonnet };
+    var gateway: Gateway = .{ .arena = arena, .listing = opus_and_sonnet, .account = "{\"email\":\"person@example.com\",\"organization\":null,\"subscription_type\":\"max\"}" };
     const models = try modelsOver(arena, &gateway);
     try models.refresh();
     const opus = (try models.find(arena, "claude/claude-opus-5-5")).?.model;
     try std.testing.expectEqualStrings("Opus 5.5", opus.name);
     try std.testing.expectEqualStrings("0", opus.pricing.?.prompt);
     try std.testing.expect(try models.find(arena, "claude/sonnet") != null);
-    try std.testing.expect((try models.status(arena, "claude")).connected);
-    var absent: Gateway = .{ .arena = arena, .listing = null };
-    const none = try (try modelsOver(arena, &absent)).status(arena, "claude");
-    try std.testing.expect(!none.connected);
-    try std.testing.expectEqualStrings("No server answers with its models at gateway://claude/v1/models", none.problem.?);
+    const signed_in = try models.status(arena, "claude");
+    try std.testing.expect(signed_in.connected);
+    try std.testing.expectEqualStrings("person@example.com (max)", signed_in.account.?);
+    var signed_out: Gateway = .{ .arena = arena, .listing = opus_and_sonnet };
+    const out = try (try modelsOver(arena, &signed_out)).status(arena, "claude");
+    try std.testing.expect(!out.connected);
+    try std.testing.expectEqualStrings("Claude Code is not signed in on this computer: run `claude` and sign in.", out.problem.?);
 }
 
 test "a text request goes to the gateway as Anthropic's API takes it, carrying no key" {

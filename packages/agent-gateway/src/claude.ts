@@ -21,7 +21,7 @@
  * from Claude Code's folder — its own cleanup removed it, or the person did — is forgotten as it is found gone, and its
  * conversation told the agent whole again: a replica whose offset is gone syncs in full.
  */
-import type { ModelInfo, Options } from "@anthropic-ai/claude-agent-sdk";
+import type { AccountInfo, ModelInfo, Options, Query } from "@anthropic-ai/claude-agent-sdk";
 import { errorResponse, type Message, type Request, systemText, type Tool } from "./anthropic.ts";
 import { PREFIX } from "./answering.ts";
 import { Input } from "./held.ts";
@@ -145,14 +145,21 @@ export class Claude {
 
 	/** The models Claude Code offers the person, as it tells them, asked of a process started for it once. */
 	models(): Promise<readonly ModelInfo[]> {
-		this.#models ??= this.#askModels().catch((error: unknown) => {
+		this.#models ??= this.#asked((query) => query.supportedModels()).catch((error: unknown) => {
 			this.#models = undefined;
 			throw error;
 		});
 		return this.#models;
 	}
 
-	async #askModels(): Promise<readonly ModelInfo[]> {
+	/** Who Claude Code is signed in as now, asked of a process started for it: none where it is signed in as nobody. */
+	async account(): Promise<AccountInfo | undefined> {
+		const account = await this.#asked((query) => query.accountInfo());
+		return account.email === undefined ? undefined : account;
+	}
+
+	/** What `ask` asks of a process of Claude Code started for it alone, which ends as it is answered. */
+	async #asked<T>(ask: (query: Query) => Promise<T>): Promise<T> {
 		const input = new Input();
 		const options = this.#options;
 		const query = options.run({
@@ -167,7 +174,7 @@ export class Claude {
 			},
 		});
 		try {
-			return await query.supportedModels();
+			return await ask(query);
 		} finally {
 			input.end();
 			query.close();

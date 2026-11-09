@@ -50,10 +50,23 @@ fn list(call: *Call) Error![]const ModelFacts {
     return facts;
 }
 
-/// Connected where the gateway lists Claude Code's models: Claude Code is there, and the person signed in to it.
+/// Who Claude Code is signed in as, as the gateway tells: an email, and the plan it is on where it says.
+const Account = struct { email: []const u8, subscription_type: ?[]const u8 = null };
+
+/// The most of the gateway's account read.
+const account_bytes_max = 64 << 10;
+
+/// Connected where Claude Code is signed in on this computer, as the gateway tells: as whom, on which plan; else what
+/// the gateway says is wrong — Claude Code not there, or not signed in.
 fn status(call: *Call) Error!seam.Status {
-    const url = try modelsUrl(call);
-    return listings.status(call, try listings.answer(Listing, call, .{ .url = url }) != null, url);
+    const url = try call.arena.print("{s}/account", .{call.baseUrl(base_url)});
+    const response = try http.send(call, .{ .url = url });
+    if (response.status < 200 or response.status >= 300) return call.fail(try http.failureOf(call, response, anthropic.details));
+    defer response.close();
+    const body = response.body.allocRemaining(call.arena, .limited(account_bytes_max)) catch return http.readFailure(call, response);
+    const account = try http.parse(Account, call, body, "account");
+    const plan = account.subscription_type orelse return .{ .connected = true, .account = account.email };
+    return .{ .connected = true, .account = try call.arena.print("{s} ({s})", .{ account.email, plan }) };
 }
 
 fn modelsUrl(call: *Call) Error![]const u8 {

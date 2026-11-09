@@ -4,7 +4,9 @@
 //! again after it ended, and it serves the node's network at `gateway://`: a request there is carried whole as an `http`
 //! request, and what answers it comes back by its id — `http/head`, its status and headers; an `http/body` for each
 //! piece of its body as it comes; then the request's result, its end, or its error, where no response could be made. A
-//! response let go before its end cancels its request. Every other address goes to the rest of the network.
+//! response let go before its end cancels its request. Every other address goes to the rest of the network. A gateway
+//! that stood idle — no request open on it, none sent it — past its while is stopped, as the node alone knows nothing
+//! is on its way to it, and started again by the next request.
 const Gateway = @This();
 
 const std = @import("std");
@@ -29,10 +31,14 @@ state: []const u8,
 rest: transport.Http,
 /// One start at a time.
 lock: Io.Mutex = .init,
-/// The gateway as it runs, held by the node; none before the first request.
+/// The gateway as it runs, held by the node; none before the first request, or once it was stopped.
 running: ?*Running = null,
 /// The id of the request sent last.
 sent: std.atomic.Value(i64) = .init(0),
+/// How long the gateway may stand idle before it is stopped.
+idle_ms: u64,
+/// What stops the gateway once it stood idle: from its first start till the gateway is let go.
+watching: ?Io.Future(void) = null,
 
 /// Where the gateway answers, as the drivers address it.
 pub const scheme = "gateway://";
@@ -44,14 +50,18 @@ pub const Options = struct {
     program: []const u8,
     state: []const u8,
     rest: transport.Http,
+    /// Past the while its agents keep a session unasked, so stopping it ends none in use.
+    idle_ms: u64 = 15 * std.time.ms_per_min,
 };
 
 pub fn init(gpa: Allocator, options: Options) Gateway {
-    return .{ .gpa = gpa, .io = options.io, .machine = options.machine, .program = options.program, .state = options.state, .rest = options.rest };
+    return .{ .gpa = gpa, .io = options.io, .machine = options.machine, .program = options.program, .state = options.state, .rest = options.rest, .idle_ms = options.idle_ms };
 }
 
 /// Lets the gateway go: stopped once the last response open on it is let go too.
 pub fn deinit(gateway: *Gateway) void {
+    if (gateway.watching) |*watching| watching.cancel(gateway.io);
+    gateway.watching = null;
     if (gateway.running) |running| running.release();
     gateway.running = null;
 }
@@ -61,21 +71,36 @@ pub fn http(gateway: *Gateway) transport.Http {
 }
 
 /// The gateway as it runs: its line peer, held by the node and by each response open on it, and closed — the process
-/// stopped — as the last lets it go.
+/// stopped — as the last lets it go; and when a request last went to it or ended.
 const Running = struct {
     gpa: Allocator,
+    io: Io,
     lines: *Lines,
     holders: std.atomic.Value(usize) = .init(1),
+    /// On the io's awake clock, in milliseconds.
+    used_ms: std.atomic.Value(i64),
 
     fn hold(running: *Running) *Running {
+        running.used();
         _ = running.holders.fetchAdd(1, .monotonic);
         return running;
     }
 
     fn release(running: *Running) void {
+        running.used();
         if (running.holders.fetchSub(1, .acq_rel) != 1) return;
         running.lines.close();
         running.gpa.destroy(running);
+    }
+
+    fn used(running: *Running) void {
+        running.used_ms.store(Io.Clock.awake.now(running.io).toMilliseconds(), .monotonic);
+    }
+
+    /// Whether it stood idle `idle_ms`: no response open on it, none begun or ended since.
+    fn isIdle(running: *Running, idle_ms: u64) bool {
+        if (running.holders.load(.acquire) != 1) return false;
+        return Io.Clock.awake.now(running.io).toMilliseconds() - running.used_ms.load(.monotonic) >= idle_ms;
     }
 };
 
@@ -91,7 +116,28 @@ fn held(gateway: *Gateway) Allocator.Error!?*Running {
     }
     const running = try gateway.started() orelse return null;
     gateway.running = running;
+    if (gateway.watching == null) gateway.watching = gateway.io.concurrent(watchIdle, .{gateway}) catch null;
     return running.hold();
+}
+
+/// Stops the gateway each time it stood idle past its while, till the gateway is let go.
+fn watchIdle(gateway: *Gateway) void {
+    const every_ms = @max(gateway.idle_ms / 4, 1);
+    while (true) {
+        gateway.io.sleep(.fromMilliseconds(@intCast(every_ms)), .awake) catch return;
+        gateway.stopIdle();
+    }
+}
+
+/// Stops the gateway where it stood idle past its while: its process asked to end by its input's end, none of its
+/// requests open, and none on its way to it while the lock is held.
+fn stopIdle(gateway: *Gateway) void {
+    gateway.lock.lockUncancelable(gateway.io);
+    defer gateway.lock.unlock(gateway.io);
+    const running = gateway.running orelse return;
+    if (!running.isIdle(gateway.idle_ms)) return;
+    gateway.running = null;
+    running.release();
 }
 
 /// The gateway started on the machine, talked to on its channel; null where it could not be, why logged.
@@ -122,7 +168,7 @@ fn started(gateway: *Gateway) Allocator.Error!?*Running {
     errdefer lines.close();
     const running = try gateway.gpa.create(Running);
     errdefer gateway.gpa.destroy(running);
-    running.* = .{ .gpa = gateway.gpa, .lines = lines };
+    running.* = .{ .gpa = gateway.gpa, .io = gateway.io, .lines = lines, .used_ms = .init(Io.Clock.awake.now(gateway.io).toMilliseconds()) };
     return running;
 }
 
@@ -399,6 +445,13 @@ const Played = struct {
         });
     }
 
+    /// Whether the gateway runs, as the node holds it.
+    fn isRunning(played: *Played) bool {
+        played.gateway.lock.lockUncancelable(std.testing.io);
+        defer played.gateway.lock.unlock(std.testing.io);
+        return played.gateway.running != null;
+    }
+
     /// What the played gateway wrote down in the file `name`; nothing where it wrote nothing.
     fn writtenDown(played: *Played, arena: Allocator, name: []const u8) ![]const u8 {
         return played.tmp.dir.readFileAlloc(std.testing.io, name, arena, .unlimited) catch |err| switch (err) {
@@ -462,6 +515,28 @@ test "a gateway that ended breaks off its response, and the next request starts 
     const again = try played.send("gateway://claude/v1/models");
     defer again.close();
     try std.testing.expectEqualStrings("POST /claude/v1/models\n", (try again.body.allocRemaining(arena, .unlimited))[0..23]);
+    try std.testing.expectEqualStrings("started\nstarted\n", try played.writtenDown(arena, "starts"));
+}
+
+test "a gateway that stood idle past its while is stopped, and started again by the next request" {
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var played: Played = undefined;
+    try played.open(arena, null);
+    defer played.close();
+    played.gateway.idle_ms = 40;
+    const first = try played.send("gateway://claude/v1/models");
+    _ = try first.body.allocRemaining(arena, .unlimited);
+    // Open, it is not idle, however long it stands.
+    try std.testing.io.sleep(.fromMilliseconds(120), .awake);
+    try std.testing.expect(played.isRunning());
+    first.close();
+    try std.testing.io.sleep(.fromMilliseconds(200), .awake);
+    try std.testing.expect(!played.isRunning());
+    const again = try played.send("gateway://claude/v1/models");
+    defer again.close();
+    _ = try again.body.allocRemaining(arena, .unlimited);
     try std.testing.expectEqualStrings("started\nstarted\n", try played.writtenDown(arena, "starts"));
 }
 
