@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "bun:test";
 import { conversationOf, type Entry, type Process, type ThreadView } from "@octoii-works/octoii-client";
-import { type CallLine, callsIn, declinedText, firstSaid, laidOut, printingOf, replyOf, rowsOf, type TimelineTurn, type Work } from "../src/core/timeline.ts";
+import { type CallLine, callsIn, declinedText, firstSaid, laidOut, replyOf, rowsOf, type TimelineTurn, type Work } from "../src/core/timeline.ts";
 
 /** The turns among the rows of `conversation`, in their order. */
 const turnsOf = (conversation: Parameters<typeof rowsOf>[0]): readonly TimelineTurn[] =>
@@ -198,8 +198,6 @@ describe("a thread's timeline", () => {
 				],
 			},
 		]);
-		// The call that prints as it runs is found under its script, so its line shows what it printed.
-		expect(printingOf(turn?.work.flatMap((step) => (step.kind === "call" ? [step] : [])) ?? [])?.tool).toBe("read");
 		expect(turn?.writing).toEqual({ words: "Hello", calls: [{ id: "c3", tool: "grep" }] });
 		// Of the words being written, the reply shows the blocks that are whole: none yet.
 		expect(turn === undefined ? undefined : replyOf(turn)).toBe("");

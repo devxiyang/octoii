@@ -42,21 +42,6 @@ export function printedOf(streamed: readonly unknown[]): string | undefined {
 	return printed.length > PRINTED_MAX ? printed.slice(printed.length - PRINTED_MAX) : printed;
 }
 
-/**
- * The last `count` lines of what a command printed, as a terminal shows them: a carriage return writing the line it
- * ends over from its start, as a progress bar draws itself, and the sequences that colour or move what it shows left
- * out; the lines past its last that hold nothing too.
- */
-export function lastLines(printed: string, count: number): readonly string[] {
-	const lines = printed
-		// oxlint-disable-next-line no-control-regex -- the escape sequences a terminal reads are what this leaves out.
-		.replace(/\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-Z\\-_]/g, "")
-		.split("\n")
-		.map((line) => line.split("\r").findLast((part) => part !== "") ?? "");
-	while (lines.length > 0 && lines.at(-1)?.trim() === "") lines.pop();
-	return lines.slice(-count);
-}
-
 /** What a tool told: its text, and the notes after it, each a line in brackets. */
 export type Told = { readonly text: string; readonly notes: readonly string[] };
 

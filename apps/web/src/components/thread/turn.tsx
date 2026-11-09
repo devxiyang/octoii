@@ -65,10 +65,7 @@ function Words(props: { readonly said: Said; readonly parent: string | undefined
 	return <UserMessage said={said} />;
 }
 
-/**
- * The work of a turn that works, as it comes: its steps laid out, each that came after the work was first drawn fading
- * in, the last of them its tail, which keeps what its commands printed till another step follows it.
- */
+/** The work of a turn that works, as it comes: its steps laid out, each that came after the work was first drawn fading in. */
 function LiveWork(props: { readonly thread: string; readonly turn: TimelineTurn }): ReactNode {
 	const laid = laidOut(props.turn.work);
 	const arrived = useArrived(laid.map(keyOf));
@@ -154,22 +151,20 @@ function keyOf(laid: Laid): string {
 
 /**
  * Work of the thread `thread` as `laid` lays it out, in order: a stretch of calls as one line, delegations as
- * sub-threads, each other step on its own; where the work goes on, each that `arrived` names fading in, and the last
- * its tail.
+ * sub-threads, each other step on its own; where the work goes on, each that `arrived` names fading in.
  */
 function LaidSteps(props: { readonly thread: string; readonly laid: readonly Laid[]; readonly arrived?: (key: string) => boolean }): ReactNode {
 	const { arrived } = props;
-	return props.laid.map((laid, place) => {
+	return props.laid.map((laid) => {
 		const key = keyOf(laid);
-		const tail = arrived !== undefined && place === props.laid.length - 1;
 		const shown = (() => {
 			switch (laid.kind) {
 				case "calls":
-					return <Calls thread={props.thread} steps={laid.steps} calls={laid.calls} tail={tail} />;
+					return <Calls thread={props.thread} steps={laid.steps} calls={laid.calls} />;
 				case "delegations":
 					return <Delegations thread={props.thread} calls={laid.calls} />;
 				case "step":
-					return <WorkStep thread={props.thread} step={laid.step} tail={tail} />;
+					return <WorkStep thread={props.thread} step={laid.step} />;
 			}
 		})();
 		if (arrived === undefined) return <ArrivedStep key={key}>{shown}</ArrivedStep>;
@@ -187,11 +182,11 @@ function ArrivedStep(props: { readonly fades?: boolean; readonly children: React
 }
 
 /** One step of the work on its own: a call that waits on the person, what the model thought, a search of the web, its words on the way, a request that came to nothing, or the thread summed up. */
-function WorkStep(props: { readonly thread: string; readonly step: Work; readonly tail: boolean }): ReactNode {
+function WorkStep(props: { readonly thread: string; readonly step: Work }): ReactNode {
 	const { step } = props;
 	switch (step.kind) {
 		case "call":
-			return <Calls thread={props.thread} steps={[step]} calls={[step]} tail={props.tail} />;
+			return <Calls thread={props.thread} steps={[step]} calls={[step]} />;
 		case "thought":
 			return <Thought text={step.text} took={step.took} />;
 		case "web-search":

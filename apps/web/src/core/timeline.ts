@@ -424,37 +424,6 @@ export function laidOut(work: readonly Work[]): readonly Laid[] {
 	return laid;
 }
 
-/** The call of `calls` that prints as it runs — a script's own among them — whose output its line shows as it comes; none where none does. */
-/**
- * What a stretch's box shows of what its commands printed: what the command that runs printed so far; or, where the
- * stretch is its turn's tail, what the latest command printed as it ended — kept till another step follows the stretch,
- * so the box holds between the commands of one stretch rather than going and coming back; none where nothing printed.
- */
-export function printBoxOf(calls: readonly CallLine[], tail: boolean): string | undefined {
-	const printing = printingOf(calls)?.printed;
-	if (printing !== undefined || !tail) return printing;
-	return lastPrinted(calls);
-}
-
-/** What the latest of `calls`, or of those made under them, that is a command printed, as it ended. */
-function lastPrinted(calls: readonly CallLine[]): string | undefined {
-	for (const call of calls.toReversed()) {
-		const inner = lastPrinted(call.calls);
-		if (inner !== undefined) return inner;
-		if (call.work === "command" && call.output !== undefined && call.output !== "") return call.output;
-	}
-	return undefined;
-}
-
-export function printingOf(calls: readonly CallLine[]): CallLine | undefined {
-	for (const call of calls) {
-		if (call.state === "running" && call.printed !== undefined) return call;
-		const inner = printingOf(call.calls);
-		if (inner !== undefined) return inner;
-	}
-	return undefined;
-}
-
 /** How many calls `work` made, a script's own among them. */
 export function callsIn(work: readonly Work[]): number {
 	return work.reduce((count, step) => (step.kind === "call" ? count + 1 + callsIn(step.calls) : count), 0);

@@ -3,7 +3,7 @@
  * changed and an edit's diff, the lines a read held, what a search found, and its arguments as fields.
  */
 import { describe, expect, it } from "bun:test";
-import { changeOf, exitOf, fieldsOf, foundOf, hunksOf, lastLines, prettyArguments, printedOf, spanOf, type ToolCall, toldOf } from "../src/core/calls.ts";
+import { changeOf, exitOf, fieldsOf, foundOf, hunksOf, prettyArguments, printedOf, spanOf, type ToolCall, toldOf } from "../src/core/calls.ts";
 
 /** A call of `tool` that ran, its tool having told `output`. */
 const ran = (tool: string, output: string): ToolCall => ({ tool, arguments: "{}", output, printed: undefined, state: "done" });
@@ -52,13 +52,10 @@ describe("a call as its tool told it", () => {
 		expect(prettyArguments('{"path":"a.md","limit":2}')).toBe('{\n  "path": "a.md",\n  "limit": 2\n}');
 		expect(prettyArguments("{not json")).toBe("{not json");
 	});
-	it("reads what a running command printed from what streamed of its tool's request — its latest part — and its last lines as a terminal shows them", () => {
+	it("reads what a running command printed from what streamed of its tool's request — its latest part", () => {
 		expect(printedOf([{ text: "one\n" }, { other: true }, { text: "two" }])).toBe("one\ntwo");
 		expect(printedOf([])).toBeUndefined();
 		const long = printedOf([{ text: "x".repeat(70_000) }, { text: "end" }]) ?? "";
 		expect([long.length, long.endsWith("xend")]).toEqual([64 * 1024, true]);
-		// A carriage return writes its line over, as a progress bar draws itself; colours and moves are left out.
-		expect(lastLines("a\nb\n 10%\r 50%\r100%\n\u001b[32mok\u001b[0m\n\n", 3)).toEqual(["b", "100%", "ok"]);
-		expect(lastLines("working\r", 5)).toEqual(["working"]);
 	});
 });

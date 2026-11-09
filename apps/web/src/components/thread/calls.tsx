@@ -5,15 +5,15 @@
  * the calls made under it did, their marks stacked after its own; at its end, how it went wrong or how it stands, and
  * how long it took or has run; opened, the calls made under it, then what it was given and what it told. Several say
  * what they did as a person says it, how many failed, and how long they took; opened, each on a line of its own, closer
- * together, what was thought between them among them. While a command of the stretch runs, the last lines it printed
- * stand under the line, as a terminal shows them, in a box whose height holds as they change.
+ * together, what was thought between them among them. What a command prints shows only opened: folded, the line holds
+ * one height as calls join it — each pushed into the marks — so the work grows by whole lines alone.
  */
 import { memo, type ReactNode } from "react";
 import { Ban, Brain, ShieldQuestion } from "lucide-react";
 import { callDuration, duration } from "../../core/time.ts";
-import { lastLines } from "../../core/calls.ts";
-import { type CallLine, declinedText, printBoxOf, type Work } from "../../core/timeline.ts";
+import { type CallLine, declinedText, type Work } from "../../core/timeline.ts";
 import { summaryOf } from "../../core/tools.ts";
+import { useArrived } from "../effects/arrived.ts";
 import { Counting } from "../effects/now.ts";
 import { cn } from "../ui/cn.ts";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger, FoldChevron } from "../ui/collapsible.tsx";
@@ -23,15 +23,12 @@ import { ChangeCount } from "./changes.tsx";
 import { Prose } from "./markdown.tsx";
 import { CallMark, Mark, MarkStack } from "./marks.tsx";
 
-/**
- * What a stretch's line is given: the thread whose work it is, its steps — its calls and what was thought between them
- * — its calls, and whether it is the tail of a turn that works, which keeps what its commands printed.
- */
-type StretchProps = { readonly thread: string; readonly steps: readonly Work[]; readonly calls: readonly CallLine[]; readonly tail?: boolean };
+/** What a stretch's line is given: the thread whose work it is, its steps — its calls and what was thought between them — and its calls. */
+type StretchProps = { readonly thread: string; readonly steps: readonly Work[]; readonly calls: readonly CallLine[] };
 
 /** Whether two stretches hold the same steps and calls, each the same object, at the same place: a line kept the same is not drawn again. */
 function sameStretch(a: StretchProps, b: StretchProps): boolean {
-	return a.thread === b.thread && a.tail === b.tail && sameItems(a.steps, b.steps) && sameItems(a.calls, b.calls);
+	return a.thread === b.thread && sameItems(a.steps, b.steps) && sameItems(a.calls, b.calls);
 }
 
 /** Whether two lists hold the same items, in order. */
@@ -45,13 +42,7 @@ export const Calls = memo(function Calls(props: StretchProps): ReactNode {
 	if (only !== undefined && props.calls.length === 1 && only.ask !== undefined) return <AskInline thread={props.thread} ask={only.ask} />;
 	const one = props.calls.length === 1 ? only : undefined;
 	const marked = one === undefined ? props.calls : [one, ...one.calls];
-	const printed = printBoxOf(props.calls, props.tail === true);
-	return (
-		<>
-			<StretchLine thread={props.thread} steps={props.steps} calls={props.calls} one={one} marked={marked} />
-			{printed === undefined ? null : <Printed printed={printed} />}
-		</>
-	);
+	return <StretchLine thread={props.thread} steps={props.steps} calls={props.calls} one={one} marked={marked} />;
 }, sameStretch);
 
 /** The line of a stretch: its marks, its words, how it ends and its time; opened, what it holds. */
@@ -71,11 +62,7 @@ function StretchLine(props: StretchProps & { readonly one: CallLine | undefined;
 			</CollapsibleTrigger>
 			<CollapsiblePanel>
 				{one === undefined ? (
-					<div className="work-list work-tight work-indent">
-						{props.steps.map((step) => (
-							<Step key={step.kind === "call" ? step.id : step.key} thread={props.thread} step={step} />
-						))}
-					</div>
+					<Steps thread={props.thread} steps={props.steps} />
 				) : (
 					<div className="work-indent">
 						{one.calls.length === 0 ? null : (
@@ -93,27 +80,22 @@ function StretchLine(props: StretchProps & { readonly one: CallLine | undefined;
 	);
 }
 
-/** How many of the last lines a running command printed its line shows. */
-const PRINTED_LINES = 5;
-
-/**
- * The last lines a running command printed, under its line, as a terminal shows them: in a well as tall as those lines
- * whatever they hold, contained, so what changes in it lays out nothing around it.
- */
-function Printed(props: { readonly printed: string }): ReactNode {
+/** The steps a stretch gathered, opened, each on a line of its own: one that joins the stretch as it is open fading in. */
+function Steps(props: { readonly thread: string; readonly steps: readonly Work[] }): ReactNode {
+	const arrived = useArrived(props.steps.map(stepKey));
 	return (
-		<div className="work-indent">
-			<div className="well h-23 px-3 py-1.5 font-mono text-2xs text-muted-foreground contain-strict">
-				{lastLines(props.printed, PRINTED_LINES).map((line, place) => (
-					// A line is known by its place among the last ones, which is all it is as they scroll past.
-					// oxlint-disable-next-line react/no-array-index-key -- the lines scroll through these places; each place is drawn anew.
-					<div key={place} className="truncate whitespace-pre">
-						{line === "" ? " " : line}
-					</div>
-				))}
-			</div>
+		<div className="work-list work-tight work-indent">
+			{props.steps.map((step) => (
+				<div key={stepKey(step)} className={cn(arrived(stepKey(step)) && "animate-fade-in motion-reduce:animate-none")}>
+					<Step thread={props.thread} step={step} />
+				</div>
+			))}
 		</div>
 	);
+}
+
+function stepKey(step: Work): string {
+	return step.kind === "call" ? step.id : step.key;
 }
 
 /** A step among those a stretch gathered: a call's line, or what was thought. */
