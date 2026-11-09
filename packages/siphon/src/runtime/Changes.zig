@@ -143,10 +143,11 @@ pub fn request(changes: *Changes, process: []const u8, key: []const u8, name: []
     made.value = try changes.copied(payload);
 }
 
-/// Mail of `key` sent to the process at `process` that the commit `started` started: `name`, with `payload`.
-pub fn send(changes: *Changes, process: []const u8, started: u64, key: []const u8, name: []const u8, payload: []const u8) Allocator.Error!void {
+/// Mail of `key` sent to the process at `process` that the commit `started` started — whichever is there, where it is
+/// null: `name`, with `payload`.
+pub fn send(changes: *Changes, process: []const u8, started: ?u64, key: []const u8, name: []const u8, payload: []const u8) Allocator.Error!void {
     const made = try changes.added(h.BEAK_CHANGE_SEND, process);
-    made.started = beak.optional(@intCast(started));
+    made.started = beak.optional(if (started) |seq| @intCast(seq) else null);
     made.key = try changes.copied(key);
     made.name = try changes.copied(name);
     made.value = try changes.copied(payload);

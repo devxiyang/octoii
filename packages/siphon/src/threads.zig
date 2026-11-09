@@ -104,7 +104,33 @@ pub const Input = struct {
     /// Whose it is: the person's, or a thread's, as `actorOf` names it — a sub-thread's task, given by its thread, and
     /// what came of one in the background, told by the sub-thread.
     actor: []const u8 = "person",
+    /// Who is told, by mail, how the turn that takes it ends — or that it was taken back first.
+    reply_to: ?log.ReplyTo = null,
 };
+
+/// How the turn that took an input ended, as those it replies to are told by mail named `ended_mail`: what the thread
+/// said last, where it replied; why it failed; stopped; or, before any turn took it, the input taken back or the thread
+/// deleted.
+pub const Ended = union(enum) {
+    replied: []const u8,
+    failed: []const u8,
+    stopped: struct {},
+    deleted: struct {},
+    withdrawn: struct {},
+};
+
+/// The name of the mail that tells how the turn that took an input ended.
+pub const ended_mail = "ended";
+
+/// Adds to `changes` mail to `reply_to` that the turn that took its input ended as `ended`; nothing where its fiber is
+/// gone, or ended.
+pub fn tellEnded(changes: *Changes, volume: beak.Volume, reply_to: log.ReplyTo, ended: Ended) !void {
+    const arena = changes.arena;
+    const entry = try volume.stat(&arena, reply_to.process) orelse return;
+    const record = (entry.directory orelse return).*.process orelse return;
+    if (record.*.state == h.BEAK_PROCESS_ZOMBIE) return;
+    try changes.send(reply_to.process, reply_to.started, reply_to.key, ended_mail, try foundation.json.encode(arena, ended));
+}
 
 /// The actor of an input the thread `tid` delivers.
 pub fn actorOf(arena: Allocator, tid: []const u8) Allocator.Error![]const u8 {
@@ -116,6 +142,7 @@ pub const Delivered = struct {
     delivery_id: []const u8,
     actor: []const u8,
     message: vocabulary.items.InputMessage,
+    reply_to: ?log.ReplyTo = null,
 };
 
 /// An input waiting in an inbox: its file, its id and what was delivered.
@@ -289,7 +316,7 @@ pub fn made(changes: *Changes, runtime: *const Runtime, tid: []const u8, manifes
 /// Adds to `changes` what puts `input` in the inbox of the thread at `thread` under the id `id`, for the operation
 /// `operation`.
 pub fn inboxed(changes: *Changes, thread: []const u8, id: []const u8, input: Input, operation: []const u8) !void {
-    const delivered: Delivered = .{ .delivery_id = operation, .actor = input.actor, .message = input.message };
+    const delivered: Delivered = .{ .delivery_id = operation, .actor = input.actor, .message = input.message, .reply_to = input.reply_to };
     try changes.write(try inboxFile(changes.arena, thread, id), try foundation.json.encode(changes.arena, delivered));
 }
 
@@ -380,11 +407,14 @@ fn recordDone(changes: *Changes, operation: []const u8, done: Done, time: i64) !
     try changes.expire(path, time + operation_retention_ms);
 }
 
-/// Takes back the input `id` while it waits in the inbox of the thread `tid`; whether it was still there.
+/// Takes back the input `id` while it waits in the inbox of the thread `tid` — who it replies to told so — whether it
+/// was still there.
 pub fn withdraw(runtime: *Runtime, arena: Allocator, tid: []const u8, id: []const u8) !bool {
     const file = try inboxFile(arena, try pathOf(arena, tid), id);
     if (try runtime.volume.stat(&arena, file) == null) return false;
     var changes: Changes = .{ .arena = arena };
+    const delivered = try foundation.json.decode(Delivered, arena, try runtime.volume.readAll(&arena, file));
+    if (delivered.reply_to) |reply_to| try tellEnded(&changes, runtime.volume, reply_to, .{ .withdrawn = .{} });
     try changes.delete(file);
     _ = try runtime.commit(&changes);
     return true;
@@ -609,16 +639,21 @@ pub fn waiting(volume: beak.Volume, arena: *const Allocator, thread: []const u8)
     return out;
 }
 
+/// An input taken into a thread's log: where its entry is, and who it replies to, where someone asked.
+pub const Taken = struct { address: log.Address, reply_to: ?log.ReplyTo };
+
 /// Takes every input waiting in the inbox of the thread at `thread` into its log, with the phase's commit, in the
-/// order they came; where the entries appended are.
-pub fn takeInputs(writer: *log.Writer) ![]const log.Address {
+/// order they came; where the entries appended are, and who each replies to.
+pub fn takeInputs(writer: *log.Writer) ![]const Taken {
     const phase = writer.phase;
     const thread = writer.thread;
     const found = try waiting(phase.runtime.volume, &phase.arena, thread);
     if (found.len == 0) return &.{};
-    const taken = try phase.arena.alloc(log.Address, found.len);
+    const taken = try phase.arena.alloc(Taken, found.len);
     for (found, taken) |each, *at| {
-        at.* = try writer.append(log.Input{ .id = try phase.mint(), .delivery_id = each.delivered.delivery_id, .actor = each.delivered.actor, .message = each.delivered.message });
+        const delivered = each.delivered;
+        const address = try writer.append(log.Input{ .id = try phase.mint(), .delivery_id = delivered.delivery_id, .actor = delivered.actor, .message = delivered.message, .reply_to = delivered.reply_to });
+        at.* = .{ .address = address, .reply_to = delivered.reply_to };
         try phase.changes.delete(each.path);
     }
     return taken;

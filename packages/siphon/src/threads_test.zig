@@ -324,3 +324,27 @@ test "a model's request cut off as the volume opens again is asked again, as it 
     try expectTypes(siphon, &arena, tid, &.{ "system", "input", "reply", "turn-end" });
     try std.testing.expectEqual(@as(u32, 1), model.asked.load(.monotonic));
 }
+
+/// A fiber that sleeps till the mail `k1` tells how the turn that took its input ended, and ends with what it told.
+fn awaitsEnded(_: ?*anyopaque, run: *@import("runtime.zig").Phase) anyerror!void {
+    const mail = try run.mailOf("k1") orelse return run.waitForMail("waiting", "k1");
+    try run.take("k1");
+    return run.done(try foundation.json.decode(threads.Ended, run.arena, mail.payload));
+}
+
+test "an input that asks to be told how its turn ended is told it was taken back, where it was withdrawn first" {
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var clock: testing.Clock = .{ .now_ms = 1_000 };
+    const siphon = try testing.open(&clock, .memory);
+    defer siphon.close();
+    try siphon.runtime.register(.{ .kind = "test.awaiting", .phase = awaitsEnded });
+    const awaiting = try testing.startFiber(siphon, arena, "f1", "test.awaiting");
+    const tid = try threads.create(siphon.runtime, arena, .{ .title = "Test" }, "create");
+    // Delivered and taken back before the thread's fiber ran: no turn took it.
+    const id = try threads.deliver(siphon.runtime, arena, tid, .{ .message = .{ .role = .user, .content = .{ .text = "do it" } }, .reply_to = .{ .process = awaiting, .key = "k1" } }, "op-1");
+    try std.testing.expect(try threads.withdraw(siphon.runtime, arena, tid, id));
+    const ended = try testing.pumpUntilEnded(siphon, &arena, awaiting);
+    try std.testing.expectEqualStrings("{\"withdrawn\":{}}", ended.said);
+}

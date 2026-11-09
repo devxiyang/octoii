@@ -71,7 +71,13 @@ pub const Input = struct {
     delivery_id: []const u8,
     actor: []const u8,
     message: vocabulary.items.InputMessage,
+    /// Who is told how the turn that takes it ends, where someone asked, as the input was delivered.
+    reply_to: ?ReplyTo = null,
 };
+
+/// A fiber told how the turn that took an input ended, by mail of `key`: its process, and the commit that started it —
+/// whichever is there, where it is none — as wait(2) takes a child's status.
+pub const ReplyTo = struct { process: []const u8, started: ?u64 = null, key: []const u8 };
 
 /// A model's reply, as it came — the vocabulary's response — to the model request of `request`, by its key, and
 /// whether a stop cut it.

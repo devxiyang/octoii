@@ -4,6 +4,7 @@
 //! one that failed, is settled all the same, every call it left unanswered answered interrupted.
 const std = @import("std");
 const foundation = @import("foundation");
+const vocabulary = @import("vocabulary");
 const beak = @import("../beak.zig");
 const h = beak.h;
 const runtime_ = @import("../runtime.zig");
@@ -17,6 +18,7 @@ const Tool = tools.Tool;
 const trust = tools.trust;
 const system = @import("system.zig");
 const title = @import("title.zig");
+const models = @import("models.zig");
 
 /// How many times a phase of a thread's main fiber that threw runs again, after Beak's delay, before the fiber fails —
 /// and is started again by what is next delivered to its thread.
@@ -86,8 +88,8 @@ fn begin(phase: *Phase, thread: []const u8, gathering: []const u8, gathered: sys
     try title.startFor(phase, thread);
     const turn = try phase.mint();
     try phase.start(turn, threads.turn_program, null);
-    try threads.setRunning(&phase.changes, thread, phase.time, taken[0]);
-    const running: Standing = .{ .running = .{ .turn = turn, .began = taken[0] } };
+    try threads.setRunning(&phase.changes, thread, phase.time, taken[0].address);
+    const running: Standing = .{ .running = .{ .turn = turn, .began = taken[0].address } };
     return phase.waitForExit(running, try beak.childPath(phase.arena, phase.path, turn));
 }
 
@@ -95,11 +97,14 @@ fn begin(phase: *Phase, thread: []const u8, gathering: []const u8, gathered: sys
 /// gathered, for `why`.
 fn failBefore(phase: *Phase, thread: []const u8, why: []const u8) !void {
     var writer: log.Writer = try .init(phase, thread);
-    if ((try threads.takeInputs(&writer)).len == 0) return phase.next(null);
-    _ = try writer.append(log.TurnEnd{ .id = try phase.mint(), .outcome = .failed, .reason = try phase.arena.print("what the model is told could not be gathered: {s}", .{why}) });
+    const taken = try threads.takeInputs(&writer);
+    if (taken.len == 0) return phase.next(null);
+    const reason = try phase.arena.print("what the model is told could not be gathered: {s}", .{why});
+    _ = try writer.append(log.TurnEnd{ .id = try phase.mint(), .outcome = .failed, .reason = reason });
     // A turn that failed at once began and ended in the same commit.
     try threads.setRunning(&phase.changes, thread, phase.time, null);
     try threads.setEnded(&phase.changes, thread, .failed, phase.time);
+    for (taken) |each| if (each.reply_to) |reply_to| try threads.tellEnded(&phase.changes, phase.runtime.volume, reply_to, .{ .failed = reason });
     return phase.next(null);
 }
 
@@ -108,16 +113,20 @@ fn failBefore(phase: *Phase, thread: []const u8, why: []const u8) !void {
 /// settles the children of a process that died.
 fn settleLost(phase: *Phase, thread: []const u8, began: log.Address) !void {
     var writer: log.Writer = try .init(phase, thread);
-    try answerUnanswered(&writer, began);
-    _ = try writer.append(log.TurnEnd{ .id = try phase.mint(), .outcome = .failed, .reason = "its thread's fiber ended while it ran" });
+    const left = try leftBy(phase, thread, began);
+    try answerLeft(&writer, left);
+    const reason = "its thread's fiber ended while it ran";
+    _ = try writer.append(log.TurnEnd{ .id = try phase.mint(), .outcome = .failed, .reason = reason });
     try threads.setEnded(&phase.changes, thread, .failed, phase.time);
+    try tellAsking(phase, left.asking, .{ .failed = reason });
 }
 
 /// Answers every call the turn at `turn`, as it ran, left without a result; appends its `turn-end`, as it ended with
 /// `outcome`, the thread's status set to the same; and reaps it.
 fn settle(phase: *Phase, thread: []const u8, turn: []const u8, outcome: *const h.beak_outcome, running: Running) !void {
     var writer: log.Writer = try .init(phase, thread);
-    try answerUnanswered(&writer, running.began);
+    const left = try leftBy(phase, thread, running.began);
+    try answerLeft(&writer, left);
     const said = beak.slice(if (outcome.has_result) outcome.result else outcome.@"error");
     const id = try phase.mint();
     const end: log.TurnEnd = switch (outcome.status) {
@@ -127,30 +136,60 @@ fn settle(phase: *Phase, thread: []const u8, turn: []const u8, outcome: *const h
     };
     _ = try writer.append(end);
     try threads.setEnded(&phase.changes, thread, end.outcome, phase.time);
+    try tellAsking(phase, left.asking, switch (end.outcome) {
+        .replied => .{ .replied = left.said },
+        .failed => .{ .failed = end.reason orelse "it failed" },
+        .stopped => .{ .stopped = .{} },
+    });
     try phase.changes.reap(turn);
 }
 
-/// Every call the turn begun with the entry at `began` made — its replies', and those made under them — that has no
-/// result, answered interrupted by `writer`, so every call the log holds has its result.
-fn answerUnanswered(writer: *log.Writer, began: log.Address) !void {
-    const phase = writer.phase;
+/// What a turn begun with the entry at `began` left as it ended: the calls its replies made — and those made under them —
+/// that have no result, those its inputs ask to be told how it ended, and what it said last.
+const Left = struct {
+    unanswered: []const Unanswered,
+    asking: []const log.ReplyTo,
+    said: []const u8,
+
+    const Unanswered = struct { under: ?[]const u8, call_id: []const u8 };
+};
+
+/// What the turn begun with the entry at `began` left, as the log of the thread at `thread` holds it from there.
+fn leftBy(phase: *Phase, thread: []const u8, began: log.Address) !Left {
+    const arena = phase.arena;
     var results: std.StringHashMapUnmanaged(void) = .empty;
-    var made: std.ArrayList(struct { under: ?[]const u8, call_id: []const u8 }) = .empty;
+    var made: std.ArrayList(Left.Unanswered) = .empty;
+    var asking: std.ArrayList(log.ReplyTo) = .empty;
+    var said: []const u8 = "";
     const from: log.Cursor = .{ .segment = began.segment, .offset = began.offset };
-    for ((try log.readFrom(phase.runtime.volume, &phase.arena, writer.thread, from, std.math.maxInt(u64))).lines) |line| {
-        const head = try log.headOf(phase.arena, line);
-        if (std.mem.eql(u8, head.type, "reply")) {
-            for (try log.callsOf(phase.arena, line)) |call| try made.append(phase.arena, .{ .under = null, .call_id = call.call_id });
-        } else if (std.mem.eql(u8, head.type, "calls")) {
-            const entry = try foundation.json.decode(log.Calls, phase.arena, line);
-            for (entry.calls) |call| try made.append(phase.arena, .{ .under = entry.under, .call_id = call.call_id });
-        } else if (std.mem.eql(u8, head.type, "result")) {
-            const result = try foundation.json.decode(log.Result, phase.arena, line);
-            try results.put(phase.arena, result.call_output.call_id, {});
+    for ((try log.readFrom(phase.runtime.volume, &phase.arena, thread, from, std.math.maxInt(u64))).lines) |line| {
+        const kind = (try log.headOf(arena, line)).type;
+        if (std.mem.eql(u8, kind, "reply")) {
+            for (try log.callsOf(arena, line)) |call| try made.append(arena, .{ .under = null, .call_id = call.call_id });
+            const reply = try foundation.json.decode(log.Reply, arena, line);
+            if (try models.textOf(arena, try foundation.json.decode(vocabulary.Response, arena, reply.response.text))) |text| said = text;
+        } else if (std.mem.eql(u8, kind, "calls")) {
+            const entry = try foundation.json.decode(log.Calls, arena, line);
+            for (entry.calls) |call| try made.append(arena, .{ .under = entry.under, .call_id = call.call_id });
+        } else if (std.mem.eql(u8, kind, "result")) {
+            try results.put(arena, (try foundation.json.decode(log.Result, arena, line)).call_output.call_id, {});
+        } else if (std.mem.eql(u8, kind, "input")) {
+            if ((try foundation.json.decode(log.Input, arena, line)).reply_to) |reply_to| try asking.append(arena, reply_to);
         }
     }
-    for (made.items) |call| {
-        if (results.contains(call.call_id)) continue;
-        try writer.appendResult(null, call.under, call.call_id, try Tool.noted(phase.arena, .interrupted, "cut off as its turn ended; it may or may not have acted"));
+    var unanswered: std.ArrayList(Left.Unanswered) = .empty;
+    for (made.items) |call| if (!results.contains(call.call_id)) try unanswered.append(arena, call);
+    return .{ .unanswered = unanswered.items, .asking = asking.items, .said = said };
+}
+
+/// Every call a turn `left` without a result answered interrupted by `writer`, so every call the log holds has its result.
+fn answerLeft(writer: *log.Writer, left: Left) !void {
+    for (left.unanswered) |call| {
+        try writer.appendResult(null, call.under, call.call_id, try Tool.noted(writer.phase.arena, .interrupted, "cut off as its turn ended; it may or may not have acted"));
     }
+}
+
+/// Mail to each of `asking` that the turn that took its input ended as `ended`, with the phase's commit.
+fn tellAsking(phase: *Phase, asking: []const log.ReplyTo, ended: threads.Ended) !void {
+    for (asking) |reply_to| try threads.tellEnded(&phase.changes, phase.runtime.volume, reply_to, ended);
 }

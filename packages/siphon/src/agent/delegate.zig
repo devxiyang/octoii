@@ -65,8 +65,8 @@ fn isNoSubThread(manifest: *const threads.Manifest) bool {
     return manifest.parent == null;
 }
 
-/// A task given to a sub-thread, slept on: the sub-thread, by its id, and the task, by its id in the sub-thread's
-/// inbox — and in its log, once taken, by the delivery of that id.
+/// A task given to a sub-thread, slept on: the sub-thread, by its id, and the task, by its id in the sub-thread's inbox,
+/// which is also the key of the mail that tells how the turn that took it ended.
 const Waiting = struct { child: []const u8, task: []const u8 };
 
 /// The fiber of a call: gives the task to its sub-thread, then sleeps on it till the turn that took the task ends, and
@@ -105,12 +105,25 @@ fn give(run: *Phase, given: Arguments) !void {
     const child = given.thread orelse try make(run, thread, own, given.title);
     const task = try run.mint();
     const message: vocabulary.items.InputMessage = .{ .role = .user, .content = .{ .text = given.task } };
-    const input: threads.Input = .{ .message = message, .actor = try threads.actorOf(run.arena, threads.idOf(thread)) };
+    // Who sleeps on the task is told how the turn that takes it ends, by mail of the task's id: the call's own fiber, or
+    // the one beside the thread's main fiber that sleeps on it in the background, started in this commit.
+    const reply_to: log.ReplyTo = if (given.background)
+        .{ .process = try beak.childPath(run.arena, thread, try deliveryOf(run.arena, task)), .key = task }
+    else
+        .{ .process = run.path, .started = try startedOf(run), .key = task };
+    const input: threads.Input = .{ .message = message, .actor = try threads.actorOf(run.arena, threads.idOf(thread)), .reply_to = reply_to };
     try threads.inboxed(&run.changes, try threads.pathOf(run.arena, child), task, input, try deliveryOf(run.arena, task));
     const waiting: Waiting = .{ .child = child, .task = task };
     if (!given.background) return sleepOn(run, waiting, waiting);
     try run.startIn(thread, try deliveryOf(run.arena, task), background_program, waiting);
     return run.done(try backgroundAnswerOf(run.arena, child));
+}
+
+/// The commit that started the fiber of `run`, which mail to it names.
+fn startedOf(run: *Phase) !u64 {
+    const entry = try run.runtime.volume.stat(&run.arena, run.path) orelse return error.NoSuchFiber;
+    const record = (entry.directory orelse return error.NoSuchFiber).*.process orelse return error.NoSuchFiber;
+    return record.*.started;
 }
 
 fn refuse(run: *Phase, why: []const u8) !void {
@@ -148,57 +161,25 @@ fn noSubThread(arena: Allocator, child: []const u8) ![]const u8 {
     return arena.print("the thread {s} is no sub-thread of yours", .{child});
 }
 
-/// Sleeps on the sub-thread of `waiting` till it stands otherwise — its status, as a turn begins or ends, or its inbox,
-/// as a task is taken back — then runs from `checkpoint`.
+/// Sleeps on the task of `waiting` till the mail that tells how it ended comes, or the sub-thread goes, then runs from
+/// `checkpoint`.
 fn sleepOn(run: *Phase, checkpoint: anytype, waiting: Waiting) !void {
-    const child = try threads.pathOf(run.arena, waiting.child);
-    return run.waitForAny(checkpoint, &.{ child, try beak.join(run.arena, child, "inbox") });
+    return run.waitFor(checkpoint, .{ .mail = &.{waiting.task}, .changes = &.{try threads.pathOf(run.arena, waiting.child)} });
 }
 
-/// How a sub-thread's work on a task ended: what it said last, as its turn replied; why it failed; or stopped — or the
-/// sub-thread deleted, or the task taken back from its inbox, before it was done.
-const Ended = union(enum) {
-    replied: []const u8,
-    failed: []const u8,
-    stopped,
-    deleted,
-    withdrawn,
-};
-
-/// How the sub-thread of `waiting` ended its work on the task: as the first `turn-end` after the task in its log says,
-/// with the last words it replied between; null while the task waits in its inbox, or the turn that took it runs.
-fn endedOf(run: *Phase, waiting: Waiting) !?Ended {
-    const volume = run.runtime.volume;
-    const child = try threads.pathOf(run.arena, waiting.child);
-    if (try volume.stat(&run.arena, child) == null) return .deleted;
-    if (try volume.stat(&run.arena, try threads.inboxFile(run.arena, child, waiting.task)) != null) return null;
-    const delivery = try deliveryOf(run.arena, waiting.task);
-    const lines = try log.lines(volume, &run.arena, child);
-    const after = for (lines, 0..) |line, at| {
-        if (!std.mem.eql(u8, (try log.headOf(run.arena, line)).type, "input")) continue;
-        if (std.mem.eql(u8, (try foundation.json.decode(log.Input, run.arena, line)).delivery_id, delivery)) break at + 1;
-    } else return .withdrawn;
-    var said: []const u8 = "";
-    for (lines[after..]) |line| {
-        const kind = (try log.headOf(run.arena, line)).type;
-        if (std.mem.eql(u8, kind, "reply")) {
-            const reply = try foundation.json.decode(log.Reply, run.arena, line);
-            const response = try foundation.json.decode(vocabulary.Response, run.arena, reply.response.text);
-            if (try models.textOf(run.arena, response)) |text| said = text;
-        } else if (std.mem.eql(u8, kind, "turn-end")) {
-            const end = try foundation.json.decode(log.TurnEnd, run.arena, line);
-            return switch (end.outcome) {
-                .replied => .{ .replied = said },
-                .failed => .{ .failed = end.reason orelse "it failed" },
-                .stopped => .stopped,
-            };
-        }
+/// How the sub-thread of `waiting` ended its work on the task, as its mail tells, taken with the phase's commit; deleted
+/// where the sub-thread went first; null while neither came.
+fn endedOf(run: *Phase, waiting: Waiting) !?threads.Ended {
+    if (try run.mailOf(waiting.task)) |mail| {
+        try run.take(waiting.task);
+        return try foundation.json.decode(threads.Ended, run.arena, mail.payload);
     }
+    if (try run.runtime.volume.stat(&run.arena, try threads.pathOf(run.arena, waiting.child)) == null) return .{ .deleted = .{} };
     return null;
 }
 
 /// The answer of a call that slept on the sub-thread `child` till its work ended as `ended`.
-fn answerOf(arena: Allocator, child: []const u8, ended: Ended) !log.CallOutcome {
+fn answerOf(arena: Allocator, child: []const u8, ended: threads.Ended) !log.CallOutcome {
     const told = try arena.print("the sub-thread {s} {s}", .{ child, try howOf(arena, ended) });
     return switch (ended) {
         .replied => |said| .{ .status = .ok, .output = try Tool.told(arena, .{ .text = said, .notes = &.{told} }) },
@@ -220,7 +201,7 @@ fn backgroundAnswerOf(arena: Allocator, child: []const u8) !log.CallOutcome {
 /// The message that tells a thread how the work it gave its sub-thread `child` in the background ended, as `ended`
 /// says: Siphon's note as its first part, so it reads as no words of the person's, then what the sub-thread said last,
 /// where it finished — which a page shows of it, as it shows a thread's words.
-fn noticeOf(arena: Allocator, child: []const u8, ended: Ended) !vocabulary.items.InputMessage {
+fn noticeOf(arena: Allocator, child: []const u8, ended: threads.Ended) !vocabulary.items.InputMessage {
     const note = try arena.print("[the sub-thread {s}, which you gave a task in the background, {s}]", .{ child, try howOf(arena, ended) });
     const parts: []const vocabulary.content.InputContent = switch (ended) {
         .replied => |said| try arena.dupe(vocabulary.content.InputContent, &.{ .{ .input_text = .{ .text = note } }, .{ .input_text = .{ .text = said } } }),
@@ -230,7 +211,7 @@ fn noticeOf(arena: Allocator, child: []const u8, ended: Ended) !vocabulary.items
 }
 
 /// How a sub-thread's work ended, as `ended` says, said of it.
-fn howOf(arena: Allocator, ended: Ended) ![]const u8 {
+fn howOf(arena: Allocator, ended: threads.Ended) ![]const u8 {
     return switch (ended) {
         .replied => "finished: what it said last is here, and its whole work is in it",
         .failed => |why| arena.print("failed: {s}", .{why}),
