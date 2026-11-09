@@ -32,7 +32,22 @@ pub fn build(b: *std.Build) void {
         test_step.dependOn(&b.addRunArtifact(tests).step);
     }
 
-    const format = b.addFmt(.{ .paths = &.{ b.path("build.zig"), b.path("src") }, .check = true });
+    // How fast JSON is written and read as Octoii uses it: run with `-Doptimize=ReleaseSafe`, as the node is built.
+    const bench = b.addExecutable(.{
+        .name = "json-bench",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("bench/json.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "foundation", .module = foundation },
+                .{ .name = "vocabulary", .module = vocabulary },
+            },
+        }),
+    });
+    b.step("bench", "Measure how fast JSON is written and read as Octoii uses it").dependOn(&b.addRunArtifact(bench).step);
+
+    const format = b.addFmt(.{ .paths = &.{ b.path("build.zig"), b.path("src"), b.path("bench") }, .check = true });
     const lint = b.addRunArtifact(b.dependency("lint", .{}).artifact("lint"));
     lint.addDirectoryArg(b.path("src"));
     lint.has_side_effects = true;

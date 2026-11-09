@@ -276,24 +276,51 @@ fn numberOf(value: std.json.Value) ?f64 {
 ///     pub const jsonParse = variants.jsonParse;
 ///     pub const jsonParseFromValue = variants.jsonParseFromValue;
 ///     pub const jsonStringify = variants.jsonStringify;
+///
+/// A value read from whole input is read ahead of — its kind, its text where it is a string a variant's enum may name,
+/// its member `key` where it is an object — and where one variant alone fits, decoded as it from the input straight;
+/// a value several variants fit, or one read as it streams, is read whole into a tree, and its variants tried on it.
 pub fn Variants(comptime U: type, comptime key: []const u8) type {
+    const variants = @typeInfo(U).@"union";
     return struct {
         pub fn jsonParse(allocator: Allocator, source: anytype, parse_options: std.json.ParseOptions) std.json.ParseError(@TypeOf(source.*))!U {
+            if (comptime @TypeOf(source.*) == std.json.Scanner) {
+                if (source.is_end_of_input) {
+                    if (try parseAhead(allocator, source, parse_options)) |variant| return variant;
+                }
+            }
             const value = try std.json.Value.jsonParse(allocator, source, parse_options);
             return jsonParseFromValue(allocator, value, parse_options);
         }
 
         pub fn jsonParseFromValue(allocator: Allocator, value: std.json.Value, parse_options: std.json.ParseOptions) std.json.ParseFromValueError!U {
             var failure: std.json.ParseFromValueError = error.UnexpectedToken;
-            const variants = @typeInfo(U).@"union";
+            const ahead = aheadOf(value, key);
             inline for (variants.field_names, variants.field_types) |name, Variant| {
-                if (fits(Variant, key, value)) {
-                    if (decodeVariant(Variant, allocator, value, parse_options)) |payload| {
+                if (fits(Variant, key, ahead)) {
+                    if (checked(Variant, std.json.innerParseFromValue(Variant, allocator, value, parse_options))) |payload| {
                         return @unionInit(U, name, payload);
                     } else |err| failure = err;
                 }
             }
             return failure;
+        }
+
+        /// The value `source` stands at, decoded from its input straight, where one variant alone fits it; none, the
+        /// value left where it stands, where several do.
+        fn parseAhead(allocator: Allocator, source: *std.json.Scanner, parse_options: std.json.ParseOptions) std.json.ParseError(std.json.Scanner)!?U {
+            const kind = try source.peekNextTokenType();
+            const ahead = try readAhead(allocator, source.input[source.cursor..], kind, key, comptime namesText(U));
+            var fitting: usize = 0;
+            inline for (variants.field_types) |Variant| {
+                if (fits(Variant, key, ahead)) fitting += 1;
+            }
+            if (fitting == 0) return error.UnexpectedToken;
+            if (fitting > 1) return null;
+            inline for (variants.field_names, variants.field_types) |name, Variant| {
+                if (fits(Variant, key, ahead)) return @unionInit(U, name, try checked(Variant, std.json.innerParse(Variant, allocator, source, parse_options)));
+            }
+            unreachable;
         }
 
         pub fn jsonStringify(variant: U, writer: *std.json.Stringify) std.json.Stringify.Error!void {
@@ -304,7 +331,7 @@ pub fn Variants(comptime U: type, comptime key: []const u8) type {
 
         /// Whether a variant takes an object whose member `key` is the text `name`.
         pub fn names(name: []const u8) bool {
-            inline for (@typeInfo(U).@"union".field_types) |Variant| {
+            inline for (variants.field_types) |Variant| {
                 if (takes(Variant, key, .{ .string = name })) return true;
             }
             return false;
@@ -312,25 +339,106 @@ pub fn Variants(comptime U: type, comptime key: []const u8) type {
     };
 }
 
-/// Whether a value is of the kind a variant `T` takes, and an object one whose member `key` it takes.
-fn fits(comptime T: type, comptime key: []const u8, value: std.json.Value) bool {
+/// What decides which variants take a value, read ahead of it: its kind; its text, where it is a string and a variant
+/// is an enum, which names some texts alone; and its member `key` where it is an object — a string's text as the
+/// member's own, any other value as `null`, none where it has no such member.
+const Ahead = struct { kind: std.json.TokenType, text: ?[]const u8 = null, member: ?std.json.Value = null };
+
+/// What decides which variants take `value`.
+fn aheadOf(value: std.json.Value, comptime key: []const u8) Ahead {
     return switch (value) {
-        .string => |text| switch (@typeInfo(T)) {
-            .@"enum" => std.meta.stringToEnum(T, text) != null,
+        .string => |text| .{ .kind = .string, .text = text },
+        .integer, .float, .number_string => .{ .kind = .number },
+        .bool => |on| .{ .kind = if (on) .true else .false },
+        .array => .{ .kind = .array_begin },
+        .object => |object| .{ .kind = .object_begin, .member = object.get(key) },
+        .null => .{ .kind = .null },
+    };
+}
+
+/// What decides which variants take the value of the kind `kind` at the start of `rest`, read from it as far as it
+/// must be: a string's text where `with_text` says a variant names texts; an object's members till `key`.
+fn readAhead(allocator: Allocator, rest: []const u8, kind: std.json.TokenType, comptime key: []const u8, with_text: bool) std.json.ParseError(std.json.Scanner)!Ahead {
+    if (kind != .object_begin and !(kind == .string and with_text)) return .{ .kind = kind };
+    if (kind == .object_begin) {
+        if (firstMember(rest, key)) |text| return .{ .kind = kind, .member = .{ .string = text } };
+    }
+    var scanner: std.json.Scanner = .initCompleteInput(allocator, rest);
+    defer scanner.deinit();
+    if (kind == .string) return .{ .kind = kind, .text = try textOf(allocator, &scanner) };
+    _ = try scanner.next();
+    while (true) {
+        switch (try scanner.nextAlloc(allocator, .alloc_if_needed)) {
+            .object_end => return .{ .kind = kind },
+            .string, .allocated_string => |name| {
+                if (!std.mem.eql(u8, name, key)) {
+                    try scanner.skipValue();
+                    continue;
+                }
+                if (try scanner.peekNextTokenType() != .string) return .{ .kind = kind, .member = .null };
+                return .{ .kind = kind, .member = .{ .string = try textOf(allocator, &scanner) } };
+            },
+            else => return error.UnexpectedToken,
+        }
+    }
+}
+
+/// The text of the member `key` of the object `rest` begins with, where it is the object's first member and a string
+/// with no escapes in it, as an object Octoii wrote has it: read from the bytes straight, no scanner made.
+fn firstMember(rest: []const u8, comptime key: []const u8) ?[]const u8 {
+    var at = skipSpace(rest, 1);
+    const quoted = "\"" ++ key ++ "\"";
+    if (!std.mem.startsWith(u8, rest[at..], quoted)) return null;
+    at = skipSpace(rest, at + quoted.len);
+    if (at == rest.len or rest[at] != ':') return null;
+    at = skipSpace(rest, at + 1);
+    if (at == rest.len or rest[at] != '"') return null;
+    const end = std.mem.indexOfAnyPos(u8, rest, at + 1, "\"\\") orelse return null;
+    return if (rest[end] == '"') rest[at + 1 .. end] else null;
+}
+
+/// Where in `bytes` the whitespace from `from` on ends.
+fn skipSpace(bytes: []const u8, from: usize) usize {
+    var at = from;
+    while (at < bytes.len and std.mem.indexOfScalar(u8, " \t\r\n", bytes[at]) != null) at += 1;
+    return at;
+}
+
+/// The string `scanner` stands at.
+fn textOf(allocator: Allocator, scanner: *std.json.Scanner) std.json.ParseError(std.json.Scanner)![]const u8 {
+    return switch (try scanner.nextAlloc(allocator, .alloc_if_needed)) {
+        .string, .allocated_string => |text| text,
+        else => error.UnexpectedToken,
+    };
+}
+
+/// Whether a variant of `U` is an enum, which takes the strings that name its tags alone.
+fn namesText(comptime U: type) bool {
+    for (@typeInfo(U).@"union".field_types) |Variant| {
+        if (@typeInfo(Variant) == .@"enum") return true;
+    }
+    return false;
+}
+
+/// Whether a value is of the kind a variant `T` takes, and an object one whose member `key` it takes.
+fn fits(comptime T: type, comptime key: []const u8, ahead: Ahead) bool {
+    return switch (ahead.kind) {
+        .string => switch (@typeInfo(T)) {
+            .@"enum" => std.meta.stringToEnum(T, ahead.text.?) != null,
             else => T == []const u8,
         },
-        .integer, .float, .number_string => switch (@typeInfo(T)) {
+        .number => switch (@typeInfo(T)) {
             .int, .float => true,
             else => false,
         },
-        .bool => T == bool,
-        .array => @typeInfo(T) == .pointer and T != []const u8,
-        .object => |object| switch (@typeInfo(T)) {
-            .@"struct" => takes(T, key, object.get(key)),
+        .true, .false => T == bool,
+        .array_begin => @typeInfo(T) == .pointer and T != []const u8,
+        .object_begin => switch (@typeInfo(T)) {
+            .@"struct" => takes(T, key, ahead.member),
             .@"union" => true,
             else => false,
         },
-        .null => false,
+        else => false,
     };
 }
 
@@ -348,9 +456,9 @@ fn takes(comptime T: type, comptime key: []const u8, member: ?std.json.Value) bo
     return given == .string and std.meta.stringToEnum(Tag, given.string) != null;
 }
 
-/// `value` decoded as the variant `T`, and checked where `T` says what makes one valid.
-fn decodeVariant(comptime T: type, allocator: Allocator, value: std.json.Value, parse_options: std.json.ParseOptions) std.json.ParseFromValueError!T {
-    const payload = try std.json.innerParseFromValue(T, allocator, value, parse_options);
+/// `decoded`, a variant `T` decoded, where `T` says it is valid, or says nothing of what makes one valid.
+fn checked(comptime T: type, decoded: anytype) @TypeOf(decoded) {
+    const payload = try decoded;
     if (comptime std.meta.hasFn(T, "valid")) {
         if (!payload.valid()) return error.MissingField;
     }
@@ -426,6 +534,27 @@ test "a union refuses a value no variant takes: an unknown name, a variant not v
     try std.testing.expectError(error.MissingField, decode(Shape, arena, "{\"type\":\"square\",\"side\":0}"));
     try std.testing.expectError(error.MissingField, decode(Shape, arena, "{\"radius\":1}"));
     try std.testing.expectError(error.UnexpectedToken, decode(Shape, arena, "true"));
+}
+
+test "a union decodes from bytes as from a tree: its member read ahead wherever it stands, however it is written" {
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const texts = [_][]const u8{
+        "{\"type\":\"circle\",\"radius\":1}",
+        "{ \"radius\" : 1 , \"type\" : \"circle\" }",
+        "{\"type\":\"b\\u006fx\",\"side\":2}",
+        "{\"side\":2,\"filled\":true,\"type\":\"square\"}",
+        "{\"text\":\"x\"}",
+        "\"y\"",
+        "[\"z\"]",
+        "3.5",
+    };
+    for (texts) |text| {
+        const tree = try std.json.parseFromSliceLeaky(std.json.Value, arena, text, .{});
+        try std.testing.expectEqualStrings(try encode(arena, try decodeValue(Shape, arena, tree)), try encode(arena, try decode(Shape, arena, text)));
+    }
+    try std.testing.expectError(error.UnexpectedToken, decode(Shape, arena, "{\"type\":null,\"text\":\"x\"}"));
 }
 
 test "JSON values are equal whatever the order of their members and the form of their numbers" {
