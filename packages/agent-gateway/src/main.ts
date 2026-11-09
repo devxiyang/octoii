@@ -12,10 +12,11 @@ import { mkdir } from "node:fs/promises";
 import { createReadStream, createWriteStream } from "node:fs";
 import { createInterface } from "node:readline";
 import { join } from "node:path";
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import { deleteSession, getSessionInfo, listSessions, query } from "@anthropic-ai/claude-agent-sdk";
 import { serve } from "./channel.ts";
-import { Claude } from "./claude.ts";
+import { Claude, type Sessions } from "./claude.ts";
 import { handlerOf } from "./gateway.ts";
+import { Holds } from "./holds.ts";
 import { Positions } from "./positions.ts";
 
 /** The variables that would make Claude Code use another account than the person's own login, or act on its own. */
@@ -58,6 +59,15 @@ function claudeOf(): string | undefined {
 	return argument("claude") ?? Bun.which("claude") ?? undefined;
 }
 
+/** Claude Code's sessions in `folder`, as the SDK finds and removes them. */
+function sessionsIn(folder: string): Sessions {
+	return {
+		has: async (id) => (await getSessionInfo(id, { dir: folder })) !== undefined,
+		remove: (id) => deleteSession(id, { dir: folder }),
+		list: async () => (await listSessions({ dir: folder })).map((session) => ({ id: session.sessionId, changedAt: session.lastModified })),
+	};
+}
+
 function environmentOf(): Record<string, string> {
 	const environment: Record<string, string> = {};
 	for (const [name, value] of Object.entries(process.env)) if (value !== undefined && !CLEARED.includes(name)) environment[name] = value;
@@ -78,8 +88,12 @@ async function main(): Promise<void> {
 			run: query,
 			environment: environmentOf(),
 			idleMs: IDLE_MS,
+			holds: await Holds.open(join(state, "claude", "holds.jsonl")),
+			sessions: sessionsIn(folder),
+			now: Date.now,
 		}),
 	};
+	void agents.claude.collect().catch((error: unknown) => console.error(error instanceof Error ? error.message : String(error)));
 	const out = createWriteStream("", { fd: 4 });
 	const lines = createInterface({ input: createReadStream("", { fd: 3 }), crlfDelay: Number.POSITIVE_INFINITY });
 	try {

@@ -12,13 +12,16 @@ const fixtures = @import("../testing/fixtures.zig");
 const TestHost = @import("../testing/host.zig").Host;
 const claude = @import("claude.zig");
 
-/// The gateway, answering its listing of models where it answers at all; each request it is sent kept, by its address
-/// and whether it carried a key.
+/// The gateway, answering its listing of models where it answers at all, and its conversations' ends where it is asked
+/// to; each request it is sent kept, by its address and whether it carried a key, and the conversation a request named.
 const Gateway = struct {
     arena: Allocator,
     listing: ?[]const u8,
     rest: ?http.Http = null,
+    /// Whether it lets conversations go.
+    conversations: bool = false,
     asked: std.ArrayList([]const u8) = .empty,
+    conversation: ?[]const u8 = null,
 
     fn network(gateway: *Gateway) http.Http {
         return .{ .context = gateway, .vtable = &.{ .send = send } };
@@ -27,16 +30,23 @@ const Gateway = struct {
     fn send(context: *anyopaque, request: http.Request) http.SendError!http.Response {
         const gateway: *Gateway = @ptrCast(@alignCast(context));
         const keyed = http.find(request.headers, "x-api-key") != null;
-        try gateway.asked.append(gateway.arena, try gateway.arena.print("{s}{s}", .{ request.url, if (keyed) " keyed" else "" }));
-        if (std.mem.eql(u8, request.url, claude.base_url ++ "/models")) {
-            const listed = gateway.listing orelse return error.Transport;
-            const reader = try gateway.arena.create(foundation.replay.ChunkReader);
-            reader.* = .init(try gateway.arena.dupe([]const u8, &.{listed}), try gateway.arena.alloc(u8, 4096));
-            const headers = try gateway.arena.dupe(http.Header, &.{.{ .name = "content-type", .value = "application/json" }});
-            return .{ .status = 200, .headers = headers, .body = &reader.reader, .context = reader, .vtable = &.{ .failure = failure, .close = close } };
+        if (http.find(request.headers, claude.conversation_header)) |named| gateway.conversation = try gateway.arena.dupe(u8, named);
+        if (request.method == .DELETE) {
+            try gateway.asked.append(gateway.arena, try gateway.arena.print("DELETE {s}", .{request.url}));
+            if (!gateway.conversations) return error.Transport;
+            return answered(gateway, 204, "");
         }
+        try gateway.asked.append(gateway.arena, try gateway.arena.print("{s}{s}", .{ request.url, if (keyed) " keyed" else "" }));
+        if (std.mem.eql(u8, request.url, claude.base_url ++ "/models")) return answered(gateway, 200, gateway.listing orelse return error.Transport);
         if (gateway.rest) |rest| return rest.send(request);
         return error.Transport;
+    }
+
+    fn answered(gateway: *Gateway, status: u16, body: []const u8) http.SendError!http.Response {
+        const reader = try gateway.arena.create(foundation.replay.ChunkReader);
+        reader.* = .init(try gateway.arena.dupe([]const u8, &.{body}), try gateway.arena.alloc(u8, 4096));
+        const headers = try gateway.arena.dupe(http.Header, &.{.{ .name = "content-type", .value = "application/json" }});
+        return .{ .status = status, .headers = headers, .body = &reader.reader, .context = reader, .vtable = &.{ .failure = failure, .close = close } };
     }
 
     fn failure(_: *anyopaque) http.Error {
@@ -94,4 +104,24 @@ test "a text request goes to the gateway as Anthropic's API takes it, carrying n
     try std.testing.expectEqual(vocabulary.response.ResponseStatus.completed, response.status);
     try std.testing.expectEqual(@as(usize, 0), replay.unused().len);
     try std.testing.expectEqualStrings(claude.base_url ++ "/messages", gateway.asked.items[gateway.asked.items.len - 1]);
+}
+
+test "a request names its conversation to the gateway, and an ended conversation is let go there" {
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const fixture = try fixtures.load(arena, "anthropic", "text");
+    const exchanges = try arena.dupe(foundation.replay.Exchange, fixture.exchanges);
+    for (exchanges) |*exchange| exchange.request.url = claude.base_url ++ "/messages";
+    var replay: foundation.replay.Replay = .init(arena, exchanges);
+    var gateway: Gateway = .{ .arena = arena, .listing = opus_and_sonnet, .rest = replay.http(), .conversations = true };
+    const models = try modelsOver(arena, &gateway);
+    try models.refresh();
+    var request = fixture.request;
+    request.model = "claude/claude-opus-5-5";
+    request.prompt_cache_key = "01a1c112-3830-78f7-9a37-442a361894eb";
+    _ = try models.create(arena, request);
+    try std.testing.expectEqualStrings("01a1c112-3830-78f7-9a37-442a361894eb", gateway.conversation.?);
+    try models.forget(arena, "01a1c112-3830-78f7-9a37-442a361894eb");
+    try std.testing.expectEqualStrings("DELETE " ++ claude.base_url ++ "/conversations/01a1c112-3830-78f7-9a37-442a361894eb", gateway.asked.items[gateway.asked.items.len - 1]);
 }

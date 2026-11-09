@@ -9,6 +9,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const ai = @import("ai");
 const Runtime = @import("../runtime.zig").Runtime;
+const Waits = @import("../runtime.zig").Waits;
 const threads = @import("../threads.zig");
 const settings = @import("../settings.zig");
 const Machine = @import("../machine.zig");
@@ -20,6 +21,8 @@ const terminals_ = @import("terminals.zig");
 const Browser = @import("../browser.zig");
 const Servers = @import("../tools.zig").Servers;
 const pages = @import("pages.zig");
+
+const log = std.log.scoped(.siphon);
 
 runtime: *Runtime,
 /// The models whose providers the credentials' methods tell of, and the credentials the host keeps; none, none kept.
@@ -97,6 +100,50 @@ pub fn forgetThread(clients: *Clients, tid: []const u8) void {
     clients.browser.closeThread(tid);
     for (clients.connections.items) |connection| connection.following.unfollow(tid);
 }
+
+/// Has the providers let go of what they keep of the conversations of `gone` — threads deleted — off the loop, as
+/// nothing waits for it: a provider not reached keeps them till it lets them go itself.
+pub fn forgetConversations(clients: *Clients, gone: []const []const u8) void {
+    const forgetting = Forgetting.make(clients.runtime.allocator, clients.models, gone) catch |err| {
+        return log.warn("the providers keep the conversations of the threads deleted: {s}", .{@errorName(err)});
+    };
+    clients.runtime.spawn(.{ .context = forgetting, .run = Forgetting.run, .finish = Forgetting.free, .drop = Forgetting.free }) catch |err| {
+        log.warn("the providers keep the conversations of the threads deleted: {s}", .{@errorName(err)});
+    };
+}
+
+/// The providers' letting go of conversations that ended, as a job of the runtime's.
+const Forgetting = struct {
+    arena_allocator: std.heap.ArenaAllocator,
+    models: *ai.Models,
+    conversations: []const []const u8,
+
+    fn make(gpa: Allocator, models: *ai.Models, gone: []const []const u8) Allocator.Error!*Forgetting {
+        var arena_allocator: std.heap.ArenaAllocator = .init(gpa);
+        errdefer arena_allocator.deinit();
+        const arena = arena_allocator.allocator();
+        const conversations = try arena.alloc([]const u8, gone.len);
+        for (gone, conversations) |tid, *each| each.* = try arena.dupe(u8, tid);
+        const forgetting = try arena.create(Forgetting);
+        forgetting.* = .{ .arena_allocator = undefined, .models = models, .conversations = conversations };
+        forgetting.arena_allocator = arena_allocator;
+        return forgetting;
+    }
+
+    fn run(context: *anyopaque, _: *Waits) void {
+        const forgetting: *Forgetting = @ptrCast(@alignCast(context));
+        const arena = forgetting.arena_allocator.allocator();
+        for (forgetting.conversations) |conversation| forgetting.models.forget(arena, conversation) catch |err| {
+            return log.warn("the providers keep the conversation {s}: {s}", .{ conversation, @errorName(err) });
+        };
+    }
+
+    fn free(context: *anyopaque) void {
+        const forgetting: *Forgetting = @ptrCast(@alignCast(context));
+        var arena_allocator = forgetting.arena_allocator;
+        arena_allocator.deinit();
+    }
+};
 
 /// Closes each connection and lets go of it, the loop stopped.
 pub fn deinit(clients: *Clients) void {

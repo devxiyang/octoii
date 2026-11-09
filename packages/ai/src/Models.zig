@@ -462,6 +462,19 @@ fn hostCall(models: *Models, arena: Allocator, serving: *const driver.Provider) 
     return .{ .arena = arena, .provider = serving, .host = &models.host, .wait = .{ .head_ms = refresh_timeout_ms, .idle_ms = refresh_timeout_ms } };
 }
 
+/// Has every provider that keeps conversations let go of `conversation` — the key its requests named it with, their
+/// `prompt_cache_key` — as it ended; a provider that could not be reached keeps it till it lets it go itself.
+pub fn forget(models: *Models, arena: Allocator, conversation: []const u8) Allocator.Error!void {
+    for (models.providers) |*serving| {
+        const forgotten = serving.driver.forget orelse continue;
+        var call = models.hostCall(arena, serving);
+        forgotten(&call, conversation) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            error.Failed => {},
+        };
+    }
+}
+
 /// A sign-in begun, or the failure it could not begin with.
 pub const SignInStarted = union(enum) { started: driver.SignIn, failed: failure.Failure };
 

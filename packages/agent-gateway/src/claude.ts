@@ -14,11 +14,18 @@
  *
  * Each live session is a process of Claude Code; one idle past a while is closed, its conversation resumed from its
  * positions when it is asked again.
+ *
+ * A request names its conversation, which holds the session its answer settles in; a session no conversation holds any
+ * more — its last one went on in another, or ended — is removed, its positions forgotten, as a file no name links is.
+ * What a request that named none left, or a removal that failed, is collected once it stood unused a day. A session gone
+ * from Claude Code's folder — its own cleanup removed it, or the person did — is forgotten as it is found gone, and its
+ * conversation told the agent whole again: a replica whose offset is gone syncs in full.
  */
 import type { ModelInfo, Options } from "@anthropic-ai/claude-agent-sdk";
 import { errorResponse, type Message, type Request, systemText, type Tool } from "./anthropic.ts";
 import { PREFIX } from "./answering.ts";
 import { Input } from "./held.ts";
+import type { Holds } from "./holds.ts";
 import { canonical, chainOf, type Position, type Positions, rootOf } from "./positions.ts";
 import { type Run, Session } from "./session.ts";
 import { toldAfter } from "./told.ts";
@@ -35,21 +42,44 @@ export type ClaudeOptions = {
 	readonly environment: Readonly<Record<string, string>>;
 	/** How long a live session may stand unasked before it is closed. */
 	readonly idleMs: number;
+	/** Which session each conversation holds. */
+	readonly holds: Holds;
+	/** Claude Code's sessions in the folder. */
+	readonly sessions: Sessions;
+	/** The time, in milliseconds since the epoch, as `Date.now` tells it. */
+	readonly now: () => number;
 };
+
+/** Claude Code's sessions in the gateway's folder: whether one is there, its removal, and those there, each with when it last changed. */
+export type Sessions = {
+	readonly has: (id: string) => Promise<boolean>;
+	readonly remove: (id: string) => Promise<void>;
+	readonly list: () => Promise<readonly { readonly id: string; readonly changedAt: number }[]>;
+};
+
+/** How long a session no conversation holds may stand unused before it is collected. */
+const COLLECT_AFTER_MS = 24 * 60 * 60 * 1000;
+/** How often the folder is looked over for sessions to collect. */
+const COLLECT_EVERY_MS = 6 * 60 * 60 * 1000;
 
 export class Claude {
 	readonly #options: ClaudeOptions;
 	readonly #live = new Set<Session>();
 	readonly #sweeper: ReturnType<typeof setInterval>;
+	readonly #collector: ReturnType<typeof setInterval>;
 	#models: Promise<readonly ModelInfo[]> | undefined;
 
 	constructor(options: ClaudeOptions) {
 		this.#options = options;
 		this.#sweeper = setInterval(() => this.#sweep(), Math.max(1_000, Math.floor(options.idleMs / 4)));
+		this.#collector = setInterval(() => void this.collect().catch(told), COLLECT_EVERY_MS);
 	}
 
-	/** Answers `request` as the Messages API does, as a stream; an error before the stream begins as the API's error. */
-	async answer(request: Request, signal: AbortSignal): Promise<Response> {
+	/**
+	 * Answers `request` of `conversation` as the Messages API does, as a stream; an error before the stream begins as the
+	 * API's error.
+	 */
+	async answer(request: Request, signal: AbortSignal, conversation?: string): Promise<Response> {
 		const messages = request.messages;
 		if (messages.at(-1)?.role !== "user")
 			return errorResponse("invalid_request_error", "The conversation must end with the person's words or the results of calls.");
@@ -62,13 +92,55 @@ export class Claude {
 		const end = chain.at(-1) ?? rootOf(system);
 		if (live !== undefined) {
 			const told = toldAfter(messages, last);
-			return live.answer(told.results, told.rest, end, signal);
+			return this.#holding(conversation, live, live.answer(told.results, told.rest, end, signal));
 		}
-		const known = this.#longestKnown(messages, chain, last);
+		const known = await this.#longestPresent(messages, chain, last);
 		const told = toldAfter(messages, known.at);
 		const session = this.#session(request, this.#resumed(known, chain));
 		this.#live.add(session);
-		return session.answer(told.results, told.rest, end, signal);
+		return this.#holding(conversation, session, session.answer(told.results, told.rest, end, signal));
+	}
+
+	/** Lets go of what `conversation` holds, as it ended: its session, where no other conversation holds it. */
+	async forget(conversation: string): Promise<void> {
+		const released = await this.#options.holds.release(conversation);
+		if (released !== undefined) await this.#letGo(released);
+	}
+
+	/** Removes the sessions in the folder that no conversation holds and none used for a day. */
+	async collect(): Promise<void> {
+		const now = this.#options.now();
+		for (const session of await this.#options.sessions.list()) {
+			if (this.#options.holds.isHeld(session.id) || this.#isLive(session.id) || now - session.changedAt < COLLECT_AFTER_MS) continue;
+			await this.#letGo(session.id);
+		}
+	}
+
+	/** `response`, `conversation` holding the session once its answer settled there. */
+	#holding(conversation: string | undefined, session: Session, response: Promise<Response>): Promise<Response> {
+		if (conversation !== undefined) void session.settled.then(() => this.#hold(conversation, session)).catch(told);
+		return response;
+	}
+
+	/** Keeps that `conversation` holds `session`, letting go of the one it held before where no conversation holds that now. */
+	async #hold(conversation: string, session: Session): Promise<void> {
+		const id = session.id;
+		if (id === undefined || session.position === undefined) return;
+		const released = await this.#options.holds.hold(conversation, id);
+		if (released !== undefined) await this.#letGo(released);
+	}
+
+	/** Lets go of Claude Code's session `id`: its live processes closed, its positions forgotten, and it removed. */
+	async #letGo(id: string): Promise<void> {
+		this.#closeLiveOf(id);
+		await this.#options.positions.forget(id);
+		await this.#options.sessions.remove(id);
+	}
+
+	/** Whether a process of Claude Code's session `id` is live, which keeps it in the folder. */
+	#isLive(id: string): boolean {
+		for (const session of this.#live) if (session.id === id) return true;
+		return false;
 	}
 
 	/** The models Claude Code offers the person, as it tells them, asked of a process started for it once. */
@@ -105,6 +177,7 @@ export class Claude {
 	/** Closes every live session, as the gateway ends. */
 	close(): void {
 		clearInterval(this.#sweeper);
+		clearInterval(this.#collector);
 		for (const session of this.#live) session.close();
 		this.#live.clear();
 	}
@@ -117,6 +190,20 @@ export class Claude {
 			if (session.position === prefix && session.isAskable()) return session;
 		}
 		return undefined;
+	}
+
+	/**
+	 * The longest prefix of the conversation a session still in the folder holds: a session found gone is forgotten, and
+	 * the prefix sought again.
+	 */
+	async #longestPresent(messages: readonly Message[], chain: readonly string[], last: number): Promise<{ at: number; position?: Position }> {
+		for (;;) {
+			const known = this.#longestKnown(messages, chain, last);
+			const id = known.position?.session;
+			if (id === undefined || this.#isLive(id) || (await this.#options.sessions.has(id))) return known;
+			await this.#options.positions.forget(id);
+			await this.#options.holds.drop(id);
+		}
 	}
 
 	/** The longest prefix of the conversation, ending at a message of the model's no later than `last`, a session holds. */
@@ -162,12 +249,13 @@ export class Claude {
 			tools,
 			holdMs: 2 * this.#options.idleMs,
 			settings: settingsOf(request),
+			now: this.#options.now,
 		});
 	}
 
 	/** An answer aside from the conversation, from a fork of its own where a session holds a prefix of it, kept nowhere. */
 	async #aside(request: Request, chain: readonly string[], last: number, signal: AbortSignal): Promise<Response> {
-		const known = this.#longestKnown(request.messages, chain, last);
+		const known = await this.#longestPresent(request.messages, chain, last);
 		const told = toldAfter(request.messages, known.at);
 		const fork = known.position === undefined ? {} : { resume: known.position.session, resumeSessionAt: known.position.entry, forkSession: true };
 		const session = this.#session({ ...request, tools: [] }, { persistSession: false, ...fork });
@@ -183,7 +271,7 @@ export class Claude {
 
 	/** Closes the sessions that stood unasked too long, and forgets those that closed. */
 	#sweep(): void {
-		const now = Date.now();
+		const now = this.#options.now();
 		for (const session of this.#live) {
 			if (session.isClosed()) this.#live.delete(session);
 			else if (session.isAskable() && now - session.usedAt > this.#options.idleMs) {
@@ -192,6 +280,11 @@ export class Claude {
 			}
 		}
 	}
+}
+
+/** Tells what failed where nothing waits to hear it: on the gateway's standard error, which its host keeps. */
+function told(error: unknown): void {
+	console.error(error instanceof Error ? error.message : String(error));
 }
 
 /** Whether `request`'s answer is aside from its conversation: none of its tools may be called, or it is JSON of a schema. */

@@ -7,10 +7,9 @@
  * lacks is told the agent whole again, as a replica that lost its offset syncs in full.
  */
 import { createHash } from "node:crypto";
-import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
 import { Type } from "typebox";
-import { type Block, blocksOf, type Json, type Message } from "./anthropic.ts";
+import { type Block, blocksOf, type Message } from "./anthropic.ts";
+import { LineFile } from "./lines.ts";
 import { matches } from "./schema.ts";
 
 /** Where a prefix of a conversation ends in an agent's session: the session, and the entry of its transcript. */
@@ -97,34 +96,25 @@ const POSITIONS_MAX = 20_000;
  * from any earlier one, the session is forked, as a conversation that parted from it at that point is another.
  */
 export class Positions {
-	readonly #path: string | undefined;
+	readonly #file: LineFile | undefined;
 	readonly #known = new Map<string, Position>();
 	/** Each session's tip, by the hash of the prefix it ends. */
 	readonly #tips = new Map<string, string>();
-	#lines = 0;
-	/** Whether the file ends in a line not whole, as a crash leaves it: the next line written begins on a line of its own. */
-	#torn = false;
 
-	private constructor(path: string | undefined) {
-		this.#path = path;
+	private constructor(file: LineFile | undefined) {
+		this.#file = file;
 	}
 
 	/** The positions the file at `path` keeps, none where there is no file yet; kept in memory alone with no path. */
 	static async open(path: string | undefined): Promise<Positions> {
-		const positions = new Positions(path);
-		if (path === undefined) return positions;
-		const text = await readFile(path, "utf8").catch((error: unknown) => {
-			if (isMissing(error)) return "";
-			throw error;
-		});
-		positions.#torn = text.length > 0 && !text.endsWith("\n");
-		for (const line of text.split("\n")) {
-			const kept = parsedLine(line);
-			if (kept === undefined) continue;
-			positions.#known.delete(kept.hash);
-			positions.#known.set(kept.hash, { session: kept.session, entry: kept.entry });
-			positions.#tips.set(kept.session, kept.hash);
-			positions.#lines += 1;
+		if (path === undefined) return new Positions(undefined);
+		const { file, values } = await LineFile.open(path);
+		const positions = new Positions(file);
+		for (const value of values) {
+			if (!matches(LineSchema, value)) continue;
+			positions.#known.delete(value.hash);
+			positions.#known.set(value.hash, { session: value.session, entry: value.entry });
+			positions.#tips.set(value.session, value.hash);
 		}
 		return positions;
 	}
@@ -150,44 +140,27 @@ export class Positions {
 			if (oldest === undefined) break;
 			this.#known.delete(oldest);
 		}
-		if (this.#path === undefined) return;
-		await mkdir(dirname(this.#path), { recursive: true });
-		if (this.#lines >= 2 * POSITIONS_MAX) return this.#rewrite();
-		this.#lines += 1;
-		const torn = this.#torn;
-		this.#torn = false;
-		await appendFile(this.#path, `${torn ? "\n" : ""}${lineOf(hash, position)}`);
+		if (this.#file === undefined) return;
+		if (this.#file.lines >= 2 * POSITIONS_MAX) return this.#rewrite();
+		await this.#file.append(lineOf(hash, position));
+	}
+
+	/** Forgets every position in the session `session`, which is gone. */
+	async forget(session: string): Promise<void> {
+		const before = this.#known.size;
+		for (const [hash, position] of this.#known) if (position.session === session) this.#known.delete(hash);
+		this.#tips.delete(session);
+		if (this.#known.size !== before) await this.#rewrite();
 	}
 
 	/** Writes the file again with the positions kept alone. */
 	async #rewrite(): Promise<void> {
-		if (this.#path === undefined) return;
-		const lines = [...this.#known].map(([hash, position]) => lineOf(hash, position));
-		await writeFile(this.#path, lines.join(""));
-		this.#lines = lines.length;
+		await this.#file?.rewrite([...this.#known].map(([hash, position]) => lineOf(hash, position)));
 	}
 }
 
-function lineOf(hash: string, position: Position): string {
-	return `${JSON.stringify({ hash, session: position.session, entry: position.entry })}\n`;
+function lineOf(hash: string, position: Position): object {
+	return { hash, session: position.session, entry: position.entry };
 }
 
 const LineSchema = Type.Object({ hash: Type.String(), session: Type.String(), entry: Type.String() });
-
-/** A line of the file as it was kept; none for one that is not whole, as the last may not be after a crash. */
-function parsedLine(line: string): { hash: string; session: string; entry: string } | undefined {
-	const kept = jsonOf(line);
-	return matches(LineSchema, kept) ? kept : undefined;
-}
-
-function jsonOf(line: string): Json {
-	try {
-		return JSON.parse(line);
-	} catch {
-		return null;
-	}
-}
-
-function isMissing(error: unknown): boolean {
-	return error instanceof Error && "code" in error && error.code === "ENOENT";
-}

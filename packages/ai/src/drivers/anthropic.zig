@@ -28,12 +28,12 @@ fn text(call: *seam.Call, model: *const Model, request: *const vocabulary.Respon
 }
 
 /// The events of `request` as a server of Anthropic's Messages API at `default_url` — unless its provider names
-/// another — answers them, its requests sent with `credentials`, the headers that say who asks: for a driver whose
-/// server speaks Anthropic's API.
-pub fn textAt(call: *seam.Call, model: *const Model, request: *const vocabulary.ResponsesRequest, default_url: []const u8, credentials: []const foundation.http.Header) Error!seam.TextSource {
+/// another — answers them, its requests sent with `given` besides the API's own headers: who asks, and what else the
+/// server takes; for a driver whose server speaks Anthropic's API.
+pub fn textAt(call: *seam.Call, model: *const Model, request: *const vocabulary.ResponsesRequest, default_url: []const u8, given: []const foundation.http.Header) Error!seam.TextSource {
     const built = try request_.build(call, model, request.*);
     var headers: std.ArrayList(foundation.http.Header) = .empty;
-    try headers.appendSlice(call.arena, credentials);
+    try headers.appendSlice(call.arena, given);
     try headers.appendSlice(call.arena, &.{
         .{ .name = "anthropic-version", .value = wire.api_version },
         .{ .name = "accept", .value = "text/event-stream" },

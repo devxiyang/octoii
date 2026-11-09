@@ -615,9 +615,12 @@ fn threadsConfigure(connection: *Connection, arena: Allocator, id: []const u8, g
 }
 
 /// A thread deleted, whatever it was doing — its fibers killed, what they asked cut off — and what the clients kept of
-/// it let go of: its terminals, its pages, and every client's following of it.
+/// it let go of: its terminals, its pages, and every client's following of it; and what the providers keep of its
+/// conversation.
 fn threadsDelete(connection: *Connection, arena: Allocator, id: []const u8, given: struct { thread: []const u8 }) !void {
-    for (try threads.delete(connection.clients.runtime, arena, given.thread)) |deleted| connection.clients.forgetThread(deleted);
+    const deleted = try threads.delete(connection.clients.runtime, arena, given.thread);
+    for (deleted) |tid| connection.clients.forgetThread(tid);
+    connection.clients.forgetConversations(deleted);
     return connection.answer(arena, id, nothing);
 }
 

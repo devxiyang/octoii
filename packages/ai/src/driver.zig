@@ -48,6 +48,8 @@ pub const Driver = struct {
     status: ?StatusCall = null,
     /// Begins a sign-in in a browser, for a driver whose provider is reached by one.
     sign_in: ?SignInCall = null,
+    /// Lets go of what the provider keeps of a conversation that ended, for a driver whose provider keeps one.
+    forget: ?ForgetCall = null,
 
     /// The kinds of the calls it serves.
     pub fn kinds(driver: *const Driver, arena: Allocator) Allocator.Error![]const Kind {
@@ -68,6 +70,9 @@ pub const ListCall = *const fn (call: *Call) Error![]const ModelFacts;
 
 /// A driver's account of how its provider stands.
 pub const StatusCall = *const fn (call: *Call) Error!Status;
+
+/// A driver's letting go of a conversation that ended, by the key its requests named it with: their `prompt_cache_key`.
+pub const ForgetCall = *const fn (call: *Call, conversation: []const u8) Error!void;
 
 /// How a provider stands: whether a request may reach it now, who it is connected as, and what is wrong.
 pub const Status = struct {

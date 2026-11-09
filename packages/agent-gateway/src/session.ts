@@ -30,6 +30,8 @@ export type SessionOptions = {
 	readonly holdMs: number;
 	/** What a session must be asked with to go on: its model, how it thinks, its tools. */
 	readonly settings: string;
+	/** The time, in milliseconds since the epoch. */
+	readonly now: () => number;
 };
 
 /** What Claude is told of a tool's result past which it is cut; the client bounds its own already. */
@@ -44,6 +46,7 @@ export class Session {
 	readonly #input = new Input();
 	readonly #held = new Held();
 	readonly #positions: Positions;
+	readonly #now: () => number;
 	readonly #tools: ReadonlySet<string>;
 	readonly #messages: AsyncIterator<SDKMessage>;
 	/** A read of the next message begun and not yet taken, as a call was held first. */
@@ -53,12 +56,15 @@ export class Session {
 	#state: State = "answering";
 	/** The hash of the conversation the session stands at, as its last answer left it. */
 	position: string | undefined;
-	usedAt = Date.now();
+	/** When it was last asked, by its clock. */
+	usedAt: number;
 	/** Settles once the session stands still after its last answer. */
 	settled: Promise<void> = Promise.resolve();
 
 	constructor(options: SessionOptions) {
 		this.settings = options.settings;
+		this.#now = options.now;
+		this.usedAt = options.now();
 		this.#positions = options.positions;
 		this.#tools = new Set(options.tools.map((tool) => tool.name));
 		this.#query = options.run({
@@ -122,7 +128,7 @@ export class Session {
 	/** Gives the session what it is asked: results to the calls it holds, the rest as a message of the person's. */
 	#give(results: readonly ResultBlock[], rest: readonly Block[]): void {
 		this.#state = "answering";
-		this.usedAt = Date.now();
+		this.usedAt = this.#now();
 		if (this.#held.isHolding()) {
 			for (const result of results) this.#held.give(result.tool_use_id, resultOf(result));
 			if (rest.length > 0) this.#input.push(rest);

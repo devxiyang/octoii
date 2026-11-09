@@ -96,6 +96,8 @@ pub fn render(runtime: *const Runtime, arena: *const Allocator, asked: ModelRequ
         .tools = if (declared.items.len > 0) declared.items else null,
         .tool_choice = if (asked.instruction != null and declared.items.len > 0) .{ .mode = .none } else null,
         .reasoning = if (window.effort) |effort| .{ .effort = effort } else null,
+        // The thread names the conversation, by which a provider keeps its requests' cache, or its session, together.
+        .prompt_cache_key = asked.thread,
     };
 }
 

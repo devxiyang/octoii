@@ -463,6 +463,48 @@ test "a thread deleted is gone for the clients that watch the list, and followed
     try client.close();
 }
 
+/// A provider that keeps conversations, as the agent gateway keeps Claude Code's sessions: each it was had let go of
+/// kept, as its task tells it.
+const Keeper = struct {
+    lock: std.Io.Mutex = .init,
+    arena_allocator: std.heap.ArenaAllocator,
+    forgotten: std.ArrayList([]const u8) = .empty,
+
+    fn forget(call: *ai.driver.Call, conversation: []const u8) ai.failure.Error!void {
+        const keeper: *Keeper = @ptrCast(@alignCast(call.provider.driver.context.?));
+        keeper.lock.lockUncancelable(std.testing.io);
+        defer keeper.lock.unlock(std.testing.io);
+        const arena = keeper.arena_allocator.allocator();
+        try keeper.forgotten.append(arena, try arena.dupe(u8, conversation));
+    }
+
+    fn told(keeper: *Keeper) bool {
+        keeper.lock.lockUncancelable(std.testing.io);
+        defer keeper.lock.unlock(std.testing.io);
+        return keeper.forgotten.items.len > 0;
+    }
+};
+
+test "a thread deleted has the providers that keep conversations let go of its own, off the loop" {
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var keeper: Keeper = .{ .arena_allocator = .init(std.testing.allocator) };
+    defer keeper.arena_allocator.deinit();
+    const keeping: ai.driver.Driver = .{ .id = "keeper", .name = "Keeper", .context = &keeper, .forget = Keeper.forget };
+    const providers = [_]ai.driver.Provider{.{ .id = "keeper", .name = "Keeper", .driver = &keeping }};
+    var clock: testing.Clock = .{ .now_ms = 1_000 };
+    const siphon = try testing.openOver(&clock, .memory, &providers);
+    defer siphon.close();
+    const doomed = try threads.create(siphon.runtime, arena, .{ .title = "doomed" }, "create-1");
+    const client: Client = try .open(siphon, arena);
+    client.send("{\"id\":\"1\",\"method\":\"hello\",\"params\":{\"protocol\":1}}");
+    try client.sendf("{{\"id\":\"2\",\"method\":\"threads.delete\",\"params\":{{\"thread\":\"{s}\"}}}}", .{doomed});
+    try testing.pumpUntil(siphon, &keeper, Keeper.told);
+    try std.testing.expectEqualStrings(doomed, keeper.forgotten.items[0]);
+    try client.close();
+}
+
 test "a client watching the list of threads is answered with it, then sent a row of a thread as it changes, and no other" {
     var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
     defer arena_allocator.deinit();

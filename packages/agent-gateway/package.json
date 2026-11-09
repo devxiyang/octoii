@@ -14,6 +14,7 @@
 	},
 	"type": "module",
 	"scripts": {
+		"build": "bun build --compile --minify src/main.ts --outfile dist/octoii-agent-gateway",
 		"typecheck": "bun check",
 		"test": "bun test --timeout=60000 --no-env-file --no-install ./test"
 	},

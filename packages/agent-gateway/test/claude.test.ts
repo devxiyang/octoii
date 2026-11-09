@@ -8,7 +8,8 @@ import type { Options, PreToolUseHookInput, SDKMessage, SDKUserMessage } from "@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { Message, Request } from "../src/anthropic.ts";
-import { Claude } from "../src/claude.ts";
+import { Claude, type Sessions } from "../src/claude.ts";
+import { Holds } from "../src/holds.ts";
 import { chainOf, Positions } from "../src/positions.ts";
 import type { Run } from "../src/session.ts";
 
@@ -147,16 +148,47 @@ async function eventsOf(response: Response): Promise<Record<string, unknown>[]> 
 
 const tools = [{ name: "read", description: "Reads a file", input_schema: { type: "object", properties: { path: { type: "string" } } } }];
 
+/** Claude Code's folder as the test keeps it: every session there but those gone, those listed as it lists them. */
+class Folder implements Sessions {
+	readonly gone = new Set<string>();
+	readonly listed = new Map<string, number>();
+	readonly removed: string[] = [];
+
+	readonly has = (id: string): Promise<boolean> => Promise.resolve(!this.gone.has(id));
+
+	readonly remove = (id: string): Promise<void> => {
+		this.gone.add(id);
+		this.listed.delete(id);
+		this.removed.push(id);
+		return Promise.resolve();
+	};
+
+	readonly list = (): Promise<readonly { readonly id: string; readonly changedAt: number }[]> =>
+		Promise.resolve([...this.listed].map(([id, changedAt]) => ({ id, changedAt })));
+}
+
 /** A backend whose processes of Claude Code the test plays, `plays` each as it starts. */
-function claudeOf(positions: Positions, plays: Played[]): Claude {
+function claudeOf(positions: Positions, plays: Played[], kept: { readonly holds?: Holds; readonly folder?: Folder; readonly now?: number } = {}): Claude {
 	const run: Run = (params) => {
 		const played = new Played(params);
 		plays.push(played);
 		// SAFETY: of a Query the backend uses its messages, close and supportedModels, which the played process has.
 		return played as never;
 	};
-	return new Claude({ claude: "claude", folder: "/nowhere", positions, run, environment: {}, idleMs: 60_000 });
+	return new Claude({
+		claude: "claude",
+		folder: "/nowhere",
+		positions,
+		run,
+		environment: {},
+		idleMs: 60_000,
+		holds: kept.holds ?? emptyHolds,
+		sessions: kept.folder ?? new Folder(),
+		now: () => kept.now ?? 0,
+	});
 }
+
+const emptyHolds = await Holds.open(undefined);
 
 const signal = (): AbortSignal => new AbortController().signal;
 /** One turn of the event loop, for what the backend does in memory to happen: no time passes. */
@@ -337,6 +369,84 @@ describe("Claude through Claude Code", () => {
 		await eventsOf(await answering);
 		await tick();
 		expect(played.closed).toBe(true);
+		claude.close();
+	});
+
+	it("keeps the session a conversation's answer settled in, and removes the one it left for another, its positions with it", async () => {
+		const positions = await Positions.open(undefined);
+		const holds = await Holds.open(undefined);
+		const folder = new Folder();
+		const plays: Played[] = [];
+		const claude = claudeOf(positions, plays, { holds, folder });
+		const asked: Message = { role: "user", content: "Plan the release" };
+		const answering = claude.answer({ model: "opus", messages: [asked] }, signal(), "thread-1");
+		const first = await startedAt(plays, 0);
+		await first.heard();
+		first.say(init("S1"), ...message("m1", [{ type: "text", text: "Tag it." }], "end_turn"), done("S1"));
+		await eventsOf(await answering);
+		await tick();
+		expect(holds.sessionOf("thread-1")).toBe("S1");
+
+		// Compacted, the conversation begins anew: no session holds any of it, and the one it left is let go.
+		const recap: Message = { role: "user", content: "So far: a release planned. Go on." };
+		const again = claude.answer({ model: "opus", system: "Recap.", messages: [recap] }, signal(), "thread-1");
+		const second = await startedAt(plays, 1);
+		await second.heard();
+		second.say(init("S2"), ...message("m2", [{ type: "text", text: "Pushing." }], "end_turn"), done("S2"));
+		await eventsOf(await again);
+		await tick();
+		expect(holds.sessionOf("thread-1")).toBe("S2");
+		expect(folder.removed).toEqual(["S1"]);
+		expect(first.closed).toBe(true);
+		expect(positions.get(chainOf("", [asked, { role: "assistant", content: "Tag it." }])[1] ?? "")).toBeUndefined();
+		claude.close();
+	});
+
+	it("removes an ended conversation's session where no other conversation holds it", async () => {
+		const holds = await Holds.open(undefined);
+		const folder = new Folder();
+		const claude = claudeOf(await Positions.open(undefined), [], { holds, folder });
+		await holds.hold("thread-1", "S1");
+		await holds.hold("thread-2", "S1");
+		await claude.forget("thread-1");
+		expect(folder.removed).toEqual([]);
+		await claude.forget("thread-2");
+		expect(folder.removed).toEqual(["S1"]);
+		await claude.forget("thread-3");
+		expect(folder.removed).toEqual(["S1"]);
+		claude.close();
+	});
+
+	it("tells a conversation whose session is gone from the folder to a new one, whole", async () => {
+		const positions = await Positions.open(undefined);
+		const folder = new Folder();
+		const plays: Played[] = [];
+		const claude = claudeOf(positions, plays, { folder });
+		const asked: Message = { role: "user", content: "Plan the release" };
+		const tagged: Message = { role: "assistant", content: "Tag it." };
+		await positions.set(chainOf("", [asked, tagged])[1] ?? "", { session: "S1", entry: "e1" });
+		folder.gone.add("S1");
+		void claude.answer({ model: "opus", messages: [asked, tagged, { role: "user", content: "Then?" }] }, signal(), "thread-1");
+		const fresh = await startedAt(plays, 0);
+		expect(fresh.options.resume).toBeUndefined();
+		const heard = await fresh.heard();
+		expect(heard.map((block) => block.text ?? "").join("")).toContain("Tag it.");
+		expect(positions.get(chainOf("", [asked, tagged])[1] ?? "")).toBeUndefined();
+		claude.close();
+	});
+
+	it("collects the sessions no conversation holds once none used them for a day", async () => {
+		const holds = await Holds.open(undefined);
+		const folder = new Folder();
+		const day = 24 * 60 * 60 * 1000;
+		const now = 30 * day;
+		const claude = claudeOf(await Positions.open(undefined), [], { holds, folder, now });
+		folder.listed.set("held", now - 2 * day);
+		folder.listed.set("recent", now);
+		folder.listed.set("stale", now - 2 * day);
+		await holds.hold("thread-1", "held");
+		await claude.collect();
+		expect(folder.removed).toEqual(["stale"]);
 		claude.close();
 	});
 });
