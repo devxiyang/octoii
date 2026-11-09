@@ -160,7 +160,7 @@ function ProviderDetails(props: { readonly provider: Provider; readonly onChange
 			<div className="flex items-center gap-2.5 px-3.5 pt-4 pb-2">
 				<Monogram name={provider.name} size="md" />
 				<h4 className="flex-1 text-base font-semibold">{provider.name}</h4>
-				<span className="font-mono text-xs text-muted-foreground">{provider.id}</span>
+				{provider.account === undefined ? <span className="font-mono text-xs text-muted-foreground">{provider.id}</span> : null}
 			</div>
 			<Row title="Status" description={stood} />
 			{provider.connects === "api_key" ? <KeyDetails provider={provider} onChanged={props.onChanged} onFailed={failed} /> : null}

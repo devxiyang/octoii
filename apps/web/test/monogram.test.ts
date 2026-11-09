@@ -4,8 +4,8 @@ import { huesApart, MONOGRAM_HUES, monogramHue, monogramOf } from "../src/core/m
 
 describe("a monogram", () => {
 	it("shows a one-word name's first letter, else its first two words' first letters, a capital within a word parting words", () => {
-		const names = ["octoii", "octoii-cloud", "LM Studio", "DeepSeek", "OpenAI", "z.ai", "my_app", ""];
-		expect(names.map(monogramOf)).toEqual(["O", "OC", "LS", "DS", "OA", "ZA", "MA", ""]);
+		const names = ["octoii", "octoii-cloud", "LM Studio", "DeepSeek", "OpenAI", "z.ai", "my_app", "Claude · Work", ""];
+		expect(names.map(monogramOf)).toEqual(["O", "OC", "LS", "DS", "OA", "ZA", "MA", "CW", ""]);
 	});
 
 	it("gives names side by side hues of their own, as far as there are hues, an earlier name keeping its own", () => {

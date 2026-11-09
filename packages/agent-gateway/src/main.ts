@@ -61,9 +61,12 @@ function claudeOf(): string | undefined {
 	return argument("claude") ?? Bun.which("claude") ?? undefined;
 }
 
-/** `text` as a shell takes it as one word. */
-function quoted(text: string): string {
-	return `'${text.replaceAll("'", "'\\''")}'`;
+/** `path` as a person types it at a shell: under their home folder from `~`, as one word, quoted where it must be. */
+function shellPath(path: string): string {
+	const home = process.env["HOME"];
+	const under = home !== undefined && path.startsWith(`${home}/`) ? path.slice(home.length + 1) : undefined;
+	if (under !== undefined && /^[\w./-]+$/.test(under)) return `~/${under}`;
+	return `'${path.replaceAll("'", "'\\''")}'`;
 }
 
 /** Claude Code's sessions in `folder`, as the SDK finds and removes them. */
@@ -98,7 +101,7 @@ async function main(): Promise<void> {
 			positions: await Positions.open(join(state, "claude", "positions.jsonl")),
 			run: query,
 			environment: environmentOf(),
-			signIn: configuration === undefined ? claude : `CLAUDE_CONFIG_DIR=${quoted(configuration)} ${claude}`,
+			signIn: `${configuration === undefined ? "" : `CLAUDE_CONFIG_DIR=${shellPath(configuration)} `}${argument("claude") ?? "claude"}`,
 			idleMs: IDLE_MS,
 			holds: await Holds.open(join(state, "claude", "holds.jsonl")),
 			sessions: sessionsIn(folder),

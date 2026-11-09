@@ -11,13 +11,13 @@ export type Hue = (typeof MONOGRAM_HUES)[number];
 
 /**
  * The letters a monogram shows: a one-word name's first, else the first of each of its first two words — words parted
- * by spaces and marks, and by a capital within a word, as `octoii-cloud` and `DeepSeek` are — so that a name and one
- * that extends it, as `octoii` and `octoii-cloud`, read apart.
+ * by spaces and marks, and by a capital within a word, as `octoii-cloud`, `DeepSeek` and `Claude · Work` are — so that
+ * a name and one that extends it, as `octoii` and `octoii-cloud`, read apart.
  */
 export function monogramOf(name: string): string {
 	const words = name
 		.replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-		.split(/[\s_\-./]+/)
+		.split(/[\s_\-./·]+/)
 		.filter((word) => word !== "");
 	const letters = words.length > 1 ? `${words[0]?.[0] ?? ""}${words[1]?.[0] ?? ""}` : (words[0]?.[0] ?? "");
 	return letters.toUpperCase();
