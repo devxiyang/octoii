@@ -33,6 +33,8 @@ type RowProps = {
 	readonly current: boolean;
 	readonly now: number;
 	readonly onFilter: (folder: string) => void;
+	/** Whether it came into its section after the list was first drawn, so fades in. */
+	readonly fades?: boolean;
 };
 
 /** A thread's card. */
@@ -42,7 +44,7 @@ export function ThreadCard(props: RowProps): ReactNode {
 	const [deleting, setDeleting] = useState(false);
 	const project = projectOf(row);
 	return (
-		<li className="py-px">
+		<li className={cn("py-px", props.fades === true && "animate-fade-in motion-reduce:animate-none")}>
 			<ContextMenu>
 				<ContextMenuTrigger
 					aria-current={props.current ? "page" : undefined}
@@ -74,7 +76,7 @@ export function ThreadLine(props: RowProps): ReactNode {
 	const [deleting, setDeleting] = useState(false);
 	const project = projectOf(row);
 	return (
-		<li>
+		<li className={cn(props.fades === true && "animate-fade-in motion-reduce:animate-none")}>
 			<ContextMenu>
 				<ContextMenuTrigger
 					aria-current={props.current ? "page" : undefined}

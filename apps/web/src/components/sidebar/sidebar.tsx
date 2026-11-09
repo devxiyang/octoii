@@ -12,6 +12,7 @@ import { useThreads } from "@octoii-works/octoii-client/react";
 import { Activity, AlarmClock, FolderOpen, History, ListFilter, PanelLeft, Pin, Search, Settings, SquarePen, X } from "lucide-react";
 import type { Overlay, Route } from "../../core/route.ts";
 import { lineOf, matchingRows, type Project, projectOf, projectsOf, rowsBySection, standingsOf, subThreadsBy } from "../../core/threads.ts";
+import { useArrived } from "../effects/arrived.ts";
 import { useNow } from "../effects/now.ts";
 import { useDevice } from "../state/device.ts";
 import { go } from "../state/navigation.ts";
@@ -131,33 +132,39 @@ function ThreadList(props: {
 	const standingOf = standingsOf(props.all);
 	const delegated = subThreadsBy(props.all);
 	const { pinned, open, working, snoozed, earlier } = rowsBySection(props.rows, props.now, standingOf);
-	const rowProps = (row: Listed) => ({
+	// A thread that comes into a section after the list was first drawn — made, or gone on to work — fades in there.
+	const sections = { pinned, open, working, snoozed, earlier };
+	const arrived = useArrived(Object.entries(sections).flatMap(([section, rows]) => rows.map((row) => `${section}:${row.id}`)));
+	const rowProps = (row: Listed, section: keyof typeof sections) => ({
 		row,
 		standing: standingOf(row),
 		subThreads: delegated.get(row.id)?.length ?? 0,
 		current: props.current.includes(row.id),
 		now: props.now,
 		onFilter: props.onFilter,
+		fades: arrived(`${section}:${row.id}`),
 	});
-	const card = (row: Listed): ReactNode => <ThreadCard key={row.id} {...rowProps(row)} />;
+	const card =
+		(section: keyof typeof sections) =>
+		(row: Listed): ReactNode => <ThreadCard key={row.id} {...rowProps(row, section)} />;
 	return (
 		<div className="flex min-h-full flex-col">
 			<Shelf title="Pinned" count={pinned.length} icon={<Pin className="size-3.5" />}>
-				{pinned.map(card)}
+				{pinned.map(card("pinned"))}
 			</Shelf>
 			{open.length === 0 ? null : (
-				<ul className={cn("flex flex-col pb-1", pinned.length > 0 && "mt-1 border-t border-sidebar-border pt-1")}>{open.map(card)}</ul>
+				<ul className={cn("flex flex-col pb-1", pinned.length > 0 && "mt-1 border-t border-sidebar-border pt-1")}>{open.map(card("open"))}</ul>
 			)}
 			<Shelf title="Working" count={working.length} icon={<Activity className="size-3.5" />}>
-				{working.map(card)}
+				{working.map(card("working"))}
 			</Shelf>
 			<div className="mt-auto pt-3">
 				<Shelf title="Snoozed" count={snoozed.length} icon={<AlarmClock className="size-3.5" />} folded>
-					{snoozed.map(card)}
+					{snoozed.map(card("snoozed"))}
 				</Shelf>
 				<Shelf title="Earlier" count={earlier.length} icon={<History className="size-3.5" />} folded>
 					{earlier.map((row) => (
-						<ThreadLine key={row.id} {...rowProps(row)} />
+						<ThreadLine key={row.id} {...rowProps(row, "earlier")} />
 					))}
 				</Shelf>
 			</div>
