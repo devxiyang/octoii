@@ -5,7 +5,7 @@
 const std = @import("std");
 const foundation = @import("foundation");
 const Header = foundation.http.Header;
-const jsonrpc = @import("jsonrpc.zig");
+const jsonrpc = @import("foundation").jsonrpc;
 const protocol = @import("protocol.zig");
 const failure_ = @import("failure.zig");
 const Slot = failure_.Slot;
@@ -43,6 +43,19 @@ pub const Incoming = union(enum) {
     /// The transport closed; why, where its server went away and says.
     closed: ?[]const u8,
 };
+
+/// What a wait on foundation's router came to, as MCP's transports tell it: a cancelled wait as the call's failure.
+pub fn incomingOf(slot: *Slot, waited: jsonrpc.Router.Error!jsonrpc.Router.Incoming) Error!Incoming {
+    const incoming = waited catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        error.Canceled => return slot.fail(.canceled),
+    };
+    return switch (incoming) {
+        .message => |given| .{ .message = .{ .message = given.message, .related = given.related } },
+        .quiet => .quiet,
+        .closed => |why| .{ .closed = why },
+    };
+}
 
 /// What comes back for one request. On a transport that cannot tell which request a server's own request is for, as
 /// stdio cannot, each exchange also gives those, unrelated, for whoever waits to answer.
@@ -128,17 +141,6 @@ pub const Transport = struct {
         transport.vtable.close(transport.context);
     }
 };
-
-/// The `notifications/cancelled` a transport without a stream per request sends to cancel one.
-pub fn cancelledNotification(arena: std.mem.Allocator, id: jsonrpc.Id, reason: []const u8) std.mem.Allocator.Error!jsonrpc.Message {
-    var params: std.json.ObjectMap = .empty;
-    try params.put(arena, "requestId", switch (id) {
-        .number => |number| .{ .integer = number },
-        .string => |text| .{ .string = text },
-    });
-    try params.put(arena, "reason", .{ .string = reason });
-    return .{ .notification = .{ .method = "notifications/cancelled", .params = .{ .object = params } } };
-}
 
 /// The request a message is for, on a channel that carries every request's messages: a response's; a progress
 /// notification's, whose token is its request's id; a subscription's notification, by the id its metadata names; and

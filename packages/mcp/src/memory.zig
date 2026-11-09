@@ -3,12 +3,11 @@
 //! real channel, and are routed as a line channel's are.
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const jsonrpc = @import("jsonrpc.zig");
+const jsonrpc = @import("foundation").jsonrpc;
 const protocol = @import("protocol.zig");
 const transport_ = @import("transport.zig");
 const Host = transport_.Host;
 const Incoming = transport_.Incoming;
-const router_ = @import("router.zig");
 const failure_ = @import("failure.zig");
 const Slot = failure_.Slot;
 const Error = failure_.Error;
@@ -43,13 +42,13 @@ pub const Sink = struct {
 
 pub const Pair = struct {
     gpa: Allocator,
-    router: router_.Router,
+    router: jsonrpc.Router,
     server: Server,
 
     pub fn init(gpa: Allocator, host: *const Host, server: Server) Allocator.Error!*Pair {
         const pair = try gpa.create(Pair);
         errdefer gpa.destroy(pair);
-        pair.* = .{ .gpa = gpa, .router = .init(gpa, host), .server = server };
+        pair.* = .{ .gpa = gpa, .router = .init(gpa, .{ .io = host.io, .sleeper = host.sleeper }, transport_.relatedId), .server = server };
         return pair;
     }
 
@@ -89,7 +88,7 @@ pub const Pair = struct {
     }
 
     fn receive(context: *anyopaque, slot: *Slot, wait_ms: ?u64) Error!Incoming {
-        return of(context).router.receive(slot, wait_ms);
+        return transport_.incomingOf(slot, of(context).router.receive(slot.arena, wait_ms));
     }
 
     fn negotiated(_: *anyopaque, _: []const u8, _: protocol.Era) void {}
@@ -107,7 +106,7 @@ pub const Pair = struct {
 
 const Exchange = struct {
     pair: *Pair,
-    mailbox: *router_.Mailbox,
+    mailbox: *jsonrpc.Router.Mailbox,
 
     fn of(context: *anyopaque) *Exchange {
         return @ptrCast(@alignCast(context));
@@ -115,7 +114,7 @@ const Exchange = struct {
 
     fn next(context: *anyopaque, slot: *Slot, wait_ms: ?u64) Error!Incoming {
         const exchange = Exchange.of(context);
-        return exchange.pair.router.next(exchange.mailbox, slot, wait_ms);
+        return transport_.incomingOf(slot, exchange.pair.router.next(exchange.mailbox, slot.arena, wait_ms));
     }
 
     /// Cancels with `notifications/cancelled`, as a channel without a stream per request does.
@@ -124,7 +123,7 @@ const Exchange = struct {
         var scratch_arena: std.heap.ArenaAllocator = .init(exchange.pair.gpa);
         defer scratch_arena.deinit();
         var slot: Slot = .{ .arena = scratch_arena.allocator() };
-        if (transport_.cancelledNotification(scratch_arena.allocator(), exchange.mailbox.id, reason)) |cancelled| {
+        if (jsonrpc.cancelled(scratch_arena.allocator(), exchange.mailbox.id, reason)) |cancelled| {
             exchange.pair.deliver(&slot, cancelled) catch {};
         } else |_| {}
         closeOf(context);

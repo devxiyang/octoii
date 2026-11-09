@@ -1,7 +1,8 @@
 //! A server's process on the machine, as Beak runs a command one talks to — a coprocess — for mcp's stdio transport:
 //! what is written reaches its input whole and in order; the whole lines of its output come as Beak tells of them, on a
-//! set of the process's own that its reader alone waits on, never polled for; its standard error kept by Beak, the tail
-//! of it told as it ends. It runs where the thread's files are, so the host never starts a server itself. Stopped, its
+//! set of the process's own that its reader alone waits on, never polled for — or those of the channel it talks on, as
+//! a browser's DevTools do on descriptors of their own; its standard error kept by Beak, with its output where it talks
+//! on a channel, the tail of it told as it ends. It runs where the thread's files are, so the host never starts a server itself. Stopped, its
 //! input is closed and its reader woken; let go, the machine ends what still runs of it as a server is ended — past a
 //! grace terminated, then killed — nobody waiting.
 const Coprocess = @This();
@@ -9,6 +10,7 @@ const Coprocess = @This();
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const mcp = @import("mcp");
+const Lines = @import("foundation").jsonrpc.Lines;
 const Slot = mcp.failure.Slot;
 const Error = mcp.failure.Error;
 const beak = @import("../beak.zig");
@@ -36,6 +38,9 @@ pub const Options = struct {
     variables: []const [2][]const u8 = &.{},
     /// Whether it starts with the machine's own variables under those it is given; else those alone, as `env -i`.
     inherit: bool = true,
+    /// The descriptors it talks on, as a browser's DevTools talk on 3 and 4 — its standard output then kept with its
+    /// errors, apart from what it says; none, its standard input and output.
+    channel: ?h.beak_channel = null,
     name: []const u8,
 };
 
@@ -54,6 +59,8 @@ pub fn start(gpa: Allocator, slot: *Slot, options: Options) Error!*Coprocess {
     spawn.clear_variables = !options.inherit;
     spawn.mode = h.BEAK_SPAWN_COPROCESS;
     spawn.lines = true;
+    const channel = options.channel;
+    if (channel) |*descriptors| spawn.channel = descriptors;
     var command: h.beak_handle = 0;
     if (try beak.failed(slot.arena, h.beak_command_spawn(&spawn, &command))) |why| return slot.fail(.{ .connection_lost = try slot.arena.print("the MCP server {s} could not be started: {s}", .{ options.name, why }) });
     errdefer _ = h.beak_close(command);
@@ -67,7 +74,7 @@ pub fn start(gpa: Allocator, slot: *Slot, options: Options) Error!*Coprocess {
     return coprocess;
 }
 
-pub fn process(coprocess: *Coprocess) mcp.stdio.Process {
+pub fn process(coprocess: *Coprocess) Lines.Process {
     return .{ .context = coprocess, .vtable = &.{ .write = write, .read = read, .stop = stop, .release = release } };
 }
 
@@ -84,7 +91,7 @@ fn write(context: *anyopaque, arena: Allocator, line: []const u8) Allocator.Erro
 /// The whole lines the server wrote since the last read, waiting on its set till there are some; or how it ended — at
 /// once where it is stopped, as each poll looks: a poll takes back the wakes given, so a stop before one is seen after
 /// it, and a stop after one wakes the wait.
-fn read(context: *anyopaque, arena: Allocator) Allocator.Error!mcp.stdio.Process.Read {
+fn read(context: *anyopaque, arena: Allocator) Allocator.Error!Lines.Process.Read {
     const coprocess = of(context);
     while (true) {
         if (coprocess.exit) |exit| return .{ .ended = try coprocess.endOf(arena, exit) };

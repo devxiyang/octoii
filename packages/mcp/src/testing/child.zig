@@ -5,7 +5,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const Allocator = std.mem.Allocator;
 const Io = std.Io;
-const stdio = @import("../stdio.zig");
+const Process = @import("foundation").jsonrpc.Lines.Process;
 const failure_ = @import("../failure.zig");
 const Slot = failure_.Slot;
 const Error = failure_.Error;
@@ -64,7 +64,7 @@ pub const Child = struct {
         return made;
     }
 
-    pub fn process(child: *Child) stdio.Process {
+    pub fn process(child: *Child) Process {
         return .{ .context = child, .vtable = &.{ .write = write, .read = read, .stop = stop, .release = release } };
     }
 
@@ -85,7 +85,7 @@ pub const Child = struct {
     }
 
     /// Reads a line the server wrote, waiting for it; at the end of its output, waits for its exit.
-    fn read(context: *anyopaque, arena: Allocator) Allocator.Error!stdio.Process.Read {
+    fn read(context: *anyopaque, arena: Allocator) Allocator.Error!Process.Read {
         const child = of(context);
         var line: Io.Writer.Allocating = .init(arena);
         while (true) {

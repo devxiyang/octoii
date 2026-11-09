@@ -11,6 +11,7 @@ pub const websocket = @import("websocket.zig");
 pub const StdWebSocket = @import("StdWebSocket.zig");
 pub const socket_replay = @import("socket_replay.zig");
 pub const testing = @import("testing.zig");
+pub const jsonrpc = @import("jsonrpc.zig");
 
 test {
     _ = json;
@@ -25,4 +26,7 @@ test {
     _ = StdWebSocket;
     _ = socket_replay;
     _ = testing;
+    _ = jsonrpc;
+    _ = jsonrpc.Router;
+    _ = jsonrpc.Lines;
 }

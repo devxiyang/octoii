@@ -9,7 +9,7 @@ const Allocator = std.mem.Allocator;
 const foundation = @import("foundation");
 const http = foundation.http;
 const Header = http.Header;
-const jsonrpc = @import("jsonrpc.zig");
+const jsonrpc = @import("foundation").jsonrpc;
 const protocol = @import("protocol.zig");
 const headers_ = @import("headers.zig");
 const transport_ = @import("transport.zig");
@@ -430,7 +430,7 @@ const Stream = struct {
             var scratch_arena: std.heap.ArenaAllocator = .init(owner.gpa);
             defer scratch_arena.deinit();
             var slot: Slot = .{ .arena = scratch_arena.allocator() };
-            if (transport_.cancelledNotification(scratch_arena.allocator(), id, reason)) |cancelled| owner.post(&slot, cancelled, &.{}, null) catch {} else |_| {}
+            if (jsonrpc.cancelled(scratch_arena.allocator(), id, reason)) |cancelled| owner.post(&slot, cancelled, &.{}, null) catch {} else |_| {}
         };
         stream.destroy();
     }

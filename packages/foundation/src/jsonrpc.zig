@@ -1,10 +1,15 @@
-//! JSON-RPC 2.0, the messages MCP is spoken in: requests, notifications, results and errors, read from one JSON text —
-//! one message or a batch — with their shape checked, and written back. Params and results stay JSON, which the
-//! protocol's readers check where they read them.
+//! JSON-RPC 2.0, the messages MCP and the agent gateway are spoken in: requests, notifications, results and errors,
+//! read from one JSON text — one message or a batch — with their shape checked, and written back. Params and results
+//! stay JSON, which each protocol's readers check where they read them. Over a channel that carries every request's
+//! messages, a router gives each the request it is for, by the protocol's own rule; and a line peer speaks it to a
+//! process, a message a line.
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Value = std.json.Value;
-const foundation = @import("foundation");
+const json = @import("json.zig");
+
+pub const Router = @import("jsonrpc/Router.zig");
+pub const Lines = @import("jsonrpc/Lines.zig");
 
 /// The codes of JSON-RPC 2.0's own errors.
 pub const codes = struct {
@@ -83,14 +88,27 @@ pub const Message = union(enum) {
     /// The message as JSON-RPC writes it.
     pub fn encode(message: Message, arena: Allocator) Allocator.Error![]const u8 {
         return switch (message) {
-            .request => |request| foundation.json.encode(arena, .{ .jsonrpc = "2.0", .id = request.id, .method = request.method, .params = request.params }),
-            .notification => |notification| foundation.json.encode(arena, .{ .jsonrpc = "2.0", .method = notification.method, .params = notification.params }),
-            .result => |result| foundation.json.encode(arena, .{ .jsonrpc = "2.0", .id = result.id, .result = result.result }),
+            .request => |request| json.encode(arena, .{ .jsonrpc = "2.0", .id = request.id, .method = request.method, .params = request.params }),
+            .notification => |notification| json.encode(arena, .{ .jsonrpc = "2.0", .method = notification.method, .params = notification.params }),
+            .result => |result| json.encode(arena, .{ .jsonrpc = "2.0", .id = result.id, .result = result.result }),
             // A failure without an id still writes it, as null.
-            .failure => |failure| foundation.json.encode(arena, .{ .jsonrpc = "2.0", .id = if (failure.id) |id| idValue(id) else Value.null, .@"error" = failure.@"error" }),
+            .failure => |failure| json.encode(arena, .{ .jsonrpc = "2.0", .id = if (failure.id) |id| idValue(id) else Value.null, .@"error" = failure.@"error" }),
         };
     }
 };
+
+/// What tells which request a message is for, on a channel that carries every request's messages: each protocol's own
+/// rule — a response by the request it answers, a notification by what the protocol has it name.
+pub const Relate = *const fn (message: Message) ?Id;
+
+/// The notification that cancels the request `id`, with why: `notifications/cancelled`, as MCP and the agent gateway
+/// take it.
+pub fn cancelled(arena: Allocator, id: Id, reason: []const u8) Allocator.Error!Message {
+    var params: std.json.ObjectMap = .empty;
+    try params.put(arena, "requestId", idValue(id));
+    try params.put(arena, "reason", .{ .string = reason });
+    return .{ .notification = .{ .method = "notifications/cancelled", .params = .{ .object = params } } };
+}
 
 fn idValue(id: Id) Value {
     return switch (id) {

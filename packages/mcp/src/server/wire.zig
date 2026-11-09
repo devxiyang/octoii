@@ -4,7 +4,7 @@ const Allocator = std.mem.Allocator;
 const Value = std.json.Value;
 const ObjectMap = std.json.ObjectMap;
 const foundation = @import("foundation");
-const jsonrpc = @import("../jsonrpc.zig");
+const jsonrpc = @import("foundation").jsonrpc;
 const protocol = @import("../protocol.zig");
 const types = @import("../types.zig");
 
