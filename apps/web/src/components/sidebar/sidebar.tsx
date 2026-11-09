@@ -6,13 +6,14 @@
  * parent's card, by their count and how they stand; and settings at its foot. Beside the chat, its right edge drags it
  * wider or narrower, the width kept for the device; where the page is narrow, it is a drawer over the page instead.
  */
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import type { Listed } from "@octoii-works/octoii-client";
 import { useThreads } from "@octoii-works/octoii-client/react";
 import { Activity, AlarmClock, FolderOpen, History, ListFilter, PanelLeft, Pin, Search, Settings, SquarePen, X } from "lucide-react";
 import type { Overlay, Route } from "../../core/route.ts";
 import { lineOf, matchingRows, type Project, projectOf, projectsOf, rowsBySection, standingsOf, subThreadsBy } from "../../core/threads.ts";
 import { useArrived } from "../effects/arrived.ts";
+import { useGlide } from "../effects/glide.ts";
 import { useNow } from "../effects/now.ts";
 import { useDevice } from "../state/device.ts";
 import { go } from "../state/navigation.ts";
@@ -151,39 +152,45 @@ function ThreadList(props: {
 	const standingOf = standingsOf(props.all);
 	const delegated = subThreadsBy(props.all);
 	const { pinned, open, working, snoozed, earlier } = rowsBySection(props.rows, props.now, standingOf);
-	// A thread that comes into a section after the list was first drawn — made, or gone on to work — fades in there.
 	const sections = { pinned, open, working, snoozed, earlier };
-	const arrived = useArrived(Object.entries(sections).flatMap(([section, rows]) => rows.map((row) => `${section}:${row.id}`)));
-	const rowProps = (row: Listed, section: keyof typeof sections) => ({
+	// A thread that comes into the list after it was first drawn — made, or back from the archive — fades in; one that
+	// moves, to another section as it goes on to work or within its own, glides there from where it stood.
+	const arrived = useArrived(props.rows.map((row) => row.id));
+	const list = useRef<HTMLDivElement>(null);
+	useGlide(
+		list,
+		Object.entries(sections)
+			.flatMap(([section, rows]) => rows.map((row) => `${section}:${row.id}`))
+			.join(" "),
+	);
+	const rowProps = (row: Listed) => ({
 		row,
 		standing: standingOf(row),
 		subThreads: delegated.get(row.id)?.length ?? 0,
 		current: props.current.includes(row.id),
 		now: props.now,
 		onFilter: props.onFilter,
-		fades: arrived(`${section}:${row.id}`),
+		fades: arrived(row.id),
 	});
-	const card =
-		(section: keyof typeof sections) =>
-		(row: Listed): ReactNode => <ThreadCard key={row.id} {...rowProps(row, section)} />;
+	const card = (row: Listed): ReactNode => <ThreadCard key={row.id} {...rowProps(row)} />;
 	return (
-		<div className="flex min-h-full flex-col">
+		<div ref={list} className="relative flex min-h-full flex-col">
 			<Shelf title="Pinned" count={pinned.length} icon={<Pin className="size-3.5" />}>
-				{pinned.map(card("pinned"))}
+				{pinned.map(card)}
 			</Shelf>
 			{open.length === 0 ? null : (
-				<ul className={cn("flex flex-col pb-1", pinned.length > 0 && "mt-1 border-t border-sidebar-border pt-1")}>{open.map(card("open"))}</ul>
+				<ul className={cn("flex flex-col pb-1", pinned.length > 0 && "mt-1 border-t border-sidebar-border pt-1")}>{open.map(card)}</ul>
 			)}
 			<Shelf title="Working" count={working.length} icon={<Activity className="size-3.5" />}>
-				{working.map(card("working"))}
+				{working.map(card)}
 			</Shelf>
 			<div className="mt-auto pt-3">
 				<Shelf title="Snoozed" count={snoozed.length} icon={<AlarmClock className="size-3.5" />} folded>
-					{snoozed.map(card("snoozed"))}
+					{snoozed.map(card)}
 				</Shelf>
 				<Shelf title="Earlier" count={earlier.length} icon={<History className="size-3.5" />} folded>
 					{earlier.map((row) => (
-						<ThreadLine key={row.id} {...rowProps(row, "earlier")} />
+						<ThreadLine key={row.id} {...rowProps(row)} />
 					))}
 				</Shelf>
 			</div>
