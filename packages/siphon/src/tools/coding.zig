@@ -29,7 +29,7 @@ const path_is = "relative to the workspace, or absolute; ~ the home folder";
 const all = [_]Tool{
     .{
         .name = "read",
-        .description = "Reads a file as it is, a page of lines at a time, or lists a directory, a / after each directory's name. A note after the text tells what the page leaves out: the lines it holds and the offset to read on from, lines cut for their length. An image, a PDF or a binary file is named for what it is, not shown.",
+        .description = "Reads a file as it is, a page of lines at a time, or lists a directory, a / after each directory's name. A note after the text tells what the page leaves out: the lines it holds and the offset to read on from, lines cut for their length. An image is shown to you as an image; a PDF or a binary file is named for what it is, not shown.",
         .parameters = typebox.of(ReadArguments),
         .work = .{ .task = read },
     },
@@ -467,7 +467,6 @@ const shell_timeout_seconds = 120;
 /// The most bytes of a command's output its log keeps.
 const log_bytes_max = 64 << 20;
 
-/// How many files a glob shows at most.
 /// How many files a page of glob gives, and matching lines a page of grep; how many characters of a line grep shows.
 const files_page = 200;
 const matches_page = 250;
