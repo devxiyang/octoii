@@ -1,7 +1,8 @@
 /**
  * The gateway's HTTP, as its channel carries it: Anthropic's Messages API for each agent behind it, under the agent's
  * name — `POST /claude/v1/messages` answers a conversation, the one its `conversation-id` names; `GET /claude/v1/models`
- * lists the models the agent offers; `GET /claude/v1/account` tells who the agent is signed in as;
+ * lists the models the agent offers; `GET /claude/v1/account` tells who the agent is signed in as, and `DELETE` signs
+ * it out of an account the person added, as the person removed it — never out of the person's own;
  * `DELETE /claude/v1/conversations/{id}` lets go of what a conversation that ended holds.
  */
 import { errorResponse, RequestSchema } from "./anthropic.ts";
@@ -19,6 +20,7 @@ export function handlerOf(agents: Agents): Handler {
 		if (path === "/claude/v1/messages" && request.method === "POST") return messages(agents.claude, request);
 		if (path === "/claude/v1/models" && request.method === "GET") return models(agents.claude);
 		if (path === "/claude/v1/account" && request.method === "GET") return account(agents.claude);
+		if (path === "/claude/v1/account" && request.method === "DELETE") return signedOut(agents.claude);
 		const ended = CONVERSATION.exec(path)?.[1];
 		if (ended !== undefined && request.method === "DELETE") return forgotten(agents.claude, ended);
 		return errorResponse("not_found_error", `No ${request.method} ${path} here.`);
@@ -66,6 +68,17 @@ async function account(claude: Claude): Promise<Response> {
 			return errorResponse("authentication_error", `Claude Code is not signed in on this computer: run \`${claude.signIn}\` in a terminal and sign in.`);
 		const { account: info, limits } = signed;
 		return Response.json({ email: info.email, organization: info.organization ?? null, subscription_type: info.subscriptionType ?? null, limits });
+	} catch (error) {
+		return errorResponse("api_error", error instanceof Error ? error.message : String(error));
+	}
+}
+
+/** Claude Code signed out of the account the gateway answers for, as the person removed it: one the person added alone. */
+async function signedOut(claude: Claude): Promise<Response> {
+	if (!claude.signsOut) return errorResponse("permission_error", "The person's own login of Claude Code is theirs to sign out of.");
+	try {
+		await claude.signOut();
+		return new Response(null, { status: 204 });
 	} catch (error) {
 		return errorResponse("api_error", error instanceof Error ? error.message : String(error));
 	}

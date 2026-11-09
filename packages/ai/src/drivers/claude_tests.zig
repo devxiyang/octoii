@@ -12,14 +12,15 @@ const fixtures = @import("../testing/fixtures.zig");
 const TestHost = @import("../testing/host.zig").Host;
 const claude = @import("claude.zig");
 
-/// The gateway, answering its listing of models where it answers at all, and its conversations' ends where it is asked
-/// to; each request it is sent kept, by its address and whether it carried a key, and the conversation a request named.
+/// The gateway, answering its listing of models where it answers at all, and what it is asked to delete — a
+/// conversation ended, an account removed — where it is told to; each request it is sent kept, by its address and
+/// whether it carried a key, and the conversation a request named.
 const Gateway = struct {
     arena: Allocator,
     listing: ?[]const u8,
     rest: ?http.Http = null,
-    /// Whether it lets conversations go.
-    conversations: bool = false,
+    /// Whether it deletes what it is asked to.
+    deletes: bool = false,
     /// The account Claude Code is signed in as; none, not signed in.
     account: ?[]const u8 = null,
     /// Whether the plan's five hours are used up, till the time it names, in seconds since the epoch.
@@ -37,7 +38,7 @@ const Gateway = struct {
         if (http.find(request.headers, claude.conversation_header)) |named| gateway.conversation = try gateway.arena.dupe(u8, named);
         if (request.method == .DELETE) {
             try gateway.asked.append(gateway.arena, try gateway.arena.print("DELETE {s}", .{request.url}));
-            if (!gateway.conversations) return error.Transport;
+            if (!gateway.deletes) return error.Transport;
             return answered(gateway, 204, "");
         }
         try gateway.asked.append(gateway.arena, try gateway.arena.print("{s}{s}", .{ request.url, if (keyed) " keyed" else "" }));
@@ -145,7 +146,7 @@ test "a request names its conversation to the gateway, and an ended conversation
     const exchanges = try arena.dupe(foundation.replay.Exchange, fixture.exchanges);
     for (exchanges) |*exchange| exchange.request.url = claude.base_url ++ "/messages";
     var replay: foundation.replay.Replay = .init(arena, exchanges);
-    var gateway: Gateway = .{ .arena = arena, .listing = opus_and_sonnet, .rest = replay.http(), .conversations = true };
+    var gateway: Gateway = .{ .arena = arena, .listing = opus_and_sonnet, .rest = replay.http(), .deletes = true };
     const models = try modelsOver(arena, &gateway);
     try models.refresh();
     var request = fixture.request;
@@ -153,17 +154,17 @@ test "a request names its conversation to the gateway, and an ended conversation
     request.prompt_cache_key = "01a1c112-3830-78f7-9a37-442a361894eb";
     _ = try models.create(arena, request);
     try std.testing.expectEqualStrings("01a1c112-3830-78f7-9a37-442a361894eb", gateway.conversation.?);
-    try models.forget(arena, "01a1c112-3830-78f7-9a37-442a361894eb");
+    try models.forgetConversation(arena, "01a1c112-3830-78f7-9a37-442a361894eb");
     try std.testing.expectEqualStrings("DELETE " ++ claude.base_url ++ "/conversations/01a1c112-3830-78f7-9a37-442a361894eb", gateway.asked.items[gateway.asked.items.len - 1]);
 }
 
-test "an account the person added is reached at its own address on the gateway" {
+test "an account the person added is reached at its own address on the gateway, and let go of there as it is removed" {
     var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_allocator.deinit();
     const arena = arena_allocator.allocator();
     const settings = try claude.driver.instance.?(arena, "01a1c11e-f9f4-7a31-8479-6c80a9b3dc03", .{});
     try std.testing.expectEqualStrings("gateway://claude/accounts/01a1c11e-f9f4-7a31-8479-6c80a9b3dc03/v1", settings.base_url.?);
-    var gateway: Gateway = .{ .arena = arena, .listing = opus_and_sonnet, .account = "{\"email\":\"work@example.com\"}" };
+    var gateway: Gateway = .{ .arena = arena, .listing = opus_and_sonnet, .account = "{\"email\":\"work@example.com\"}", .deletes = true };
     const test_host = try arena.create(TestHost);
     test_host.* = .{};
     const providers = try arena.dupe(seam.Provider, &.{.{ .id = "01a1c11e-f9f4-7a31-8479-6c80a9b3dc03", .name = "Claude · Work", .driver = &claude.driver, .settings = settings }});
@@ -171,6 +172,11 @@ test "an account the person added is reached at its own address on the gateway" 
     try models.refresh();
     try std.testing.expect((try models.status(arena, "01a1c11e-f9f4-7a31-8479-6c80a9b3dc03")).connected);
     try std.testing.expectEqualStrings("gateway://claude/accounts/01a1c11e-f9f4-7a31-8479-6c80a9b3dc03/v1/account", gateway.asked.items[gateway.asked.items.len - 1]);
+    try std.testing.expectEqual(null, try models.forgetAccount(arena, &providers[0]));
+    try std.testing.expectEqualStrings("DELETE gateway://claude/accounts/01a1c11e-f9f4-7a31-8479-6c80a9b3dc03", gateway.asked.items[gateway.asked.items.len - 1]);
+    // A gateway that could not let it go fails as it answered.
+    gateway.deletes = false;
+    try std.testing.expect(try models.forgetAccount(arena, &providers[0]) != null);
 }
 
 test "a plan's limit used up fails as a quota, given again when the gateway says, over the window it names" {

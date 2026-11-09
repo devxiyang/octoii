@@ -50,6 +50,11 @@ export type ClaudeOptions = {
 	readonly now: () => number;
 	/** The command a person signs Claude Code in with, for the account the gateway answers for. */
 	readonly signIn: string;
+	/**
+	 * How Claude Code is signed out of the account the gateway answers for, where it is one the person added, as the
+	 * person removes it; none for the person's own, whose login is theirs to sign out of.
+	 */
+	readonly signOut: (() => Promise<void>) | undefined;
 };
 
 /** Claude Code's sessions in the gateway's folder: whether one is there, its removal, and those there, each with when it last changed. */
@@ -157,6 +162,16 @@ export class Claude {
 	/** The command a person signs Claude Code in with, for the account the gateway answers for. */
 	get signIn(): string {
 		return this.#options.signIn;
+	}
+
+	/** Whether Claude Code may be signed out here: the gateway answers for an account the person added, not their own. */
+	get signsOut(): boolean {
+		return this.#options.signOut !== undefined;
+	}
+
+	/** Signs Claude Code out of the account the gateway answers for, as the person removed it; nothing for the person's own. */
+	async signOut(): Promise<void> {
+		await this.#options.signOut?.();
 	}
 
 	/**

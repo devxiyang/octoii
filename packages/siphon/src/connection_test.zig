@@ -537,19 +537,27 @@ test "a thread deleted is gone for the clients that watch the list, and followed
     try client.close();
 }
 
-/// A provider that keeps conversations, as the agent gateway keeps Claude Code's sessions: each it was had let go of
-/// kept, as its task tells it.
+/// A provider that keeps conversations and accounts, as the agent gateway keeps Claude Code's sessions and logins: each
+/// it was had let go of kept — a conversation by its key, an account by its provider's id — as its task tells it.
 const Keeper = struct {
     lock: std.Io.Mutex = .init,
     arena_allocator: std.heap.ArenaAllocator,
     forgotten: std.ArrayList([]const u8) = .empty,
 
-    fn forget(call: *ai.driver.Call, conversation: []const u8) ai.failure.Error!void {
+    fn forgetConversation(call: *ai.driver.Call, conversation: []const u8) ai.failure.Error!void {
+        return keep(call, conversation);
+    }
+
+    fn forgetAccount(call: *ai.driver.Call) ai.failure.Error!void {
+        return keep(call, call.provider.id);
+    }
+
+    fn keep(call: *ai.driver.Call, what: []const u8) ai.failure.Error!void {
         const keeper: *Keeper = @ptrCast(@alignCast(call.provider.driver.context.?));
         keeper.lock.lockUncancelable(std.testing.io);
         defer keeper.lock.unlock(std.testing.io);
         const arena = keeper.arena_allocator.allocator();
-        try keeper.forgotten.append(arena, try arena.dupe(u8, conversation));
+        try keeper.forgotten.append(arena, try arena.dupe(u8, what));
     }
 
     fn told(keeper: *Keeper) bool {
@@ -565,7 +573,7 @@ test "a thread deleted has the providers that keep conversations let go of its o
     const arena = arena_allocator.allocator();
     var keeper: Keeper = .{ .arena_allocator = .init(std.testing.allocator) };
     defer keeper.arena_allocator.deinit();
-    const keeping: ai.driver.Driver = .{ .id = "keeper", .name = "Keeper", .context = &keeper, .forget = Keeper.forget };
+    const keeping: ai.driver.Driver = .{ .id = "keeper", .name = "Keeper", .context = &keeper, .forget_conversation = Keeper.forgetConversation };
     const providers = [_]ai.driver.Provider{.{ .id = "keeper", .name = "Keeper", .driver = &keeping }};
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.openOver(&clock, .memory, &providers);
@@ -576,6 +584,28 @@ test "a thread deleted has the providers that keep conversations let go of its o
     try client.sendf("{{\"id\":\"2\",\"method\":\"threads.delete\",\"params\":{{\"thread\":\"{s}\"}}}}", .{doomed});
     try testing.pumpUntil(siphon, &keeper, Keeper.told);
     try std.testing.expectEqualStrings(doomed, keeper.forgotten.items[0]);
+    try client.close();
+}
+
+test "an account removed has its provider let go of what it keeps of the account, off the loop" {
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var keeper: Keeper = .{ .arena_allocator = .init(std.testing.allocator) };
+    defer keeper.arena_allocator.deinit();
+    const keeping: ai.driver.Driver = .{ .id = "keeper", .name = "Keeper", .context = &keeper, .forget_account = Keeper.forgetAccount };
+    const providers = [_]ai.driver.Provider{.{ .id = "keeper", .name = "Keeper", .driver = &keeping }};
+    var clock: testing.Clock = .{ .now_ms = 1_000 };
+    const siphon = try testing.openOver(&clock, .memory, &providers);
+    defer siphon.close();
+    const client: Client = try .open(siphon, arena);
+    client.send("{\"id\":\"1\",\"method\":\"hello\",\"params\":{\"protocol\":1}}");
+    client.send("{\"id\":\"2\",\"method\":\"accounts.add\",\"params\":{\"provider\":\"keeper\",\"name\":\"Work\",\"operation\":\"add-1\"}}");
+    _ = try siphon.runtime.pump();
+    const added = field((try client.taken())[1], &.{ "result", "account" }).?.string;
+    try client.sendf("{{\"id\":\"3\",\"method\":\"accounts.remove\",\"params\":{{\"account\":\"{s}\"}}}}", .{added});
+    try testing.pumpUntil(siphon, &keeper, Keeper.told);
+    try std.testing.expectEqualStrings(added, keeper.forgotten.items[0]);
     try client.close();
 }
 

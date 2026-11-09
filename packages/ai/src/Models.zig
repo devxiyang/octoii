@@ -464,15 +464,27 @@ fn hostCall(models: *Models, arena: Allocator, serving: *const driver.Provider) 
 
 /// Has every provider that keeps conversations let go of `conversation` — the key its requests named it with, their
 /// `prompt_cache_key` — as it ended; a provider that could not be reached keeps it till it lets it go itself.
-pub fn forget(models: *Models, arena: Allocator, conversation: []const u8) Allocator.Error!void {
+pub fn forgetConversation(models: *Models, arena: Allocator, conversation: []const u8) Allocator.Error!void {
     for (models.providers) |*serving| {
-        const forgotten = serving.driver.forget orelse continue;
+        const forgotten = serving.driver.forget_conversation orelse continue;
         var call = models.hostCall(arena, serving);
         forgotten(&call, conversation) catch |err| switch (err) {
             error.OutOfMemory => return error.OutOfMemory,
             error.Failed => {},
         };
     }
+}
+
+/// Has `account` — the provider of an account the person removed, no more among the providers — let go of what it
+/// keeps of the account, where its driver keeps something of one: the failure it could not, where it could not.
+pub fn forgetAccount(models: *Models, arena: Allocator, account: *const driver.Provider) Allocator.Error!?failure.Failure {
+    const forgotten = account.driver.forget_account orelse return null;
+    var call = models.hostCall(arena, account);
+    forgotten(&call) catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        error.Failed => return call.failure.?,
+    };
+    return null;
 }
 
 /// A sign-in begun, or the failure it could not begin with.

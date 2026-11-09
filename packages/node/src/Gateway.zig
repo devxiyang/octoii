@@ -8,7 +8,9 @@
 //! started, the gateway stays up as the browser does; its agents reclaim what of them stands idle themselves. An
 //! account the person added of an agent's has a gateway of its own, which keeps the account's logins apart from the
 //! person's own, and what lasts beside them: `gateway://claude/accounts/{id}/v1/messages` is `/claude/v1/messages` on
-//! the gateway of the account `id`.
+//! the gateway of the account `id`. `DELETE gateway://claude/accounts/{id}` lets the account go, as the person removed
+//! it: its agent signed out on its gateway, `DELETE /claude/v1/account`, whose response answers; the gateway stopped as
+//! the last response open on it is let go, and what it kept deleted then.
 const Gateway = @This();
 
 const std = @import("std");
@@ -68,11 +70,14 @@ pub fn http(gateway: *Gateway) transport.Http {
 }
 
 /// The gateway as it runs: its line peer, held by the node and by each response open on it, and closed — the process
-/// stopped — as the last lets it go.
+/// stopped — as the last lets it go; the folder of an account let go of deleted then.
 const Running = struct {
     gpa: Allocator,
+    io: Io,
     lines: *Lines,
     holders: std.atomic.Value(usize) = .init(1),
+    /// The folder of the account the gateway answered for, where the account was let go of: deleted as it stops.
+    forgotten: ?[]const u8 = null,
 
     fn hold(running: *Running) *Running {
         _ = running.holders.fetchAdd(1, .monotonic);
@@ -82,6 +87,10 @@ const Running = struct {
     fn release(running: *Running) void {
         if (running.holders.fetchSub(1, .acq_rel) != 1) return;
         running.lines.close();
+        if (running.forgotten) |folder| {
+            Io.Dir.cwd().deleteTree(running.io, folder) catch |err| log.warn("what the gateway of an account let go of kept stays at {s}: {s}", .{ folder, @errorName(err) });
+            running.gpa.free(folder);
+        }
         running.gpa.destroy(running);
     }
 };
@@ -119,7 +128,7 @@ fn started(gateway: *Gateway, account: []const u8) Allocator.Error!?*Running {
     if (account.len == 0) {
         try argv.appendSlice(arena, &.{ gateway.program, "--state", gateway.state });
     } else {
-        const state = try std.fs.path.join(arena, &.{ gateway.state, "accounts", account });
+        const state = try gateway.accountFolder(arena, account);
         try argv.appendSlice(arena, &.{ gateway.program, "--state", state, "--logins", try std.fs.path.join(arena, &.{ state, "logins" }) });
     }
     const coprocess = switch (try Coprocess.start(gateway.gpa, arena, .{
@@ -146,8 +155,13 @@ fn started(gateway: *Gateway, account: []const u8) Allocator.Error!?*Running {
     errdefer lines.close();
     const running = try gateway.gpa.create(Running);
     errdefer gateway.gpa.destroy(running);
-    running.* = .{ .gpa = gateway.gpa, .lines = lines };
+    running.* = .{ .gpa = gateway.gpa, .io = gateway.io, .lines = lines };
     return running;
+}
+
+/// The folder an added account's gateway keeps what lasts in, in `arena`.
+fn accountFolder(gateway: *const Gateway, arena: Allocator, account: []const u8) Allocator.Error![]const u8 {
+    return std.fs.path.join(arena, &.{ gateway.state, "accounts", account });
 }
 
 /// Which request a message of the gateway's is for: a response by the request it answers; a notification by the id it
@@ -168,11 +182,51 @@ fn send(context: *anyopaque, request: transport.Request) transport.SendError!tra
     if (!std.mem.startsWith(u8, request.url, scheme)) return gateway.rest.send(request);
     var scratch_arena: std.heap.ArenaAllocator = .init(gateway.gpa);
     defer scratch_arena.deinit();
-    const at = try addressed(scratch_arena.allocator(), request.url) orelse {
-        log.warn("no gateway answers at {s}", .{request.url});
-        return error.Transport;
+    const arena = scratch_arena.allocator();
+    switch (try addressed(arena, request.url) orelse return refused(request)) {
+        .on => |on| {
+            const running = try gateway.held(on.account) orelse return error.Transport;
+            return gateway.respond(running, request, on.path);
+        },
+        .account => |account| {
+            if (request.method != .DELETE) return refused(request);
+            return gateway.forgetAccount(arena, account.agent, account.id, request);
+        },
+    }
+}
+
+/// That no gateway answers `request`, logged.
+fn refused(request: transport.Request) transport.SendError {
+    log.warn("no gateway answers {s} {s}", .{ @tagName(request.method), request.url });
+    return error.Transport;
+}
+
+/// Lets the account `id` of `agent`'s go, as the person removed it: its agent signed out on its gateway, whose response
+/// answers; the gateway, the node's no more, stopped as the last response open on it is let go, and its folder deleted.
+fn forgetAccount(gateway: *Gateway, arena: Allocator, agent: []const u8, id: []const u8, request: transport.Request) transport.SendError!transport.Response {
+    const running = try gateway.held(id) orelse return error.Transport;
+    gateway.letGo(id) catch |err| {
+        running.release();
+        return err;
     };
-    const running = try gateway.held(at.account) orelse return error.Transport;
+    const signing_out: transport.Request = .{ .method = .DELETE, .url = request.url, .headers = &.{}, .wait = request.wait };
+    return gateway.respond(running, signing_out, try arena.print("/{s}/v1/account", .{agent}));
+}
+
+/// Has the node let go of the gateway of the account `id`: its folder deleted once the gateway stops, as the last that
+/// holds it lets it go.
+fn letGo(gateway: *Gateway, id: []const u8) Allocator.Error!void {
+    gateway.lock.lockUncancelable(gateway.io);
+    defer gateway.lock.unlock(gateway.io);
+    const running = gateway.running.get(id) orelse return;
+    running.forgotten = try gateway.accountFolder(gateway.gpa, id);
+    const kept = gateway.running.fetchSwapRemove(id).?;
+    gateway.gpa.free(kept.key);
+    kept.value.release();
+}
+
+/// What answers `request` on the gateway `running`, a hold of which it takes, at `path` there.
+fn respond(gateway: *Gateway, running: *Running, request: transport.Request, path: []const u8) transport.SendError!transport.Response {
     errdefer running.release();
     const exchange = try gateway.gpa.create(Exchange);
     errdefer gateway.gpa.destroy(exchange);
@@ -181,30 +235,34 @@ fn send(context: *anyopaque, request: transport.Request) transport.SendError!tra
     errdefer exchange.arena.deinit();
     const arena = exchange.arena.allocator();
     exchange.reader = .{ .vtable = &.{ .stream = Exchange.stream }, .buffer = try arena.alloc(u8, 16 * 1024), .seek = 0, .end = 0 };
-    exchange.sent = try gateway.carry(running, request, at.path) orelse return error.Transport;
+    exchange.sent = try gateway.carry(running, request, path) orelse return error.Transport;
     errdefer exchange.end();
     const head = try exchange.headOf(arena, if (request.wait) |wait| wait.head_ms else null);
     return .{ .status = head.status, .headers = head.headers, .body = &exchange.reader, .context = exchange, .vtable = &.{ .failure = Exchange.failure, .close = Exchange.close } };
 }
 
-/// Where a request at the gateway's address goes: the account whose gateway answers it — the empty name for the
-/// person's own — and its path on that gateway.
-const Addressed = struct { account: []const u8, path: []const u8 };
+/// Where a request at the gateway's address goes: a path on the gateway of an account — the empty name for the
+/// person's own — or an account the person added of an agent's, itself.
+const Addressed = union(enum) {
+    on: struct { account: []const u8, path: []const u8 },
+    account: struct { agent: []const u8, id: []const u8 },
+};
 
 /// `gateway://claude/v1/messages` is `/claude/v1/messages` on the person's own gateway, and
-/// `gateway://claude/accounts/{id}/v1/messages` on the gateway of the account `id`, in `arena`; null for an address no
-/// gateway answers.
+/// `gateway://claude/accounts/{id}/v1/messages` on the gateway of the account `id`, in `arena`;
+/// `gateway://claude/accounts/{id}` is the account itself; null for an address no gateway answers.
 fn addressed(arena: Allocator, url: []const u8) Allocator.Error!?Addressed {
     const path = url[scheme.len - 1 ..];
-    const agent_end = std.mem.indexOfScalarPos(u8, path, 1, '/') orelse return .{ .account = "", .path = path };
+    const agent_end = std.mem.indexOfScalarPos(u8, path, 1, '/') orelse return .{ .on = .{ .account = "", .path = path } };
     const marker = "/accounts/";
-    if (!std.mem.startsWith(u8, path[agent_end..], marker)) return .{ .account = "", .path = path };
+    if (!std.mem.startsWith(u8, path[agent_end..], marker)) return .{ .on = .{ .account = "", .path = path } };
     const tail = path[agent_end + marker.len ..];
-    const id_end = std.mem.indexOfScalar(u8, tail, '/') orelse return null;
+    const id_end = std.mem.indexOfScalar(u8, tail, '/') orelse tail.len;
     const account = tail[0..id_end];
     if (account.len == 0) return null;
     for (account) |byte| if (!std.ascii.isAlphanumeric(byte) and byte != '-') return null;
-    return .{ .account = account, .path = try std.mem.concat(arena, u8, &.{ path[0..agent_end], tail[id_end..] }) };
+    if (id_end == tail.len) return .{ .account = .{ .agent = path[1..agent_end], .id = account } };
+    return .{ .on = .{ .account = account, .path = try std.mem.concat(arena, u8, &.{ path[0..agent_end], tail[id_end..] }) } };
 }
 
 /// Sends `request` to the gateway at `path` as the channel carries it: its exchange; null where it could not be
@@ -533,6 +591,35 @@ test "an added account's requests go to a gateway of its own, which keeps the ac
     std.testing.log_level = .err;
     defer std.testing.log_level = .warn;
     try std.testing.expectError(error.Transport, played.send("gateway://claude/accounts/../v1/models"));
+}
+
+test "an account let go of signs its agent out on its gateway, which then stops, what it kept deleted" {
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var played: Played = undefined;
+    try played.open(arena, null);
+    defer played.close();
+    const work = try played.send("gateway://claude/accounts/01a1c11e-f9f4-7a31/v1/models");
+    _ = try work.body.allocRemaining(arena, .unlimited);
+    work.close();
+    const own = try played.send("gateway://claude/v1/models");
+    _ = try own.body.allocRemaining(arena, .unlimited);
+    own.close();
+    const forgotten = try played.gateway.http().send(.{ .method = .DELETE, .url = "gateway://claude/accounts/01a1c11e-f9f4-7a31", .headers = &.{}, .wait = .{ .head_ms = 10_000, .idle_ms = 10_000 } });
+    try std.testing.expectEqualStrings("DELETE /claude/v1/account\n", (try forgotten.body.allocRemaining(arena, .unlimited))[0..26]);
+    // The gateway stops, and its folder goes, as the response is let go.
+    try std.testing.expect(played.tmp.dir.access(std.testing.io, "accounts/01a1c11e-f9f4-7a31", .{}) != error.FileNotFound);
+    forgotten.close();
+    try std.testing.expectError(error.FileNotFound, played.tmp.dir.access(std.testing.io, "accounts/01a1c11e-f9f4-7a31", .{}));
+    // The person's own gateway stands as it was; an account itself is only let go of.
+    const again = try played.send("gateway://claude/v1/models");
+    defer again.close();
+    _ = try again.body.allocRemaining(arena, .unlimited);
+    try std.testing.expectEqualStrings("started, logins none\n", try played.writtenDown(arena, "starts"));
+    std.testing.log_level = .err;
+    defer std.testing.log_level = .warn;
+    try std.testing.expectError(error.Transport, played.send("gateway://claude/accounts/01a1c11e-f9f4-7a31"));
 }
 
 test "every other address goes to the rest of the network, and a gateway that cannot start fails as the network does" {

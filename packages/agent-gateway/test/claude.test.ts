@@ -183,7 +183,13 @@ class Folder implements Sessions {
 function claudeOf(
 	positions: Positions,
 	plays: Played[],
-	kept: { readonly holds?: Holds; readonly folder?: Folder; readonly now?: number; readonly account?: AccountInfo } = {},
+	kept: {
+		readonly holds?: Holds;
+		readonly folder?: Folder;
+		readonly now?: number;
+		readonly account?: AccountInfo;
+		readonly signOut?: () => Promise<void>;
+	} = {},
 ): Claude {
 	const run: Run = (params) => {
 		const played = new Played(params, kept.account ?? {});
@@ -202,6 +208,7 @@ function claudeOf(
 		sessions: kept.folder ?? new Folder(),
 		now: () => kept.now ?? 0,
 		signIn: "claude",
+		signOut: kept.signOut,
 	});
 }
 
@@ -483,6 +490,21 @@ describe("Claude through Claude Code", () => {
 		expect(await nobody.json()).toMatchObject({ error: { type: "authentication_error", message: expect.stringContaining("run `claude` in a terminal") } });
 		signedIn.close();
 		signedOut.close();
+	});
+
+	it("signs Claude Code out of an account the person added as it is removed, and never out of the person's own", async () => {
+		const positions = await Positions.open(undefined);
+		const signedOut: string[] = [];
+		const added = claudeOf(positions, [], { signOut: async () => void signedOut.push("work") });
+		const removed = await handlerOf({ claude: added })(new Request("http://gateway/claude/v1/account", { method: "DELETE" }));
+		expect(removed.status).toBe(204);
+		expect(signedOut).toEqual(["work"]);
+		const own = claudeOf(positions, []);
+		const refused = await handlerOf({ claude: own })(new Request("http://gateway/claude/v1/account", { method: "DELETE" }));
+		expect(refused.status).toBe(403);
+		expect(signedOut).toEqual(["work"]);
+		added.close();
+		own.close();
 	});
 
 	it("refuses an answer the plan's used-up limit refused as Anthropic's unified limits tell of it", async () => {

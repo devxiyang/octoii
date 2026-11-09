@@ -4,7 +4,8 @@
 //! Claude Code offers, as the gateway lists them; what they use is the person's plan's, so they cost nothing here.
 //! Each request names its conversation, by which the gateway keeps the conversation's session of Claude Code, and lets
 //! it go once the conversation ended. An account the person added is another login of Claude Code's, kept apart by the
-//! gateway under the account's id, at `gateway://claude/accounts/{id}/v1`.
+//! gateway under the account's id, at `gateway://claude/accounts/{id}/v1`; once the person removes it, the gateway is
+//! asked to let it go, `DELETE gateway://claude/accounts/{id}`.
 const std = @import("std");
 const foundation = @import("foundation");
 const vocabulary = @import("vocabulary");
@@ -20,11 +21,26 @@ const anthropic = @import("anthropic.zig");
 /// Where the agent gateway answers for Claude, on the host's channel to it.
 pub const base_url = "gateway://claude/v1";
 
-pub const driver: seam.Driver = .{ .id = "claude", .name = "Claude", .through = "Claude Code", .text = text, .list = list, .status = status, .forget = forget, .instance = instance };
+pub const driver: seam.Driver = .{
+    .id = "claude",
+    .name = "Claude",
+    .through = "Claude Code",
+    .text = text,
+    .list = list,
+    .status = status,
+    .forget_conversation = forgetConversation,
+    .forget_account = forgetAccount,
+    .instance = instance,
+};
 
 /// An added account, at its own address on the gateway.
 fn instance(arena: std.mem.Allocator, account: []const u8, base: seam.Settings) std.mem.Allocator.Error!seam.Settings {
-    return .{ .base_url = try arena.print("gateway://claude/accounts/{f}/v1", .{std.fmt.alt(std.Uri.Component{ .raw = account }, .formatEscaped)}), .headers = base.headers };
+    return .{ .base_url = try arena.print("{s}/v1", .{try accountUrl(arena, account)}), .headers = base.headers };
+}
+
+/// The address of the added account `account` — its id — on the gateway, in `arena`.
+fn accountUrl(arena: std.mem.Allocator, account: []const u8) std.mem.Allocator.Error![]const u8 {
+    return arena.print("gateway://claude/accounts/{f}", .{std.fmt.alt(std.Uri.Component{ .raw = account }, .formatEscaped)});
 }
 
 /// The header that names the conversation a request is of: its `prompt_cache_key`.
@@ -37,8 +53,19 @@ fn text(call: *Call, model: *const Model, request: *const vocabulary.ResponsesRe
 }
 
 /// Has the gateway let go of the conversation's session, as the conversation ended.
-fn forget(call: *Call, conversation: []const u8) Error!void {
+fn forgetConversation(call: *Call, conversation: []const u8) Error!void {
     const url = try call.arena.print("{s}/conversations/{f}", .{ call.baseUrl(base_url), std.fmt.alt(std.Uri.Component{ .raw = conversation }, .formatEscaped) });
+    return deleted(call, url);
+}
+
+/// Has the gateway let go of the account the call's provider is, as the person removed it: Claude Code signed out of
+/// it, and nothing of it kept.
+fn forgetAccount(call: *Call) Error!void {
+    return deleted(call, try accountUrl(call.arena, call.provider.id));
+}
+
+/// Has the gateway delete what is at `url`, failing as it answers where it does not.
+fn deleted(call: *Call, url: []const u8) Error!void {
     const response = try http.send(call, .{ .method = .DELETE, .url = url });
     if (response.status < 200 or response.status >= 300) return call.fail(try http.failureOf(call, response, null));
     response.close();

@@ -97,9 +97,12 @@ pub fn renameAccount(connection: *Connection, arena: Allocator, id: []const u8, 
 /// its models asks no model till it is given another.
 pub fn removeAccount(connection: *Connection, arena: Allocator, id: []const u8, given: struct { account: []const u8 }) !void {
     const clients = connection.clients;
+    // The account's provider as the providers held it, which lets go of what it keeps of the account once it is removed.
+    const removed = clients.models.provider(given.account);
     try Accounts.remove(clients.runtime, arena, given.account);
     if (clients.credentials) |store| store.remove(given.account) catch {};
     try clients.accounts.apply(clients.runtime.volume, clients.models);
+    if (removed) |account| clients.forgetAccount(account);
     return connection.answer(arena, id, Connection.nothing);
 }
 

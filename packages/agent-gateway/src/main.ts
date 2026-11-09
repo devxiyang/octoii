@@ -4,12 +4,14 @@
  * end with the channel's. `--state <folder>` names where it keeps what lasts — each agent's positions and the folder
  * it works in — and `--claude <path>` the person's own `claude`, else the one on its path. `--logins <folder>` names
  * where the agents keep the logins of the account the gateway answers for, one the person added: Claude Code's
- * configuration in its `claude`; without it, the agents are signed in as the person signed them in.
+ * configuration in its `claude`, which it is signed out of as the person removes the account; without it, the agents
+ * are signed in as the person signed them in, and never signed out here.
  *
  * Claude Code runs with the variables the gateway was given, but those that would change whose account it uses or what
  * it does on its own: a key or token for Anthropic's API, its own simple mode, effort and tool timeout; and what would
  * act beside the client — its memory, CLAUDE.md files, compaction, away summaries, tool search, the advisor, fallbacks.
  */
+import { execFile } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { createReadStream, createWriteStream } from "node:fs";
 import { createInterface } from "node:readline";
@@ -84,6 +86,21 @@ function environmentOf(): Record<string, string> {
 	return { ...environment, ...ISOLATION };
 }
 
+/** How long signing Claude Code out may take. */
+const SIGN_OUT_MS = 60_000;
+
+/**
+ * Signs `claude` out of the login its configuration in `environment` keeps — its own, an added account's, whose
+ * keychain entry Claude Code names by the configuration's folder — failing as it ends otherwise.
+ */
+function signOut(claude: string, environment: Readonly<Record<string, string>>): Promise<void> {
+	return new Promise((resolve, reject) => {
+		execFile(claude, ["auth", "logout"], { env: environment, timeout: SIGN_OUT_MS }, (error) =>
+			error === null ? resolve() : reject(new Error(`\`claude auth logout\` failed: ${error.message}`)),
+		);
+	});
+}
+
 async function main(): Promise<void> {
 	const state = argument("state");
 	const claude = claudeOf() ?? "claude";
@@ -94,14 +111,16 @@ async function main(): Promise<void> {
 	// An added account's Claude Code keeps its configuration, and its login, apart; the SDK reads it from the gateway's.
 	const configuration = logins === undefined ? undefined : join(logins, "claude");
 	if (configuration !== undefined) process.env["CLAUDE_CONFIG_DIR"] = configuration;
+	const environment = environmentOf();
 	const agents = {
 		claude: new Claude({
 			claude,
 			folder,
 			positions: await Positions.open(join(state, "claude", "positions.jsonl")),
 			run: query,
-			environment: environmentOf(),
+			environment,
 			signIn: `${configuration === undefined ? "" : `CLAUDE_CONFIG_DIR=${shellPath(configuration)} `}${argument("claude") ?? "claude"}`,
+			signOut: configuration === undefined ? undefined : () => signOut(claude, environment),
 			idleMs: IDLE_MS,
 			holds: await Holds.open(join(state, "claude", "holds.jsonl")),
 			sessions: sessionsIn(folder),

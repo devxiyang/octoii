@@ -109,28 +109,49 @@ pub fn forgetThread(clients: *Clients, tid: []const u8) void {
 /// Has the providers let go of what they keep of the conversations of `gone` — threads deleted — off the loop, as
 /// nothing waits for it: a provider not reached keeps them till it lets them go itself.
 pub fn forgetConversations(clients: *Clients, gone: []const []const u8) void {
-    const forgetting = Forgetting.make(clients.runtime.allocator, clients.models, gone) catch |err| {
-        return log.warn("the providers keep the conversations of the threads deleted: {s}", .{@errorName(err)});
+    clients.forget(.{ .conversations = gone });
+}
+
+/// Has `account` — the provider of an account the person removed, as the providers held it — let go of what it keeps
+/// of the account, off the loop, as nothing waits for it: what it could not let go of logged.
+pub fn forgetAccount(clients: *Clients, account: *const ai.driver.Provider) void {
+    clients.forget(.{ .account = account });
+}
+
+fn forget(clients: *Clients, what: Forgetting.What) void {
+    const forgetting = Forgetting.make(clients.runtime.allocator, clients.models, what) catch |err| {
+        return log.warn("the providers keep what they were to let go of: {s}", .{@errorName(err)});
     };
     clients.runtime.spawn(.{ .context = forgetting, .run = Forgetting.run, .finish = Forgetting.free, .drop = Forgetting.free }) catch |err| {
-        log.warn("the providers keep the conversations of the threads deleted: {s}", .{@errorName(err)});
+        log.warn("the providers keep what they were to let go of: {s}", .{@errorName(err)});
     };
 }
 
-/// The providers' letting go of conversations that ended, as a job of the runtime's.
+/// The providers' letting go of what they keep of conversations that ended, or of an account removed, as a job of the
+/// runtime's.
 const Forgetting = struct {
     arena_allocator: std.heap.ArenaAllocator,
     models: *ai.Models,
-    conversations: []const []const u8,
+    what: What,
 
-    fn make(gpa: Allocator, models: *ai.Models, gone: []const []const u8) Allocator.Error!*Forgetting {
+    /// What is let go of: conversations, by the key their requests named them with; or an account, by its provider as
+    /// the providers held it, which lasts as long as Siphon does.
+    const What = union(enum) { conversations: []const []const u8, account: *const ai.driver.Provider };
+
+    fn make(gpa: Allocator, models: *ai.Models, what: What) Allocator.Error!*Forgetting {
         var arena_allocator: std.heap.ArenaAllocator = .init(gpa);
         errdefer arena_allocator.deinit();
         const arena = arena_allocator.allocator();
-        const conversations = try arena.alloc([]const u8, gone.len);
-        for (gone, conversations) |tid, *each| each.* = try arena.dupe(u8, tid);
+        const kept: What = switch (what) {
+            .conversations => |gone| conversations: {
+                const conversations = try arena.alloc([]const u8, gone.len);
+                for (gone, conversations) |tid, *each| each.* = try arena.dupe(u8, tid);
+                break :conversations .{ .conversations = conversations };
+            },
+            .account => what,
+        };
         const forgetting = try arena.create(Forgetting);
-        forgetting.* = .{ .arena_allocator = undefined, .models = models, .conversations = conversations };
+        forgetting.* = .{ .arena_allocator = undefined, .models = models, .what = kept };
         forgetting.arena_allocator = arena_allocator;
         return forgetting;
     }
@@ -138,9 +159,17 @@ const Forgetting = struct {
     fn run(context: *anyopaque, _: *Waits) void {
         const forgetting: *Forgetting = @ptrCast(@alignCast(context));
         const arena = forgetting.arena_allocator.allocator();
-        for (forgetting.conversations) |conversation| forgetting.models.forget(arena, conversation) catch |err| {
-            return log.warn("the providers keep the conversation {s}: {s}", .{ conversation, @errorName(err) });
-        };
+        switch (forgetting.what) {
+            .conversations => |conversations| for (conversations) |conversation| forgetting.models.forgetConversation(arena, conversation) catch |err| {
+                return log.warn("the providers keep the conversation {s}: {s}", .{ conversation, @errorName(err) });
+            },
+            .account => |account| {
+                const failed = forgetting.models.forgetAccount(arena, account) catch |err| {
+                    return log.warn("the provider keeps the account {s}: {s}", .{ account.id, @errorName(err) });
+                } orelse return;
+                log.warn("the provider keeps the account {s}: {s}", .{ account.id, failed.message });
+            },
+        }
     }
 
     fn free(context: *anyopaque) void {

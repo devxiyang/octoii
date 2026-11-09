@@ -52,7 +52,10 @@ pub const Driver = struct {
     /// Begins a sign-in in a browser, for a driver whose provider is reached by one.
     sign_in: ?SignInCall = null,
     /// Lets go of what the provider keeps of a conversation that ended, for a driver whose provider keeps one.
-    forget: ?ForgetCall = null,
+    forget_conversation: ?ForgetConversationCall = null,
+    /// Lets go of what the provider keeps of an account the person removed — the call's provider — for a driver whose
+    /// accounts keep something of their own, as an agent's login.
+    forget_account: ?ForgetAccountCall = null,
     /// The settings an account the person added of a provider is reached with, for a driver whose accounts are reached
     /// apart; none, the provider's own.
     instance: ?InstanceCall = null,
@@ -78,7 +81,10 @@ pub const ListCall = *const fn (call: *Call) Error![]const ModelFacts;
 pub const StatusCall = *const fn (call: *Call) Error!Status;
 
 /// A driver's letting go of a conversation that ended, by the key its requests named it with: their `prompt_cache_key`.
-pub const ForgetCall = *const fn (call: *Call, conversation: []const u8) Error!void;
+pub const ForgetConversationCall = *const fn (call: *Call, conversation: []const u8) Error!void;
+
+/// A driver's letting go of the account its call's provider is, as the person removed it.
+pub const ForgetAccountCall = *const fn (call: *Call) Error!void;
 
 /// The settings the account `account` — its id — that a person added of a provider of `base` is reached with, in
 /// `arena`.
