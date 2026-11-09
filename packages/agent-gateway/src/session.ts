@@ -40,6 +40,8 @@ export type SessionOptions = {
 	readonly settings: string;
 	/** The time, in milliseconds since the epoch. */
 	readonly now: () => number;
+	/** Told, as each turn ends, the window Claude Code measured each of its models against: its result's `modelUsage`, by the name it keyed each by. */
+	readonly measured: (windows: ReadonlyMap<string, number>) => void;
 };
 
 /** What Claude is told of a tool's result past which it is cut; the client bounds its own already. */
@@ -55,6 +57,7 @@ export class Session {
 	readonly #held = new Held();
 	readonly #positions: Positions;
 	readonly #now: () => number;
+	readonly #measured: (windows: ReadonlyMap<string, number>) => void;
 	readonly #tools: ReadonlySet<string>;
 	readonly #messages: AsyncIterator<SDKMessage>;
 	/** A read of the next message begun and not yet taken, as a call was held first. */
@@ -74,6 +77,7 @@ export class Session {
 	constructor(options: SessionOptions) {
 		this.settings = options.settings;
 		this.#now = options.now;
+		this.#measured = options.measured;
 		this.usedAt = options.now();
 		this.#positions = options.positions;
 		this.#tools = new Set(options.tools.map((tool) => tool.name));
@@ -220,7 +224,7 @@ export class Session {
 		const reading = this.#reading ?? this.#messages.next();
 		this.#reading = undefined;
 		const read = await reading;
-		return read.done ? undefined : read.value;
+		return read.done ? undefined : this.#seen(read.value);
 	}
 
 	/** The session's next message, or `held` where a call is held first — the read kept for the next to take. */
@@ -231,7 +235,16 @@ export class Session {
 		const first = await Promise.race([reading, this.#held.whenHolding().then(() => "held" as const)]);
 		if (first === "held") return "held";
 		this.#reading = undefined;
-		return first.done ? undefined : first.value;
+		return first.done ? undefined : this.#seen(first.value);
+	}
+
+	/** `message`, read: where it ends a turn, what Claude Code measured its models against told first. */
+	#seen(message: SDKMessage): SDKMessage {
+		if (message.type !== "result") return message;
+		const windows = new Map<string, number>();
+		for (const [name, usage] of Object.entries(message.modelUsage ?? {})) if (usage.contextWindow > 0) windows.set(name, usage.contextWindow);
+		if (windows.size > 0) this.#measured(windows);
+		return message;
 	}
 
 	/** Ends the session's process, its held calls answered that it ended. */

@@ -22,6 +22,7 @@
  * conversation told the agent whole again: a replica whose offset is gone syncs in full.
  */
 import type { AccountInfo, ModelInfo, Options, Query } from "@anthropic-ai/claude-agent-sdk";
+import { type Static, Type } from "typebox";
 import { errorResponse, type Message, type Request, systemText, type Tool } from "./anthropic.ts";
 import { PREFIX } from "./answering.ts";
 import { Input } from "./held.ts";
@@ -55,7 +56,16 @@ export type ClaudeOptions = {
 	 * person removes it; none for the person's own, whose login is theirs to sign out of.
 	 */
 	readonly signOut: (() => Promise<void>) | undefined;
+	/** Where the windows Claude Code gave its models are kept between the gateway's runs. */
+	readonly windows: WindowsStore;
 };
+
+/** The windows Claude Code gave the models it offers, by each model's name as it takes it, and the version of Claude Code that told them. */
+export const KeptWindowsSchema = Type.Object({ version: Type.String(), windows: Type.Record(Type.String(), Type.Number()) });
+export type KeptWindows = Static<typeof KeptWindowsSchema>;
+
+/** Where the windows are kept: read as they were last kept, none where never; written whole. */
+export type WindowsStore = { readonly read: () => Promise<KeptWindows | undefined>; readonly write: (kept: KeptWindows) => Promise<void> };
 
 /** Claude Code's sessions in the gateway's folder: whether one is there, its removal, and those there, each with when it last changed. */
 export type Sessions = {
@@ -80,7 +90,14 @@ export class Claude {
 	readonly #live = new Set<Session>();
 	readonly #sweeper: ReturnType<typeof setInterval>;
 	readonly #collector: ReturnType<typeof setInterval>;
-	#models: Promise<readonly Offered[]> | undefined;
+	/** The rows of the models Claude Code offers, asked once. */
+	#rows: Promise<readonly ModelInfo[]> | undefined;
+	/** The rows, once told. */
+	#known: readonly ModelInfo[] = [];
+	/** The windows of the models, as this run knows them, and the version of Claude Code that runs now. */
+	#windows: KeptWindows = { version: "", windows: {} };
+	/** The keeping of the windows under way: one at a time. */
+	#keeping: Promise<void> = Promise.resolve();
 
 	constructor(options: ClaudeOptions) {
 		this.#options = options;
@@ -158,34 +175,83 @@ export class Claude {
 
 	/**
 	 * The models Claude Code offers the person, as it tells them, each with the window it gives the model — the person's
-	 * plan's — asked once: the rows of a process started for them, then the windows of a few processes at once, each
-	 * setting its share of the models in turn and reading how much context it has.
+	 * plan's — as kept by the version of Claude Code that told it: asked of Claude Code where none is kept, and asked
+	 * again aside where Claude Code is another version now, the kept ones listed meanwhile; each turn's measure keeps
+	 * them right as the person's plan changes.
 	 */
-	models(): Promise<readonly Offered[]> {
-		this.#models ??= this.#offered().catch((error: unknown) => {
-			this.#models = undefined;
-			throw error;
-		});
-		return this.#models;
+	async models(): Promise<readonly Offered[]> {
+		const rows = await this.#rowsOnce();
+		return rows.map((model) => ({ model, window: this.#windows.windows[model.value] }));
 	}
 
-	async #offered(): Promise<readonly Offered[]> {
-		const models = await this.#asked((query) => query.supportedModels());
-		const windows = new Map<string, number>();
-		const shares = Array.from({ length: WINDOW_ASKERS }, (_, at) => models.filter((_, place) => place % WINDOW_ASKERS === at));
-		await Promise.all(
-			shares
-				.filter((share) => share.length > 0)
-				.map((share) =>
-					this.#asked(async (query) => {
-						for (const model of share) {
-							const window = await windowOf(query, model.value);
-							if (window !== undefined) windows.set(model.value, window);
-						}
-					}),
-				),
-		);
-		return models.map((model) => ({ model, window: windows.get(model.value) }));
+	#rowsOnce(): Promise<readonly ModelInfo[]> {
+		this.#rows ??= this.#learnt().catch((error: unknown) => {
+			this.#rows = undefined;
+			throw error;
+		});
+		return this.#rows;
+	}
+
+	/** The rows of the models Claude Code offers, their windows known: those kept, the others asked. */
+	async #learnt(): Promise<readonly ModelInfo[]> {
+		const { rows, version } = await this.#asked(async (query) => ({
+			rows: await query.supportedModels(),
+			version: (await query.initializationResult()).claude_code_version ?? "",
+		}));
+		this.#known = rows;
+		const kept = await this.#options.windows.read().catch(() => undefined);
+		this.#windows = { version, windows: { ...kept?.windows } };
+		const unknown = rows.filter((row) => this.#windows.windows[row.value] === undefined);
+		await this.#askWindows(unknown);
+		// Another version of Claude Code may give the models it knew other windows.
+		if (kept !== undefined && kept.version !== version) void this.#askWindows(rows.filter((row) => !unknown.includes(row)));
+		return rows;
+	}
+
+	/**
+	 * Asks Claude Code the windows of `rows`, of a few processes at once, each setting its share of them in turn and
+	 * reading how much context it has, as setting a model by its full name takes it a while; what it told kept.
+	 */
+	async #askWindows(rows: readonly ModelInfo[]): Promise<void> {
+		if (rows.length === 0) return;
+		const shares = Array.from({ length: WINDOW_ASKERS }, (_, at) => rows.filter((_, place) => place % WINDOW_ASKERS === at));
+		const asking = shares
+			.filter((share) => share.length > 0)
+			.map((share) =>
+				this.#asked(async (query) => {
+					for (const row of share) {
+						const window = await windowOf(query, row.value);
+						if (window !== undefined) this.#setWindow(row.value, window);
+					}
+				}),
+			);
+		await Promise.allSettled(asking);
+		await this.#keep();
+	}
+
+	/** Keeps the windows Claude Code measured its models against as a turn ended, where they differ from those known. */
+	readonly #measured = (measured: ReadonlyMap<string, number>): void => {
+		let changed = false;
+		for (const [name, window] of measured) {
+			for (const row of this.#known) {
+				if ((row.value !== name && row.resolvedModel !== name) || this.#windows.windows[row.value] === window) continue;
+				this.#setWindow(row.value, window);
+				changed = true;
+			}
+		}
+		if (changed) void this.#keep();
+	};
+
+	#setWindow(value: string, window: number): void {
+		this.#windows = { version: this.#windows.version, windows: { ...this.#windows.windows, [value]: window } };
+	}
+
+	/** Keeps the windows as they are known now, after any keeping under way; what could not be kept said. */
+	#keep(): Promise<void> {
+		this.#keeping = this.#keeping
+			.then(() => this.#options.windows.write(this.#windows))
+			.catch((error: unknown) => console.error(`the windows of Claude's models could not be kept: ${error instanceof Error ? error.message : String(error)}`));
+		return this.#keeping;
 	}
 
 	/** The command a person signs Claude Code in with, for the account the gateway answers for. */
@@ -314,6 +380,7 @@ export class Claude {
 			holdMs: 2 * this.#options.idleMs,
 			settings: settingsOf(request),
 			now: this.#options.now,
+			measured: this.#measured,
 		});
 	}
 

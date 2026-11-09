@@ -8,11 +8,29 @@ import type { AccountInfo, Options, PreToolUseHookInput, SDKMessage, SDKUserMess
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { Message, Request } from "../src/anthropic.ts";
-import { Claude, type Sessions } from "../src/claude.ts";
+import { Claude, type KeptWindows, type Sessions, type WindowsStore } from "../src/claude.ts";
 import { handlerOf } from "../src/gateway.ts";
 import { Holds } from "../src/holds.ts";
 import { chainOf, Positions } from "../src/positions.ts";
 import type { Run } from "../src/session.ts";
+
+/** The version of Claude Code the test plays. */
+const VERSION = "2.1.319";
+
+/** Where a test keeps the windows Claude Code gave its models: in memory, as it was given them first. */
+class KeptInMemory implements WindowsStore {
+	kept: KeptWindows | undefined;
+	constructor(kept?: KeptWindows) {
+		this.kept = kept;
+	}
+	read(): Promise<KeptWindows | undefined> {
+		return Promise.resolve(this.kept);
+	}
+	write(kept: KeptWindows): Promise<void> {
+		this.kept = kept;
+		return Promise.resolve();
+	}
+}
 
 /** A process of Claude Code as the test plays it. */
 class Played {
@@ -50,17 +68,24 @@ class Played {
 	}
 
 	/** The models it offers: Opus, whose window is a million tokens, Haiku, two hundred thousand, and one it will not set. */
-	supportedModels(): Promise<{ value: string; displayName: string; description: string }[]> {
+	supportedModels(): Promise<{ value: string; resolvedModel: string; displayName: string; description: string }[]> {
 		return Promise.resolve([
-			{ value: "opus", displayName: "Opus", description: "" },
-			{ value: "claude-haiku-4-5", displayName: "Haiku 4.5", description: "" },
-			{ value: "retired", displayName: "Retired", description: "" },
+			{ value: "opus", resolvedModel: "claude-opus-5-5", displayName: "Opus", description: "" },
+			{ value: "claude-haiku-4-5", resolvedModel: "claude-haiku-4-5", displayName: "Haiku 4.5", description: "" },
+			{ value: "retired", resolvedModel: "retired", displayName: "Retired", description: "" },
 		]);
 	}
 
+	initializationResult(): Promise<{ claude_code_version: string }> {
+		return Promise.resolve({ claude_code_version: VERSION });
+	}
+
 	#model = "opus";
+	/** The models it was set to, in turn. */
+	readonly set: string[] = [];
 
 	setModel(value: string): Promise<void> {
+		this.set.push(value);
 		if (value === "retired") return Promise.reject(new Error("no such model"));
 		this.#model = value;
 		return Promise.resolve();
@@ -206,6 +231,7 @@ function claudeOf(
 		readonly now?: number;
 		readonly account?: AccountInfo;
 		readonly signOut?: () => Promise<void>;
+		readonly windows?: WindowsStore;
 	} = {},
 ): Claude {
 	const run: Run = (params) => {
@@ -226,6 +252,7 @@ function claudeOf(
 		now: () => kept.now ?? 0,
 		signIn: "claude",
 		signOut: kept.signOut,
+		windows: kept.windows ?? new KeptInMemory(),
 	});
 }
 
@@ -491,9 +518,10 @@ describe("Claude through Claude Code", () => {
 		claude.close();
 	});
 
-	it("lists the models Claude Code offers, each with the window it gives it, where it tells", async () => {
+	it("lists the models Claude Code offers, each with the window it gives it, where it tells, and keeps them by its version", async () => {
 		const positions = await Positions.open(undefined);
-		const claude = claudeOf(positions, []);
+		const windows = new KeptInMemory();
+		const claude = claudeOf(positions, [], { windows });
 		const listed = await handlerOf({ claude })(new Request("http://gateway/claude/v1/models"));
 		expect(await listed.json()).toMatchObject({
 			data: [
@@ -502,6 +530,51 @@ describe("Claude through Claude Code", () => {
 				{ id: "retired", display_name: "Retired" },
 			],
 		});
+		expect(windows.kept).toEqual({ version: VERSION, windows: { opus: 1_000_000, "claude-haiku-4-5": 200_000 } });
+		claude.close();
+	});
+
+	it("lists the windows kept by the same version of Claude Code without asking them again, and asks those it lacks", async () => {
+		const positions = await Positions.open(undefined);
+		const plays: Played[] = [];
+		const windows = new KeptInMemory({ version: VERSION, windows: { opus: 900_000, "claude-haiku-4-5": 180_000 } });
+		const claude = claudeOf(positions, plays, { windows });
+		const listed = (await claude.models()).map(({ model, window }) => [model.value, window]);
+		expect(listed).toEqual([
+			["opus", 900_000],
+			["claude-haiku-4-5", 180_000],
+			["retired", undefined],
+		]);
+		// Only the model it lacked was asked of Claude Code.
+		expect(plays.flatMap((played) => played.set)).toEqual(["retired"]);
+		claude.close();
+	});
+
+	it("asks the windows again aside once Claude Code is another version, listing those kept meanwhile", async () => {
+		const positions = await Positions.open(undefined);
+		const windows = new KeptInMemory({ version: "2.0.0", windows: { opus: 900_000, "claude-haiku-4-5": 180_000, retired: 1 } });
+		const claude = claudeOf(positions, [], { windows });
+		expect((await claude.models()).map(({ window }) => window)).toEqual([900_000, 180_000, 1]);
+		while (windows.kept?.version !== VERSION) await tick();
+		expect(windows.kept.windows).toEqual({ opus: 1_000_000, "claude-haiku-4-5": 200_000, retired: 1 });
+		expect((await claude.models()).map(({ window }) => window)).toEqual([1_000_000, 200_000, 1]);
+		claude.close();
+	});
+
+	it("keeps the window Claude Code measured a model against as a turn ended", async () => {
+		const positions = await Positions.open(undefined);
+		const plays: Played[] = [];
+		const windows = new KeptInMemory({ version: VERSION, windows: { opus: 1_000_000, "claude-haiku-4-5": 200_000, retired: 1 } });
+		const claude = claudeOf(positions, plays, { windows });
+		await claude.models();
+		const answering = claude.answer({ model: "opus", messages: [{ role: "user", content: "Hi" }], tools }, signal());
+		const played = await startedAt(plays, 1);
+		await played.heard();
+		const measured = { ...done("S1"), modelUsage: { "claude-opus-5-5": { contextWindow: 400_000 } } } as never;
+		played.say(init("S1"), ...message("m1", [{ type: "text", text: "Hello." }], "end_turn"), measured);
+		await eventsOf(await answering);
+		while (windows.kept?.windows["opus"] !== 400_000) await tick();
+		expect((await claude.models())[0]?.window).toBe(400_000);
 		claude.close();
 	});
 

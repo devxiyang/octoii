@@ -12,16 +12,17 @@
  * act beside the client — its memory, CLAUDE.md files, compaction, away summaries, tool search, the advisor, fallbacks.
  */
 import { execFile } from "node:child_process";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { createReadStream, createWriteStream } from "node:fs";
 import { createInterface } from "node:readline";
 import { join } from "node:path";
 import { deleteSession, getSessionInfo, listSessions, query } from "@anthropic-ai/claude-agent-sdk";
 import { serve } from "./channel.ts";
-import { Claude, type Sessions } from "./claude.ts";
+import { Claude, KeptWindowsSchema, type Sessions, type WindowsStore } from "./claude.ts";
 import { handlerOf } from "./gateway.ts";
 import { Holds } from "./holds.ts";
 import { Positions } from "./positions.ts";
+import { matches } from "./schema.ts";
 
 /** The variables that would make Claude Code use another account than the person's own login, or act on its own. */
 const CLEARED = [
@@ -86,6 +87,21 @@ function environmentOf(): Record<string, string> {
 	return { ...environment, ...ISOLATION };
 }
 
+/** The windows Claude Code gave its models, kept in the file at `path`: read whole, none where it holds none; written whole, by a file of their own put in its place. */
+function windowsIn(path: string): WindowsStore {
+	return {
+		read: async () => {
+			const kept: unknown = JSON.parse(await readFile(path, "utf8").catch(() => "null"));
+			return matches(KeptWindowsSchema, kept) ? kept : undefined;
+		},
+		write: async (kept) => {
+			const fresh = `${path}.new`;
+			await writeFile(fresh, JSON.stringify(kept));
+			await rename(fresh, path);
+		},
+	};
+}
+
 /** How long signing Claude Code out may take. */
 const SIGN_OUT_MS = 60_000;
 
@@ -125,6 +141,7 @@ async function main(): Promise<void> {
 			holds: await Holds.open(join(state, "claude", "holds.jsonl")),
 			sessions: sessionsIn(folder),
 			now: Date.now,
+			windows: windowsIn(join(state, "claude", "windows.json")),
 		}),
 	};
 	void agents.claude.collect().catch((error: unknown) => console.error(error instanceof Error ? error.message : String(error)));
