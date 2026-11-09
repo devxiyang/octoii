@@ -1,9 +1,11 @@
 //! A server's process on the machine, as Coprocess runs one for mcp's stdio transport: mcp's example server, talked to
-//! a line at a time with the machine's variables and those it is given, or those alone; and one that exits unasked,
-//! its transport closed with how it ended.
+//! a line at a time with the machine's variables and those it is given, or those alone; one that exits unasked, its
+//! transport closed with how it ended; and a line longer than Beak keeps for a command, which reaches the process
+//! whole as it reads it.
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const mcp = @import("mcp");
+const jsonrpc = @import("foundation").jsonrpc;
 const beak = @import("beak.zig");
 const h = beak.h;
 const Coprocess = @import("tools.zig").Coprocess;
@@ -15,7 +17,7 @@ fn connectedExample(arena: Allocator, host: *const mcp.transport.Host, machine: 
     var slot: mcp.failure.Slot = .{ .arena = arena };
     // The build names the server from where it runs, as the machine names nothing.
     const program = try std.Io.Dir.cwd().realPathFileAlloc(std.testing.io, server_path, arena);
-    const coprocess = try Coprocess.start(std.testing.allocator, &slot, .{ .machine = machine, .argv = &.{ program, "both" }, .cwd = "/", .variables = variables, .name = "example" });
+    const coprocess = (try Coprocess.start(std.testing.allocator, arena, .{ .io = std.testing.io, .machine = machine, .argv = &.{ program, "both" }, .cwd = "/", .variables = variables, .name = "the MCP server example" })).coprocess;
     const stdio = try mcp.stdio.Stdio.start(std.testing.allocator, host, &slot, coprocess.process());
     const connected = try mcp.Client.connect(std.testing.allocator, arena, .{ .host = host.*, .client = .{ .name = "test", .version = "1" }, .timeout_ms = 5000, .probe_timeout_ms = 2000 }, stdio.transport());
     return connected.client;
@@ -51,7 +53,7 @@ test "a server that inherits nothing starts with the variables it is given alone
     const host: mcp.transport.Host = .{ .io = std.testing.io };
     var slot: mcp.failure.Slot = .{ .arena = arena };
     const program = try std.Io.Dir.cwd().realPathFileAlloc(std.testing.io, server_path, arena);
-    const coprocess = try Coprocess.start(std.testing.allocator, &slot, .{ .machine = machine, .argv = &.{ program, "both" }, .cwd = "/", .variables = &.{.{ "OCTOII_GIVEN", "1" }}, .inherit = false, .name = "example" });
+    const coprocess = (try Coprocess.start(std.testing.allocator, arena, .{ .io = std.testing.io, .machine = machine, .argv = &.{ program, "both" }, .cwd = "/", .variables = &.{.{ "OCTOII_GIVEN", "1" }}, .inherit = false, .name = "the MCP server example" })).coprocess;
     const stdio = try mcp.stdio.Stdio.start(std.testing.allocator, &host, &slot, coprocess.process());
     const client = (try mcp.Client.connect(std.testing.allocator, arena, .{ .host = host, .client = .{ .name = "test", .version = "1" }, .timeout_ms = 5000, .probe_timeout_ms = 2000 }, stdio.transport())).client;
     defer client.deinit();
@@ -91,7 +93,7 @@ test "a server's transport closes without waiting on its end, which the machine 
     for (scripts, names) |script, name| {
         var slot: mcp.failure.Slot = .{ .arena = arena };
         const file = try std.fs.path.join(arena, &.{ folder, name });
-        const coprocess = try Coprocess.start(std.testing.allocator, &slot, .{ .machine = machine, .argv = &.{ "/bin/sh", "-c", script, "sh", file }, .cwd = "/", .name = name });
+        const coprocess = (try Coprocess.start(std.testing.allocator, arena, .{ .io = std.testing.io, .machine = machine, .argv = &.{ "/bin/sh", "-c", script, "sh", file }, .cwd = "/", .name = name })).coprocess;
         const stdio = try mcp.stdio.Stdio.start(std.testing.allocator, &host, &slot, coprocess.process());
         const began = std.Io.Clock.awake.now(std.testing.io).toMilliseconds();
         stdio.transport().close();
@@ -103,4 +105,34 @@ test "a server's transport closes without waiting on its end, which the machine 
         const written = try tmp.dir.readFileAlloc(std.testing.io, name, arena, .unlimited);
         try std.testing.expectEqualStrings(asked, written);
     }
+}
+
+/// The request a response answers, as the line peer relates what the process writes.
+fn answered(message: jsonrpc.Message) ?jsonrpc.Id {
+    return message.answers();
+}
+
+test "a line longer than Beak keeps for a command reaches the process whole, given on as the process reads it" {
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const machine = try testing.openLocalMachine();
+    defer _ = h.beak_close(machine);
+    // Answers each line it reads with its length.
+    const program =
+        \\{ printf "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"bytes\":%d}}\n", length($0); fflush() }
+    ;
+    const coprocess = (try Coprocess.start(std.testing.allocator, arena, .{ .io = std.testing.io, .machine = machine, .argv = &.{ "awk", program }, .cwd = "/", .name = "awk" })).coprocess;
+    const lines = try jsonrpc.Lines.start(std.testing.allocator, .{ .io = std.testing.io }, coprocess.process(), answered);
+    defer lines.close();
+    const long = try arena.alloc(u8, 3 << 20);
+    @memset(long, 'x');
+    var params: std.json.ObjectMap = .empty;
+    try params.put(arena, "text", .{ .string = long });
+    const request: jsonrpc.Request = .{ .id = .{ .number = 1 }, .method = "measure", .params = .{ .object = params } };
+    const exchange = (try lines.request(arena, request)).exchange;
+    defer exchange.close();
+    const answer = (try exchange.next(arena, 30_000)).message.message.result.result;
+    const line = try (jsonrpc.Message{ .request = request }).encode(arena);
+    try std.testing.expectEqual(@as(i64, @intCast(line.len)), answer.object.get("bytes").?.integer);
 }

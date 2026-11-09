@@ -16,7 +16,8 @@ pub const Process = struct {
     vtable: *const VTable,
 
     pub const VTable = struct {
-        /// Writes `line`, its newline with it, to the process's input, whole: null, or why it could not, in `arena`.
+        /// Takes `line`, its newline with it, for the process's input, whole and in order, never waiting for the
+        /// process to read it: null, or why it takes nothing, in `arena`.
         write: *const fn (context: *anyopaque, arena: Allocator, line: []const u8) Allocator.Error!?[]const u8,
         /// Waits for what the process writes next: the whole lines it wrote, or how it ended, in `arena` — at once,
         /// once it is stopped.

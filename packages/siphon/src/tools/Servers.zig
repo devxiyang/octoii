@@ -274,14 +274,18 @@ const Making = struct {
         const argv = try slot.arena.alloc([]const u8, server.args.len + 1);
         argv[0] = server.command;
         @memcpy(argv[1..], server.args);
-        const coprocess = try Coprocess.start(servers.allocator, slot, .{
+        const coprocess = switch (try Coprocess.start(servers.allocator, slot.arena, .{
+            .io = servers.pool.options.host.io,
             .machine = machine,
             .argv = argv,
             .cwd = server.cwd,
             .variables = server.variables,
             .inherit = server.inherit,
-            .name = server.name,
-        });
+            .name = try slot.arena.print("the MCP server {s}", .{server.name}),
+        })) {
+            .coprocess => |started| started,
+            .failed => |why| return slot.fail(.{ .connection_lost = why }),
+        };
         const stdio = try mcp.stdio.Stdio.start(servers.allocator, &servers.pool.options.host, slot, coprocess.process());
         return stdio.transport();
     }
