@@ -1,12 +1,13 @@
 //! Siphon on this computer's platform: the Home, the local machine and its temporary folders, the providers'
 //! credentials kept in the Home and the login environment, the access its clients hold, kept in the Home, the node's
-//! identity, made once and kept in the Home, the catalogue of models fetched last, kept in the Home, and Siphon opened
-//! over them — what the node keeps for itself in the Home
-//! hidden from the machine as Siphon reaches it, the threads shown in it, and a provider's sign-in coming back to the
-//! node's own address.
+//! identity, made once and kept in the Home, the catalogue of models fetched last, kept in the Home, the network — the
+//! standard library's client, and the agent gateway at its own address, run beside the node — and Siphon opened over
+//! them: what the node keeps for itself in the Home hidden from the machine as Siphon reaches it, the threads shown in
+//! it, and a provider's sign-in coming back to the node's own address.
 const Node = @This();
 
 const std = @import("std");
+const builtin = @import("builtin");
 const Allocator = std.mem.Allocator;
 const siphon_ = @import("siphon");
 const Siphon = siphon_.Siphon;
@@ -17,6 +18,7 @@ const Credentials = @import("credentials.zig");
 const Home = @import("Home.zig");
 const Access = @import("Access.zig");
 const Catalogue = @import("catalogue.zig");
+const Gateway = @import("Gateway.zig");
 
 home: Home,
 machine: h.beak_handle,
@@ -25,6 +27,9 @@ access: Access,
 /// The key the node's tunnel sessions show, which devices reach it by.
 identity: Identity,
 catalogue: Catalogue,
+/// The network: the standard library's client, and the agent gateway at its own address.
+std_http: siphon_.foundation.StdHttp,
+gateway: Gateway,
 siphon: *Siphon,
 
 /// How the node serves its clients: the port it listens on, on this machine's loopback, where a provider's sign-in
@@ -46,8 +51,13 @@ pub fn open(gpa: Allocator, io: std.Io, environ: *const std.process.Environ.Map,
     node.access = try Access.open(io, arena, node.home.access);
     node.identity = try identityOf(io, arena, node.home.identity);
     node.catalogue = .{ .io = io, .path = node.home.catalogue };
+    node.std_http = .init(gpa, io);
+    errdefer node.std_http.deinit();
+    node.gateway = .init(gpa, .{ .io = io, .machine = node.machine, .program = try gatewayProgramOf(io, arena), .state = node.home.gateway, .rest = node.std_http.http() });
+    errdefer node.gateway.deinit();
     node.siphon = try Siphon.open(gpa, .{
         .io = io,
+        .http = node.gateway.http(),
         .device = .{ .directory = node.home.volume },
         .credentials = node.credentials.credentials(),
         .access = node.access.interface(),
@@ -74,6 +84,12 @@ pub fn open(gpa: Allocator, io: std.Io, environ: *const std.process.Environ.Map,
     return node;
 }
 
+/// The agent gateway's program: beside the node's own, as they are installed together.
+fn gatewayProgramOf(io: std.Io, arena: Allocator) ![]const u8 {
+    const name = if (builtin.target.os.tag == .windows) "octoii-agent-gateway.exe" else "octoii-agent-gateway";
+    return std.fs.path.join(arena, &.{ try std.process.executableDirPathAlloc(io, arena), name });
+}
+
 /// The identity whose seed the file at `path` keeps, as hex: one made and kept there, the person's alone, where there is
 /// none, as an SSH server makes its host key once.
 pub fn identityOf(io: std.Io, arena: Allocator, path: []const u8) !Identity {
@@ -95,6 +111,8 @@ pub fn identityOf(io: std.Io, arena: Allocator, path: []const u8) !Identity {
 
 pub fn close(node: *Node) void {
     node.siphon.close();
+    node.gateway.deinit();
+    node.std_http.deinit();
     node.credentials.deinit();
     _ = h.beak_close(node.machine);
 }

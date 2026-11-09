@@ -1,11 +1,13 @@
 //! The providers the node reaches models through, each by its own driver — reached by an API key, by a sign-in in a
-//! browser, or as a server on this machine that takes none — and the variable of the login environment that holds each
-//! keyed one's key, for a provider whose credential the node keeps none of.
+//! browser, through the agent gateway on the person's own agent's sign-in, or as a server on this machine that takes
+//! none — and the variable of the login environment that holds each keyed one's key, for a provider whose credential
+//! the node keeps none of.
 const std = @import("std");
 const ai = @import("siphon").ai;
 
 pub const all = [_]ai.driver.Provider{
     .{ .id = "anthropic", .name = "Anthropic", .driver = &ai.drivers.anthropic.driver },
+    .{ .id = "claude", .name = "Claude", .driver = &ai.drivers.claude.driver },
     .{ .id = "openai", .name = "OpenAI", .driver = &ai.drivers.openai.driver },
     .{ .id = "chatgpt", .name = "ChatGPT", .driver = &ai.drivers.chatgpt.driver },
     .{ .id = "deepseek", .name = "DeepSeek", .driver = &ai.drivers.deepseek.driver },

@@ -1,10 +1,11 @@
 //! The node's Home, laid out as a system's folders are: `etc/` the person's own configuration, for every project —
 //! their instructions, `AGENTS.md`, and MCP servers, `mcp.json` — and the providers' credentials, `etc/credstore`;
 //! `share/skills` their skills; `var/lib` the node's state — the volume, the access its clients hold, the node's
-//! identity its tunnel sessions show, the address its account gave the machine, the profile of the browser the threads' pages are open in; `var/log/outputs` what the tools could not give whole; `var/cache` the
-//! catalogue of models fetched last; `run` what lasts while the node runs, the machine's ledger; and `threads`, where a
-//! thread's calls read the threads. The Home is the person's alone, and what the node keeps for itself in it — the
-//! credentials, its state, `run` — nothing that reaches the machine through Siphon reads or writes.
+//! identity its tunnel sessions show, the address its account gave the machine, the profile of the browser the threads'
+//! pages are open in, what the agent gateway keeps; `var/log/outputs` what the tools could not give whole; `var/cache`
+//! the catalogue of models fetched last; `run` what lasts while the node runs, the machine's ledger; and `threads`,
+//! where a thread's calls read the threads. The Home is the person's alone, and what the node keeps for itself in it —
+//! the credentials, its state, `run` — nothing that reaches the machine through Siphon reads or writes.
 const Home = @This();
 
 const std = @import("std");
@@ -25,6 +26,8 @@ identity: []const u8,
 /// The address the machine is reached at, as its account gave it when it joined.
 address: []const u8,
 browser: []const u8,
+/// What the agent gateway keeps: where its agents' sessions stand, and the folder they work in.
+gateway: []const u8,
 outputs: []const u8,
 catalogue: []const u8,
 run: []const u8,
@@ -51,6 +54,7 @@ pub fn open(io: std.Io, environ: *const std.process.Environ.Map, arena: Allocato
         .identity = try std.fs.path.join(arena, &.{ state, "identity" }),
         .address = try std.fs.path.join(arena, &.{ state, "address" }),
         .browser = try std.fs.path.join(arena, &.{ state, "browser" }),
+        .gateway = try std.fs.path.join(arena, &.{ state, "gateway" }),
         .outputs = try std.fs.path.join(arena, &.{ root, "var", "log", "outputs" }),
         .catalogue = try std.fs.path.join(arena, &.{ root, "var", "cache", "catalogue.json" }),
         .run = run,
@@ -63,7 +67,7 @@ pub fn open(io: std.Io, environ: *const std.process.Environ.Map, arena: Allocato
     var dir = try std.Io.Dir.cwd().createDirPathOpen(io, root, .{ .permissions = owner_only });
     defer dir.close(io);
     if (modes) try dir.setPermissions(io, owner_only);
-    for ([_][]const u8{ credentials, state, run, home.outputs, std.fs.path.dirname(home.catalogue).? }) |folder| try std.Io.Dir.cwd().createDirPath(io, folder);
+    for ([_][]const u8{ credentials, state, run, home.gateway, home.outputs, std.fs.path.dirname(home.catalogue).? }) |folder| try std.Io.Dir.cwd().createDirPath(io, folder);
     return home;
 }
 
