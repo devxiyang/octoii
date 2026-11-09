@@ -19,7 +19,7 @@ import { FolderChooser } from "../components/files/folder-chooser.tsx";
 import { go } from "../components/state/navigation.ts";
 import { ChatHeader } from "../components/thread/header.tsx";
 import { Menu, MenuItem, MenuItemLabel, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "../components/ui/menu.tsx";
-import { Monogram } from "../components/ui/monogram.tsx";
+import { ProjectMark } from "../components/files/project-mark.tsx";
 import { ServersMenu } from "../components/servers/servers-menu.tsx";
 
 /** What the new thread's page is given: the project's folder asked for, the device's settings, and the sidebar's state. */
@@ -52,10 +52,10 @@ export function NewThreadScreen(props: NewThreadScreenProps): ReactNode {
 		setChoosing(false);
 	};
 	return (
-		<div className="panel relative flex min-w-0 flex-1 flex-col overflow-hidden">
+		<div className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
 			<ChatHeader
 				title="New thread"
-				{...(folder === undefined ? {} : { project: folderName(folder) })}
+				{...(folder === undefined ? {} : { project: { folder, name: folderName(folder) } })}
 				sidebarHidden={props.sidebarHidden}
 				onShowSidebar={props.onShowSidebar}
 			/>
@@ -124,7 +124,7 @@ function FolderStrip(props: {
 					<MenuRadioGroup value={props.folder ?? ""} onValueChange={(folder: string) => props.onChoose(folder === "" ? undefined : folder)}>
 						{props.projects.map((project) => (
 							<MenuRadioItem key={project.folder} value={project.folder}>
-								<Monogram name={project.name} />
+								<ProjectMark project={project} />
 								<MenuItemLabel title={project.folder}>{project.name}</MenuItemLabel>
 							</MenuRadioItem>
 						))}

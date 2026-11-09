@@ -15,7 +15,6 @@ import { Sidebar } from "../components/sidebar/sidebar.tsx";
 import { useDevice } from "../components/state/device.ts";
 import { go, useRoute } from "../components/state/navigation.ts";
 import { placePanel, usePanelPlace } from "../components/state/panel.ts";
-import { cn } from "../components/ui/cn.ts";
 import { TooltipProvider } from "../components/ui/tooltip.tsx";
 import { NewThreadScreen } from "../screens/new-thread.tsx";
 import { ThreadScreen } from "../screens/thread.tsx";
@@ -68,8 +67,8 @@ export function App(): ReactNode {
 								className="fixed inset-0 z-30 bg-black/20 md:hidden"
 							/>
 						) : null}
-						{/* The page's panels stand on the canvas as cards, an inset of it around them. */}
-						<main className={cn("relative flex min-w-0 flex-1 gap-1.5 py-1.5 pe-1.5 max-md:ps-1.5", sidebarHidden && "ps-1.5")}>
+						{/* The page's panes meet the window's edges and each other, a hairline between them. */}
+						<main className="relative flex min-w-0 flex-1">
 							{route.place === "thread" ? (
 								<ThreadScreen key={route.thread} thread={route.thread} device={device} sidebarHidden={sidebarHidden} onShowSidebar={showSidebar} />
 							) : (

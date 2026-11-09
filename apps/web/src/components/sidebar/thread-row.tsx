@@ -18,7 +18,7 @@ import { go } from "../state/navigation.ts";
 import { failed } from "../state/notices.ts";
 import { ContextMenu, ContextMenuPopup, ContextMenuTrigger, MenuItem, MenuItemLabel, MenuPopup, MenuSeparator, MenuSub, MenuSubTrigger } from "../ui/menu.tsx";
 import { cn } from "../ui/cn.ts";
-import { Monogram } from "../ui/monogram.tsx";
+import { ProjectMark } from "../files/project-mark.tsx";
 import { StatusMark } from "../thread/status-mark.tsx";
 import { DeleteDialog } from "./delete-dialog.tsx";
 
@@ -49,7 +49,7 @@ export function ThreadCard(props: RowProps): ReactNode {
 					className="group/row relative grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-x-1.5 gap-y-1 rounded-lg border border-transparent px-2.5 py-2 hover:bg-sidebar-row-hover data-popup-open:bg-sidebar-row-hover aria-[current=page]:border-sidebar-border aria-[current=page]:bg-sidebar-row-active aria-[current=page]:shadow-xs/5"
 					onClick={() => go({ place: "thread", thread: row.id })}
 				>
-					<Monogram name={project?.name ?? "No project"} size="md" faded={project === undefined} />
+					<ProjectMark project={project} size="md" />
 					<div className="flex h-5 min-w-0 items-center gap-1.5 text-xs">
 						<ProjectName project={project} onFilter={props.onFilter} />
 						<span className="flex-1" />
@@ -81,7 +81,7 @@ export function ThreadLine(props: RowProps): ReactNode {
 					className="group/row flex h-control w-full cursor-pointer items-center gap-1.5 rounded-lg border border-transparent px-2.5 text-xs hover:bg-sidebar-row-hover data-popup-open:bg-sidebar-row-hover aria-[current=page]:border-sidebar-border aria-[current=page]:bg-sidebar-row-active"
 					onClick={() => go({ place: "thread", thread: row.id })}
 				>
-					<Monogram name={project?.name ?? "No project"} faded />
+					<ProjectMark project={project} faded />
 					{renaming ? (
 						<TitleField row={row} onDone={() => setRenaming(false)} />
 					) : (

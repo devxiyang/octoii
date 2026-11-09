@@ -33,7 +33,7 @@ export function Segmented<Value extends string>(props: {
 					key={item.value}
 					value={item.value}
 					disabled={item.disabled === true}
-					className="inline-flex h-control-sm min-w-0 items-center justify-center rounded-md px-2.5 text-ui text-muted-foreground outline-none transition-[background-color,color,box-shadow] duration-150 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70 data-checked:bg-background data-checked:text-foreground data-checked:shadow-panel data-disabled:pointer-events-none data-disabled:opacity-50 motion-reduce:transition-none"
+					className="inline-flex h-control-sm min-w-0 items-center justify-center rounded-md px-2.5 text-ui text-muted-foreground outline-none transition-[background-color,color,box-shadow] duration-150 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70 data-checked:bg-background data-checked:text-foreground data-checked:shadow-raised data-disabled:pointer-events-none data-disabled:opacity-50 motion-reduce:transition-none"
 				>
 					<span className="min-w-0 truncate">{item.label}</span>
 				</Radio.Root>

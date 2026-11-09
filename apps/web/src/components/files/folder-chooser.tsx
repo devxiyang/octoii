@@ -18,7 +18,7 @@ import { cn } from "../ui/cn.ts";
 import { Dialog, DialogClose, DialogPopup, DialogTitle } from "../ui/dialog.tsx";
 import { Input } from "../ui/input.tsx";
 import { Menu, MenuItem, MenuItemLabel, MenuPopup, MenuTrigger } from "../ui/menu.tsx";
-import { Monogram } from "../ui/monogram.tsx";
+import { ProjectMark } from "./project-mark.tsx";
 import { Switch } from "../ui/switch.tsx";
 
 /** What the chooser is given: whether it is open, where it opens — the home folder where nowhere — the projects it offers, and what is told of the folder chosen. */
@@ -110,7 +110,7 @@ function Places(props: {
 					key={project.folder}
 					label={project.name}
 					title={project.folder}
-					icon={<Monogram name={project.name} />}
+					icon={<ProjectMark project={project} />}
 					current={props.at === project.folder}
 					onGo={() => props.onGo(project.folder)}
 				/>

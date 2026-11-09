@@ -6,15 +6,15 @@
  */
 import type { ReactNode } from "react";
 import { PanelLeft, PanelRight } from "lucide-react";
-import type { ThreadStatus } from "../../core/threads.ts";
+import type { Project, ThreadStatus } from "../../core/threads.ts";
+import { ProjectMark } from "../files/project-mark.tsx";
 import { IconButton } from "../ui/button.tsx";
-import { Monogram } from "../ui/monogram.tsx";
 import { Pill } from "../ui/pill.tsx";
 import { StatusMark } from "./status-mark.tsx";
 
 /** What the header shows and does: what stands on its right, and what shows the right panel, where it is hidden. */
 export type HeaderProps = {
-	readonly project?: string;
+	readonly project?: Project;
 	readonly title: string;
 	readonly status?: ThreadStatus | undefined;
 	readonly sidebarHidden: boolean;
@@ -39,8 +39,8 @@ export function ChatHeader(props: HeaderProps): ReactNode {
 			<div className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
 				{props.project === undefined ? null : (
 					<>
-						<Monogram name={props.project} />
-						<span className="max-w-40 truncate text-muted-foreground">{props.project}</span>
+						<ProjectMark project={props.project} />
+						<span className="max-w-40 truncate text-muted-foreground">{props.project.name}</span>
 						<span className="text-muted-foreground/60">/</span>
 					</>
 				)}

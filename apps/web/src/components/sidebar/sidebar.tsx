@@ -19,7 +19,7 @@ import { IconButton } from "../ui/button.tsx";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger, FoldChevron } from "../ui/collapsible.tsx";
 import { Input } from "../ui/input.tsx";
 import { Menu, MenuItemLabel, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "../ui/menu.tsx";
-import { Monogram } from "../ui/monogram.tsx";
+import { ProjectMark } from "../files/project-mark.tsx";
 import { cn } from "../ui/cn.ts";
 import { useDragSize } from "../ui/resize.tsx";
 import { ThreadCard, ThreadLine } from "./thread-row.tsx";
@@ -49,7 +49,10 @@ export function Sidebar(props: SidebarProps): ReactNode {
 	const { device, set } = useDevice();
 	const { size: width, edge } = useDragSize(device.sidebar_width, SIDEBAR_BOUNDS, (width) => set({ sidebar_width: width }));
 	return (
-		<aside style={{ width }} className={cn("relative flex h-full shrink-0 flex-col bg-sidebar text-sidebar-foreground", props.className)}>
+		<aside
+			style={{ width }}
+			className={cn("relative flex h-full shrink-0 flex-col border-e border-sidebar-border bg-sidebar text-sidebar-foreground", props.className)}
+		>
 			{edge}
 			<div className="flex h-[var(--topbar-height)] shrink-0 items-center gap-1.5 px-2">
 				<IconButton label="Hide sidebar" shortcut="⌘B" onClick={props.onHide}>
@@ -102,7 +105,7 @@ function Filtered(props: { readonly project: Project; readonly onClear: () => vo
 	return (
 		<div className="px-2 pb-2">
 			<span className="flex h-control-sm items-center gap-1.5 rounded-md bg-sidebar-row-active ps-2 pe-1 text-xs shadow-xs/5">
-				<Monogram name={props.project.name} />
+				<ProjectMark project={props.project} />
 				<span className="min-w-0 flex-1 truncate font-medium">{props.project.name}</span>
 				<IconButton label="Show every project" size="icon-micro" onClick={props.onClear}>
 					<X />
@@ -208,7 +211,7 @@ function ProjectFilter(props: {
 					{props.projects.length === 0 ? null : <MenuSeparator />}
 					{props.projects.map((project) => (
 						<MenuRadioItem key={project.folder} value={project.folder}>
-							<Monogram name={project.name} />
+							<ProjectMark project={project} />
 							<MenuItemLabel title={project.folder}>{project.name}</MenuItemLabel>
 						</MenuRadioItem>
 					))}

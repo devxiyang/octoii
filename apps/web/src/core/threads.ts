@@ -8,6 +8,7 @@
  */
 import type { Ask, Listed } from "@octoii-works/octoii-client";
 import { linksAsWords } from "./links.ts";
+import { type Hue, huesApart, monogramHue } from "./monogram.ts";
 import { mintedAt } from "./time.ts";
 
 /** A project: the folder its threads work in, by its path and its name. */
@@ -161,6 +162,24 @@ export function activeAt(row: Listed): number {
 export function projectOf(row: Listed): Project | undefined {
 	const folder = row.manifest.project;
 	return folder === undefined ? undefined : { folder, name: folderName(folder) };
+}
+
+/**
+ * The hue each project the threads work in is drawn in, by its folder: one of its own among the projects, the oldest —
+ * the one whose first thread was made first — choosing first, so an older project keeps its hue as newer ones come.
+ */
+export function projectHues(rows: readonly Listed[]): ReadonlyMap<string, Hue> {
+	const first = new Map<string, { readonly project: Project; readonly made: number }>();
+	for (const row of rows) {
+		const project = projectOf(row);
+		if (project === undefined) continue;
+		const made = mintedAt(row.id);
+		const known = first.get(project.folder);
+		if (known === undefined || made < known.made) first.set(project.folder, { project, made });
+	}
+	const oldestFirst = [...first.values()].toSorted((left, right) => left.made - right.made).map((each) => each.project);
+	const hues = huesApart(oldestFirst.map((project) => project.name));
+	return new Map(oldestFirst.map((project, index) => [project.folder, hues[index] ?? monogramHue(project.name)]));
 }
 
 /** The projects the threads work in, the one its newest thread works in first. */

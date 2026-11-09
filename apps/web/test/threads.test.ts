@@ -1,6 +1,7 @@
 /** The threads as the sidebar shows them, read from their rows as the node lists them. */
 import { describe, expect, it } from "bun:test";
 import type { Listed, State } from "@octoii-works/octoii-client";
+import { monogramHue } from "../src/core/monogram.ts";
 import {
 	activeAt,
 	arrivedAt,
@@ -11,6 +12,7 @@ import {
 	lineOf,
 	matchingRows,
 	OPEN_FOR_MS,
+	projectHues,
 	projectOf,
 	projectsOf,
 	rowsBySection,
@@ -75,6 +77,17 @@ describe("the threads", () => {
 		expect(projectOf({ ...within, manifest: { ...within.manifest, workspace: "/w/a/docs" } })).toEqual({ folder: "/w/a", name: "a" });
 		expect(projectsOf(rows).map((project) => project.folder)).toEqual(["/w/b/", "/w/a", "/w/b"]);
 		expect([folderName("/w/b/"), folderName("C:\\work\\app")]).toEqual(["b", "app"]);
+	});
+
+	it("draw each project in a hue of its own, the one whose first thread was made first choosing first", () => {
+		const older = row(idAt(1_000), "/w/octoii");
+		const newer = row(idAt(2_000), "/w/octoii-cloud");
+		const hues = projectHues([newer, older]);
+		expect(hues.get("/w/octoii")).toBe(monogramHue("octoii"));
+		expect(hues.get("/w/octoii-cloud")).not.toBe(hues.get("/w/octoii"));
+		// A project that comes later leaves the hues of those before it as they were.
+		const later = projectHues([row(idAt(3_000), "/w/beak"), newer, older]);
+		expect([later.get("/w/octoii"), later.get("/w/octoii-cloud")]).toEqual([hues.get("/w/octoii"), hues.get("/w/octoii-cloud")]);
 	});
 
 	it("are found by their titles and projects, and those that work are kept apart", () => {

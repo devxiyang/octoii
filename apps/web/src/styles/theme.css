@@ -135,7 +135,7 @@
 	--radius-3xl: calc(var(--radius) + 12px);
 	--radius-control: var(--control-radius);
 	--shadow-composer: var(--shadow-composer);
-	--shadow-panel: var(--shadow-panel);
+	--shadow-raised: var(--shadow-raised);
 	--shadow-floating: var(--shadow-floating);
 	--shadow-dialog: var(--shadow-dialog);
 	--inset-shadow-control-highlight: 0 1px rgb(255 255 255 / 16%);

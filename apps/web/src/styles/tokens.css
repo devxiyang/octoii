@@ -102,8 +102,8 @@
 	--diff-modified: color-mix(in srgb, var(--info-foreground) 50%, var(--muted-foreground));
 	--glass-border: rgb(0 0 0 / 10%);
 	--shadow-composer: 0 1px 2px rgb(0 0 0 / 5%);
-	/* A panel's, on the canvas: barely there. */
-	--shadow-panel: 0 1px 2px rgb(0 0 0 / 4%);
+	/* What stands a little raised on a tint, as a segmented control's chosen segment does: barely there. */
+	--shadow-raised: 0 1px 2px rgb(0 0 0 / 4%);
 	--shadow-floating: 0 16px 40px -18px rgb(0 0 0 / 55%);
 	--shadow-dialog: 0 24px 64px -24px rgb(0 0 0 / 65%);
 
@@ -145,7 +145,7 @@
 		--diff-modified: color-mix(in srgb, var(--info-foreground) 65%, transparent);
 		--glass-border: rgb(255 255 255 / 8%);
 		--shadow-composer: 0 14px 32px -18px rgb(0 0 0 / 75%);
-		--shadow-panel: none;
+		--shadow-raised: none;
 		--shadow-floating: 0 18px 44px -18px rgb(0 0 0 / 80%);
 		--shadow-dialog: inset 0 1px rgb(255 255 255 / 4%), 0 24px 72px -20px rgb(0 0 0 / 90%);
 	}

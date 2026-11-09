@@ -52,15 +52,15 @@ export function ThreadScreen(props: ThreadScreenProps): ReactNode {
 	const revision = conversation.status ?? "";
 	const details: DetailsProps = { thread, row, turns: conversation.turns, compactions: conversation.compactions, revision };
 	return (
-		<div className="flex min-h-0 min-w-0 flex-1 gap-1.5">
+		<div className="flex min-h-0 min-w-0 flex-1">
 			<div
 				style={detailsShown ? DETAILS_ROOM : undefined}
-				className={cn("panel @container/chat relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden", panelPlace === "full" && "hidden")}
+				className={cn("@container/chat relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background", panelPlace === "full" && "hidden")}
 			>
 				<ChatHeader
 					title={row?.manifest.title ?? (said === undefined ? "New thread" : titleOf(said))}
 					status={row === undefined ? undefined : statusOf(row)}
-					{...(project === undefined ? {} : { project: project.name })}
+					{...(project === undefined ? {} : { project })}
 					sidebarHidden={props.sidebarHidden}
 					onShowSidebar={props.onShowSidebar}
 					actions={<DetailsButtons {...details} />}

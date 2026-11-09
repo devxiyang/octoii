@@ -129,8 +129,8 @@ export function RightPanel(props: RightPanelProps): ReactNode {
 			style={{ "--panel-width": `${String(width)}px` }}
 			className={
 				full
-					? "panel relative flex h-full min-w-0 flex-1 flex-col"
-					: "panel relative flex h-full w-(--panel-width) max-w-[70vw] shrink-0 flex-col max-lg:absolute max-lg:inset-y-1.5 max-lg:right-1.5 max-lg:z-20 max-lg:h-auto max-lg:w-[min(var(--panel-width),calc(100%-0.75rem))] max-lg:max-w-none max-lg:shadow-dialog"
+					? "relative flex h-full min-w-0 flex-1 flex-col bg-background"
+					: "relative flex h-full w-(--panel-width) max-w-[70vw] shrink-0 flex-col border-s border-border bg-background max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-20 max-lg:w-[min(var(--panel-width),100%)] max-lg:max-w-none max-lg:shadow-dialog"
 			}
 		>
 			{full ? null : edge}

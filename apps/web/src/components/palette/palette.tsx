@@ -7,17 +7,20 @@ import { type ReactNode, useState } from "react";
 import { useThreads } from "@octoii-works/octoii-client/react";
 import { MessageSquare, Settings, SquarePen } from "lucide-react";
 import { type Route, withSettings } from "../../core/route.ts";
-import { activeAt, projectOf, projectsOf, threadTitle } from "../../core/threads.ts";
+import { activeAt, type Project, projectOf, projectsOf, threadTitle } from "../../core/threads.ts";
 import { shortAgo } from "../../core/time.ts";
 import { useNow } from "../effects/now.ts";
+import { ProjectMark } from "../files/project-mark.tsx";
 import { Command, CommandDialog, CommandGroup, CommandHints, CommandItem, CommandList, CommandSearch } from "../ui/command.tsx";
-import { Monogram } from "../ui/monogram.tsx";
 
-/** One thing the palette finds: its id, its title, its project under it, what it says on the right, its icon, and where it goes. */
+/**
+ * One thing the palette finds: its id, its title, the project under it — a thread's, null for one of no project — what
+ * it says on the right, its icon, and where it goes.
+ */
 type Found = {
 	readonly id: string;
 	readonly title: string;
-	readonly project?: string;
+	readonly project?: Project | null;
 	readonly aside?: string;
 	readonly icon: ReactNode;
 	readonly to: Route;
@@ -41,13 +44,13 @@ export function Palette(props: {
 	const projectItems: readonly Found[] = projectsOf(rows).map((project) => ({
 		id: `project:${project.folder}`,
 		title: `New thread in ${project.name}`,
-		icon: <Monogram name={project.name} />,
+		icon: <ProjectMark project={project} />,
 		to: { place: "new", project: project.folder },
 	}));
 	const threads: readonly Found[] = rows.slice(0, query === "" ? 12 : 50).map((row) => ({
 		id: row.id,
 		title: threadTitle(row),
-		project: projectOf(row)?.name ?? "No project",
+		project: projectOf(row) ?? null,
 		aside: `${shortAgo(now - activeAt(row))} ago`,
 		icon: <MessageSquare />,
 		to: { place: "thread", thread: row.id },
@@ -64,7 +67,7 @@ export function Palette(props: {
 	].filter((group) => group.items.length > 0);
 	return (
 		<CommandDialog open={props.isOpen} onOpenChange={(open) => (open ? undefined : props.onClose())} title="Command palette">
-			<Command items={groups} value={query} onValueChange={setQuery} itemToStringValue={(item: Found) => `${item.title} ${item.project ?? ""}`}>
+			<Command items={groups} value={query} onValueChange={setQuery} itemToStringValue={(item: Found) => `${item.title} ${item.project?.name ?? ""}`}>
 				<CommandSearch aria-label="Search" placeholder="Search commands, projects, and threads..." />
 				<CommandList empty="Nothing found">
 					{(group: Group) => (
@@ -99,8 +102,8 @@ function FoundRow(props: { readonly item: Found; readonly onTake: (item: Found) 
 				<span className="block truncate">{item.title}</span>
 				{item.project === undefined ? null : (
 					<span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-						<Monogram name={item.project} />
-						<span className="truncate">{item.project}</span>
+						<ProjectMark project={item.project ?? undefined} />
+						<span className="truncate">{item.project?.name ?? "No project"}</span>
 					</span>
 				)}
 			</span>

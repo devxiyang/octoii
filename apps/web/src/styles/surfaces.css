@@ -1,5 +1,5 @@
 /*
- * The surfaces: a panel of the page, a card on the shell's canvas; those that float — the page's own glass, a menu's, a
+ * The surfaces: those that float — the page's own glass, a menu's, a
  * dialog's and the veil behind a dialog, each falling back to its plain colour where the browser blurs nothing; the
  * shimmer of work that goes on, still where the person asks for less motion; and code as the views draw it.
  */
@@ -10,15 +10,6 @@
 	&::-webkit-scrollbar {
 		display: none;
 	}
-}
-
-@utility panel {
-	background-color: var(--background);
-	border-width: 1px;
-	border-style: solid;
-	border-color: color-mix(in oklab, var(--border) 80%, transparent);
-	border-radius: calc(var(--radius) + 4px);
-	box-shadow: var(--shadow-panel);
 }
 
 @utility surface-glass {
