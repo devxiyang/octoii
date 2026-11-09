@@ -3,7 +3,7 @@
  * Octoii tells the model drawn neutral, the rest each in a hue of its own — its share of the window its model takes,
  * and whether the thread compacts now, as its process table shows its one compaction running.
  */
-import { COMPACT_PROGRAM, type Composition, type ContextPart, type Listed } from "@octoii-works/octoii-client";
+import { type Composition, type ContextPart, type Listed } from "@octoii-works/octoii-client";
 import type { MONOGRAM_HUES } from "./monogram.ts";
 
 /** Each part's words, and its hue — none for what Octoii tells the model, drawn neutral. */
@@ -29,5 +29,5 @@ export function sharesOf(composition: Composition, window: number): readonly Par
 
 /** Whether the thread compacts now: its one compaction running, as its process table shows it. */
 export function isCompacting(row: Listed | undefined): boolean {
-	return row?.state.processes.some((process) => process.program === COMPACT_PROGRAM && process.state !== "zombie") ?? false;
+	return row?.standing.compacting ?? false;
 }

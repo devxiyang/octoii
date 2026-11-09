@@ -27,6 +27,9 @@ pub const kind = "siphon.thread";
 /// The programs of a thread's main fiber and of its turns.
 pub const thread_program = "siphon.thread";
 pub const turn_program = "siphon.turn";
+/// The program of the fiber that compacts a thread's window, and its key, beside the thread's main fiber.
+pub const compact_program = "siphon.compact";
+pub const compact_key = "compact";
 
 /// How long an operation's id is kept, so one sent again within it is answered, not done again.
 pub const operation_retention_ms = 24 * std.time.ms_per_hour;
@@ -562,21 +565,61 @@ fn processesOf(runtime: *const Runtime, arena: Allocator, thread: []const u8) ![
     var requests: std.ArrayList(std.ArrayList(Open)) = .empty;
     try requests.appendNTimes(arena, .empty, found.len);
     for (try volume.find(&arena, h.BEAK_REQUEST_KIND, .{ .name = h.BEAK_REQUEST_KIND }, thread)) |entry| {
-        const path = beak.slice(entry.path);
-        const name = beak.slice(entry.name);
-        const of = indexOf(paths, path[0 .. path.len - name.len - 1]) orelse continue;
-        const payload = try optionalFile(volume, arena, try beak.join(arena, path, h.BEAK_PAYLOAD_NAME)) orelse continue;
-        const directory = entry.directory orelse return error.DamagedThread;
-        const asked = beak.labelOf(directory.*.labels, directory.*.label_count, h.BEAK_REQUEST_KIND) orelse return error.DamagedThread;
-        try requests.items[of].append(arena, .{
-            .key = name[h.BEAK_REQUEST_KIND.len + 1 ..],
-            .name = asked,
-            .payload = jsonOf(payload),
-            .answer = if (try runtime.answerSchemaOf(arena, asked, payload)) |schema| try foundation.json.Raw.of(arena, schema) else null,
-        });
+        const of = indexOf(paths, processOfRequest(&entry)) orelse continue;
+        const open = try openOf(runtime, arena, &entry) orelse continue;
+        try requests.items[of].append(arena, open);
     }
     for (out, requests.items) |*process, waiting_on| process.requests = waiting_on.items;
     return out;
+}
+
+/// The path of the process whose request the entry of a request's directory shows.
+fn processOfRequest(entry: *const h.beak_entry) []const u8 {
+    const path = beak.slice(entry.path);
+    return path[0 .. path.len - beak.slice(entry.name).len - 1];
+}
+
+/// The request the entry of a request's directory shows, as it was made, with the JSON Schema a person's answer to it
+/// fits where a person answers it; null for one answered as it was read.
+fn openOf(runtime: *const Runtime, arena: Allocator, entry: *const h.beak_entry) !?Open {
+    const path = beak.slice(entry.path);
+    const name = beak.slice(entry.name);
+    const payload = try optionalFile(runtime.volume, arena, try beak.join(arena, path, h.BEAK_PAYLOAD_NAME)) orelse return null;
+    const directory = entry.directory orelse return error.DamagedThread;
+    const asked = beak.labelOf(directory.*.labels, directory.*.label_count, h.BEAK_REQUEST_KIND) orelse return error.DamagedThread;
+    return .{
+        .key = name[h.BEAK_REQUEST_KIND.len + 1 ..],
+        .name = asked,
+        .payload = jsonOf(payload),
+        .answer = if (try runtime.answerSchemaOf(arena, asked, payload)) |schema| try foundation.json.Raw.of(arena, schema) else null,
+    };
+}
+
+/// What the thread at `thread` asks the person: each request of its fibers a person answers, by the fiber that waits on
+/// it, in the order of their paths.
+fn asksOf(runtime: *const Runtime, arena: Allocator, thread: []const u8) ![]const Ask {
+    var asks: std.ArrayList(Ask) = .empty;
+    for (try runtime.volume.find(&arena, h.BEAK_REQUEST_KIND, .{ .name = h.BEAK_REQUEST_KIND }, thread)) |entry| {
+        const open = try openOf(runtime, arena, &entry) orelse continue;
+        if (open.answer == null) continue;
+        try asks.append(arena, .{ .fiber = beak.keyOf(processOfRequest(&entry)), .request = open });
+    }
+    return asks.items;
+}
+
+/// How the thread at `thread`, whose directory `entry` shows, stands, as a list of them shows it.
+pub fn standingOf(runtime: *const Runtime, arena: Allocator, thread: []const u8, entry: *const h.beak_entry) !Standing {
+    const status = beak.annotationOf(entry, status_annotation) orelse return error.DamagedThread;
+    const compactor = try runtime.volume.stat(&arena, try beak.childPath(arena, thread, compact_key));
+    return .{
+        .status = std.meta.stringToEnum(Status, status) orelse return error.DamagedThread,
+        .began_at = try timeOf(entry, began_annotation),
+        .ended_at = try timeOf(entry, ended_annotation),
+        .usage = try usageOf(runtime.volume, arena, thread),
+        .inbox = try inboxOf(runtime.volume, arena, thread),
+        .asks = try asksOf(runtime, arena, thread),
+        .compacting = if (compactor) |found| beak.outcomeOf(found) == null else false,
+    };
 }
 
 /// How a process stands, as Beak's record of it says.
@@ -639,8 +682,25 @@ pub fn threadOfChange(path: []const u8) ?[]const u8 {
     return path[prefix.len..end];
 }
 
-/// A thread as a list of them shows it: its id, its manifest and its state.
-pub const Listed = struct { id: []const u8, manifest: Manifest, state: State };
+/// A thread as a list of them shows it: its id, its manifest and how it stands — never its fibers, which its state
+/// shows whoever follows it, as `ps` lists the processes `/proc/<pid>` details.
+pub const Listed = struct { id: []const u8, manifest: Manifest, standing: Standing };
+
+/// How a thread stands, as a list of them shows it: its status and the times of its latest turn, what its model
+/// requests used, the inputs waiting in its inbox, what it asks the person — each request a person answers, by the
+/// fiber that waits on it — and whether it compacts.
+pub const Standing = struct {
+    status: Status,
+    began_at: ?i64 = null,
+    ended_at: ?i64 = null,
+    usage: ?Usage = null,
+    inbox: []const Inbound = &.{},
+    asks: []const Ask = &.{},
+    compacting: bool = false,
+};
+
+/// A request a fiber of a thread waits on a person's answer to: the fiber, by its key, and the request as it was made.
+pub const Ask = struct { fiber: []const u8, request: Open };
 
 /// The threads, each as a list shows it.
 pub fn list(runtime: *const Runtime, arena: Allocator) ![]const Listed {
@@ -649,7 +709,7 @@ pub fn list(runtime: *const Runtime, arena: Allocator) ![]const Listed {
     const out = try arena.alloc(Listed, found.len);
     for (found, out) |entry, *listed| {
         const name = beak.slice(entry.name);
-        listed.* = .{ .id = name[kind.len + 1 ..], .manifest = try manifestOf(volume, &arena, name), .state = try stateOf(runtime, arena, name, &entry) };
+        listed.* = .{ .id = name[kind.len + 1 ..], .manifest = try manifestOf(volume, &arena, name), .standing = try standingOf(runtime, arena, name, &entry) };
     }
     return out;
 }
@@ -658,7 +718,7 @@ pub fn list(runtime: *const Runtime, arena: Allocator) ![]const Listed {
 pub fn listedOf(runtime: *const Runtime, arena: Allocator, tid: []const u8) !?Listed {
     const thread = try pathOf(arena, tid);
     const entry = try runtime.volume.stat(&arena, thread) orelse return null;
-    return .{ .id = tid, .manifest = try manifestOf(runtime.volume, &arena, thread), .state = try stateOf(runtime, arena, thread, entry) };
+    return .{ .id = tid, .manifest = try manifestOf(runtime.volume, &arena, thread), .standing = try standingOf(runtime, arena, thread, entry) };
 }
 
 /// The inputs waiting in the inbox of the thread at `thread`, in the order they came.

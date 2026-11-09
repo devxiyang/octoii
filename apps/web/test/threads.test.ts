@@ -1,6 +1,6 @@
 /** The threads as the sidebar shows them, read from their rows as the node lists them. */
 import { describe, expect, it } from "bun:test";
-import type { Listed, State } from "@octoii-works/octoii-client";
+import type { Listed, Standing } from "@octoii-works/octoii-client";
 import { monogramHue } from "../src/core/monogram.ts";
 import {
 	activeAt,
@@ -26,13 +26,13 @@ import {
 	titleOf,
 } from "../src/core/threads.ts";
 
-const idle: State = { status: "replied", inbox: [], processes: [] };
+const idle: Standing = { status: "replied", inbox: [], asks: [], compacting: false };
 
 /** A thread working in `project`'s folder, its project that folder. */
-const row = (id: string, project: string | undefined, state: State = idle, title?: string): Listed => ({
+const row = (id: string, project: string | undefined, standing: Standing = idle, title?: string): Listed => ({
 	id,
 	manifest: { mode: "default", ...(project === undefined ? {} : { workspace: project, project }), ...(title === undefined ? {} : { title }) },
-	state,
+	standing,
 });
 
 /** `sub`, delegated to by the thread `parent`. */
@@ -49,19 +49,20 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
 /** A thread a call of which asks the person to let it, the ask minted at `at`. */
-const asking = (at: number): State => ({
+const asking = (at: number): Standing => ({
 	...idle,
 	status: "running",
 	began_at: at - 10,
-	processes: [{ key: "call", program: "siphon.call", state: "sleeping", requests: [{ key: idAt(at), name: "permission", answer: {} }] }],
+	asks: [{ fiber: "call", request: { key: idAt(at), name: "permission", answer: {} } }],
 });
 
 describe("the threads", () => {
 	it("stand as what waits on the person first, then work, then how the last turn ended", () => {
-		const asking: State = {
+		const asking: Standing = {
 			status: "running",
 			inbox: [],
-			processes: [{ key: "trust-1", program: "siphon.trust", state: "sleeping", requests: [{ key: "a", name: "trust", answer: {} }] }],
+			asks: [{ fiber: "trust-1", request: { key: "a", name: "trust", answer: {} } }],
+			compacting: false,
 		};
 		expect(statusOf(row("1", undefined, asking))).toBe("asks");
 		expect(statusOf(row("2", undefined, { ...idle, status: "running" }))).toBe("working");
@@ -118,7 +119,7 @@ describe("the threads", () => {
 
 	it("pinned stand atop, snoozed apart till their time comes, and archived in no section", () => {
 		const now = 1_000_000;
-		const resting: State = { ...idle, ended_at: now - 1 };
+		const resting: Standing = { ...idle, ended_at: now - 1 };
 		const rows = [
 			{ ...row("5", undefined), manifest: { ...row("5", undefined).manifest, pinned: true } },
 			{ ...row("4", undefined, resting), manifest: { ...row("4", undefined).manifest, snoozed_until: now + 1 } },
@@ -141,7 +142,7 @@ describe("the threads", () => {
 		const seen = { ...resting, manifest: { ...resting.manifest, seen_until: 5_000 } };
 		expect([isUnread(seen, standingOf(seen)), canMarkUnread(seen, standingOf(seen))]).toEqual([false, true]);
 		// A turn that ends after what was seen brings something new.
-		const again = { ...seen, state: { ...seen.state, ended_at: 9_000 } };
+		const again = { ...seen, standing: { ...seen.standing, ended_at: 9_000 } };
 		expect([isUnread(again, standingOf(again)), canMarkUnread(again, standingOf(again))]).toEqual([true, false]);
 		// What works, or never ran, brought nothing yet: never unread, nothing to mark unread.
 		const working = row("2", undefined, { ...idle, status: "running", began_at: 9_500 });
@@ -202,7 +203,7 @@ describe("the threads", () => {
 	it("were last at work as their latest turn began, else as they were made", () => {
 		const made = row("01900000-0000-7000-8000-000000000001", undefined);
 		expect(activeAt(made)).toBe(0x01900000_0000);
-		expect(activeAt({ ...made, state: { ...made.state, began_at: 1_700_000_000_000, ended_at: 1_700_000_005_000 } })).toBe(1_700_000_000_000);
+		expect(activeAt({ ...made, standing: { ...made.standing, began_at: 1_700_000_000_000, ended_at: 1_700_000_005_000 } })).toBe(1_700_000_000_000);
 	});
 
 	it("find the sub-thread a delegating call gave its task to among the thread's own: the one it names, or the one it made", () => {

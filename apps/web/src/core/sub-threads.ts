@@ -12,7 +12,7 @@ export type Standing = "running" | "completed" | "failed" | "stopped";
 /** How the sub-thread `row` stands, by its status; where it is not listed — not made, or deleted — as `call` stands. */
 export function standingOf(row: Listed | undefined, call?: CallLine): Standing {
 	if (row !== undefined) {
-		switch (row.state.status) {
+		switch (row.standing.status) {
 			case "created":
 			case "running":
 				return "running";
@@ -44,7 +44,7 @@ export type Worked = { readonly began: number; readonly ended: number | undefine
 
 /** When the sub-threads `rows` worked on what they were last given; none where none began, or none is listed. */
 export function workedOf(rows: readonly (Listed | undefined)[]): Worked | undefined {
-	const spans = rows.flatMap((row) => (row?.state.began_at === undefined ? [] : [{ began: row.state.began_at, ended: row.state.ended_at }]));
+	const spans = rows.flatMap((row) => (row?.standing.began_at === undefined ? [] : [{ began: row.standing.began_at, ended: row.standing.ended_at }]));
 	if (spans.length === 0) return undefined;
 	const ends = spans.flatMap((span) => (span.ended === undefined ? [] : [span.ended]));
 	return { began: Math.min(...spans.map((span) => span.began)), ended: ends.length < spans.length ? undefined : Math.max(...ends) };

@@ -79,7 +79,7 @@ describe("the model picker", () => {
 		const row = (id: string, chosen?: string): Listed => ({
 			id,
 			manifest: { mode: "auto", ...(chosen === undefined ? {} : { model: chosen }) },
-			state: { status: "replied", inbox: [], processes: [] },
+			standing: { status: "replied", inbox: [], asks: [], compacting: false },
 		});
 		expect(recentModelsOf([row("3", "b"), row("2"), row("1", "a"), row("0", "b")])).toEqual(["b", "a"]);
 		expect(toggledFavorite(["a"], "b")).toEqual(["a", "b"]);

@@ -298,11 +298,28 @@ export const CompositionSchema = Type.Object({
 });
 export type Composition = Static<typeof CompositionSchema>;
 
-/** The program of a thread's compaction, as its process table names it: one at a time, beside its main fiber. */
-export const COMPACT_PROGRAM = "siphon.compact";
+/** A request a fiber of a thread waits on a person's answer to: the fiber, by its key, and the request as it was made. */
+export const AskSchema = Type.Object({ fiber: Type.String(), request: OpenRequestSchema });
+export type ThreadAsk = Static<typeof AskSchema>;
 
-/** A thread as a list of them shows it. */
-export const ListedSchema = Type.Object({ id: Type.String(), manifest: ManifestSchema, state: StateSchema });
+/**
+ * How a thread stands, as a list of them shows it: its status and the times of its latest turn, what its model requests
+ * used, the inputs waiting in its inbox, what it asks the person, and whether it compacts — never its fibers, which its
+ * state shows whoever follows it.
+ */
+export const StandingSchema = Type.Object({
+	status: StatusSchema,
+	began_at: Type.Optional(Type.Number()),
+	ended_at: Type.Optional(Type.Number()),
+	usage: Type.Optional(UsageSchema),
+	inbox: Type.Array(InboundSchema),
+	asks: Type.Array(AskSchema),
+	compacting: Type.Boolean(),
+});
+export type Standing = Static<typeof StandingSchema>;
+
+/** A thread as a list of them shows it: its id, its manifest and how it stands. */
+export const ListedSchema = Type.Object({ id: Type.String(), manifest: ManifestSchema, standing: StandingSchema });
 export type Listed = Static<typeof ListedSchema>;
 
 /** How a call of a tool came out. */

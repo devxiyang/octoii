@@ -23,10 +23,10 @@ const compaction = @import("compaction.zig");
 const models_ = @import("models.zig");
 
 /// The program of the fiber that compacts.
-pub const program = "siphon.compact";
+pub const program = threads.compact_program;
 
 /// The key of the fiber that compacts, beside the thread's main fiber.
-const key = "compact";
+const key = threads.compact_key;
 
 /// Registers the program of the fiber that compacts.
 pub fn register(runtime: *Runtime) !void {

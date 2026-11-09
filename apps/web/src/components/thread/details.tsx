@@ -244,7 +244,7 @@ function Spending(props: {
 }): ReactNode {
 	const window = modelOf(useDirectory(), props.row?.manifest.model)?.context_length;
 	const context = contextOf(props.turns, window);
-	const usage = props.row?.state.usage;
+	const usage = props.row?.standing.usage;
 	if (context === undefined && usage === undefined) return null;
 	return (
 		<section className="p-1.5">

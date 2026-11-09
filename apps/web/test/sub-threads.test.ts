@@ -1,13 +1,13 @@
 /** Sub-threads as the thread that delegated to them shows them: how each stands, a step's gathered, what one said in a line. */
 import { describe, expect, it } from "bun:test";
-import type { Listed, State } from "@octoii-works/octoii-client";
+import type { Listed, Standing } from "@octoii-works/octoii-client";
 import { plainLine, standingOf, standingsSummary, workedOf } from "../src/core/sub-threads.ts";
 import type { CallLine } from "../src/core/timeline.ts";
 
-const sub = (status: State["status"], span: Pick<State, "began_at" | "ended_at"> = {}): Listed => ({
+const sub = (status: Standing["status"], span: Pick<Standing, "began_at" | "ended_at"> = {}): Listed => ({
 	id: "s",
 	manifest: { mode: "auto", parent: { thread: "p", call: "c" } },
-	state: { status, ...span, inbox: [], processes: [] },
+	standing: { status, ...span, inbox: [], asks: [], compacting: false },
 });
 
 const delegation = (id: string, state: CallLine["state"] = "done"): CallLine => ({

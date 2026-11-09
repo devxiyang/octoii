@@ -20,15 +20,13 @@ export type ThreadStatus = "asks" | "working" | "failed" | "ready";
 /** How a thread stands: what waits on the person first, then a turn that runs or inputs that wait, then how the last ended. */
 export function statusOf(row: Listed): ThreadStatus {
 	if (asksOf(row).length > 0) return "asks";
-	if (row.state.status === "running" || row.state.inbox.length > 0) return "working";
-	return row.state.status === "failed" ? "failed" : "ready";
+	if (row.standing.status === "running" || row.standing.inbox.length > 0) return "working";
+	return row.standing.status === "failed" ? "failed" : "ready";
 }
 
 /** What a thread waits on the person for, each as its fiber asks it. */
 export function asksOf(row: Listed): readonly Ask[] {
-	return row.state.processes.flatMap((process) =>
-		process.requests.filter((request) => request.answer !== undefined).map((request) => ({ fiber: process.key, call: undefined, request })),
-	);
+	return row.standing.asks.map((ask) => ({ fiber: ask.fiber, call: undefined, request: ask.request }));
 }
 
 /** When a thread asked the person last, in ms, as the key of its newest request was minted; none where it asks nothing. */
@@ -65,7 +63,7 @@ export function standingsOf(rows: readonly Listed[]): (row: Listed) => ThreadSta
 function sinceOf(row: Listed, status: ThreadStatus): number {
 	if (status === "asks") return askedAt(row);
 	if (status === "working") return activeAt(row);
-	return row.state.ended_at ?? activeAt(row);
+	return row.standing.ended_at ?? activeAt(row);
 }
 
 /**
@@ -76,7 +74,7 @@ function sinceOf(row: Listed, status: ThreadStatus): number {
 export function arrivedAt(row: Listed, standing: ThreadStanding): number {
 	if (standing.status === "asks") return standing.since;
 	if (standing.status === "working") return 0;
-	return row.state.ended_at ?? 0;
+	return row.standing.ended_at ?? 0;
 }
 
 /** Whether a thread brought the person something they have not seen yet. */
@@ -155,7 +153,7 @@ export function threadTitle(row: Listed): string {
 
 /** When a thread last set to work, in ms: its latest turn's beginning, else its making, as its id was minted. */
 export function activeAt(row: Listed): number {
-	return row.state.began_at ?? mintedAt(row.id);
+	return row.standing.began_at ?? mintedAt(row.id);
 }
 
 /** A thread's project: the folder of the repository it works in, else the folder it works in; none for one that works in no folder. */

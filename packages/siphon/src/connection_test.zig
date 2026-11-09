@@ -423,7 +423,7 @@ fn rowsOf(client: Client) ![]const [2][]const u8 {
     for (try client.taken()) |message| {
         const event = field(message, &.{"event"}) orelse continue;
         if (!std.mem.eql(u8, event.string, "thread")) continue;
-        try out.append(client.arena, .{ field(message, &.{ "thread", "id" }).?.string, field(message, &.{ "thread", "state", "status" }).?.string });
+        try out.append(client.arena, .{ field(message, &.{ "thread", "id" }).?.string, field(message, &.{ "thread", "standing", "status" }).?.string });
     }
     return out.items;
 }
