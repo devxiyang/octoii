@@ -48,21 +48,10 @@ fn take(providers: *Providers, now_ms: i64) ?Pending {
     return null;
 }
 
-/// How a provider is connected: by an API key the person gives; by a sign-in in a browser; or as a server of the
-/// person's, which takes a key or none and says itself how it stands.
-pub const Connects = enum { api_key, sign_in, server };
-
-fn connectsOf(provider: *const ai.driver.Provider) Connects {
-    if (provider.driver.sign_in != null) return .sign_in;
-    // A driver that says how its provider stands judges it itself; one that does not is judged by the credential kept.
-    if (provider.driver.status != null) return .server;
-    return .api_key;
-}
-
-/// A provider as a client is told of it: its id and name, how it is connected, and the kind of credential the host
-/// keeps for it — `api_key`, `oauth` or `none` — none where it keeps none; for an account the person added, the host's
+/// A provider as a client is told of it: its id and name, how it is connected — through which agent, where it is — and
+/// the kind of credential the host keeps for it — `api_key`, `oauth` or `none` — none where it keeps none; for an account the person added, the host's
 /// provider it is another of and the name it was given; and its quota, where it is used up still.
-const Listed = struct { id: []const u8, name: []const u8, connects: Connects, credential: ?[]const u8 = null, account: ?Added = null, used_up: ?Accounts.UsedUp = null };
+const Listed = struct { id: []const u8, name: []const u8, connects: Accounts.Connects, through: ?[]const u8 = null, credential: ?[]const u8 = null, account: ?Added = null, used_up: ?Accounts.UsedUp = null };
 
 /// An account the person added, as a provider listed tells of it: the host's provider it is another of, by its id, and
 /// the name it was given.
@@ -77,7 +66,7 @@ pub fn list(connection: *Connection, arena: Allocator, id: []const u8, _: struct
     for (ids, listed) |provider_id, *each| {
         const provider = clients.models.provider(provider_id).?;
         const held = if (clients.credentials) |store| store.read(arena, provider_id) catch null else null;
-        each.* = .{ .id = provider_id, .name = provider.name, .connects = connectsOf(provider), .credential = if (held) |credential| if (credential.usable()) @tagName(credential) else null else null };
+        each.* = .{ .id = provider_id, .name = provider.name, .connects = Accounts.connectsOf(provider), .through = provider.driver.through, .credential = if (held) |credential| if (credential.usable()) @tagName(credential) else null else null };
         for (added) |account| if (std.mem.eql(u8, account.id, provider_id)) {
             each.account = .{ .of = account.provider, .name = account.name };
         };

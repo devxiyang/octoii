@@ -39,6 +39,20 @@ made: std.ArrayList(std.heap.ArenaAllocator) = .empty,
 /// An account, as a list shows it: its id, the provider it is another of, by its id, and the name it was given.
 pub const Account = struct { id: []const u8, provider: []const u8, name: []const u8 };
 
+/// How a provider is connected: by an API key the person gives; by a sign-in in a browser; through an agent on this
+/// computer, signed in to on its own; or as a server of the person's, which takes a key or none and says itself how it
+/// stands. Each but a server takes accounts: another key, sign-in or login of it; another account of a server would
+/// reach the same server.
+pub const Connects = enum { api_key, sign_in, agent, server };
+
+pub fn connectsOf(provider: *const ai.driver.Provider) Connects {
+    if (provider.driver.sign_in != null) return .sign_in;
+    if (provider.driver.through != null) return .agent;
+    // A driver that says how its provider stands judges it itself; one that does not is judged by the credential kept.
+    if (provider.driver.status != null) return .server;
+    return .api_key;
+}
+
 pub fn init(gpa: Allocator, host: []const ai.driver.Provider) Accounts {
     return .{ .gpa = gpa, .host = host };
 }
@@ -105,7 +119,8 @@ pub fn list(volume: beak.Volume, arena: Allocator) ![]const Account {
 /// Adds an account of the host's provider `provider`, named `name`: its id. Added again under the same `operation`
 /// within a day, it is the account already added.
 pub fn add(accounts: *const Accounts, runtime: *Runtime, arena: Allocator, provider: []const u8, name: []const u8, operation: []const u8) ![]const u8 {
-    if (providerIn(accounts.host, provider) == null) return error.UnknownProvider;
+    const base = providerIn(accounts.host, provider) orelse return error.UnknownProvider;
+    if (connectsOf(base) == .server) return error.TakesNoAccounts;
     const named = try nameOf(name);
     if (try operations.before(runtime, arena, operation, "accounts.add", null)) |done| return done.result;
     const time = runtime.now();

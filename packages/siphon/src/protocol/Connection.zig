@@ -356,6 +356,7 @@ fn refusalOf(err: anyerror) Refusal {
         error.NoSignIn => .{ .code = "no-sign-in", .told = "No sign-in waits for its end: begin one." },
         error.NoSuchAccount => .{ .code = "no-such-account", .told = "No account the person added has that id." },
         error.InvalidName => .{ .code = "invalid", .told = "An account's name is words of 1 to 64 bytes." },
+        error.TakesNoAccounts => .{ .code = "invalid", .told = "A server of the person's takes no accounts: another would reach the same server." },
         // The host's access.
         error.NoAccess => .{ .code = "unavailable", .told = "The host keeps no access." },
         error.WiderThanSession => .{ .code = "forbidden", .told = "A link grants no more than the session that makes it." },

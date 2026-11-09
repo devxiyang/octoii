@@ -22,6 +22,9 @@ pub const Driver = struct {
     context: ?*anyopaque = null,
     /// For people, such as "Anthropic".
     name: []const u8,
+    /// The agent its provider is reached through, signed in to on its own, such as "Claude Code"; none for one the host
+    /// reaches itself.
+    through: ?[]const u8 = null,
     /// The driver whose catalogue entries its models take, such as "anthropic"; none, none.
     catalogue: ?[]const u8 = null,
     /// Whether the provider metadata it writes on an item holds for every model its providers serve, as metadata that

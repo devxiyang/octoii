@@ -4,11 +4,14 @@
  */
 import type { ReactNode } from "react";
 
-/** A section's heading: its title, and an action beside it. */
-export function SectionHeading(props: { readonly title: string; readonly action?: ReactNode }): ReactNode {
+/** A section's heading: its title, an icon before it, and an action beside it. */
+export function SectionHeading(props: { readonly title: string; readonly icon?: ReactNode; readonly action?: ReactNode }): ReactNode {
 	return (
 		<div className="flex min-h-control-sm items-center justify-between px-1">
-			<h3 className="text-sm font-semibold">{props.title}</h3>
+			<h3 className="flex items-center gap-2 text-sm font-semibold">
+				{props.icon}
+				{props.title}
+			</h3>
 			{props.action}
 		</div>
 	);

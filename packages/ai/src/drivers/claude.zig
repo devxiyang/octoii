@@ -20,7 +20,7 @@ const anthropic = @import("anthropic.zig");
 /// Where the agent gateway answers for Claude, on the host's channel to it.
 pub const base_url = "gateway://claude/v1";
 
-pub const driver: seam.Driver = .{ .id = "claude", .name = "Claude", .text = text, .list = list, .status = status, .forget = forget, .instance = instance };
+pub const driver: seam.Driver = .{ .id = "claude", .name = "Claude", .through = "Claude Code", .text = text, .list = list, .status = status, .forget = forget, .instance = instance };
 
 /// An added account, at its own address on the gateway.
 fn instance(arena: std.mem.Allocator, account: []const u8, base: seam.Settings) std.mem.Allocator.Error!seam.Settings {

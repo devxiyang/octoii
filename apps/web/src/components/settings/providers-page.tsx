@@ -11,7 +11,7 @@ import { type FormEvent, type ReactNode, useState, useTransition } from "react";
 import { Tabs } from "@base-ui/react/tabs";
 import type { Provider } from "@octoii-works/octoii-client";
 import { useClient } from "@octoii-works/octoii-client/react";
-import { RefreshCw } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import { isSignInReturn } from "../../core/sign-in.ts";
 import { useOnFocus } from "../effects/focus.ts";
 import { useRead } from "../effects/read.ts";
@@ -19,6 +19,8 @@ import { type Finishing, useSignInFinish } from "../effects/sign-in.ts";
 import { takeSignInReturn } from "../state/sign-in.ts";
 import { Button } from "../ui/button.tsx";
 import { Field } from "../ui/input.tsx";
+import { Dialog, DialogClose, DialogDescription, DialogPopup, DialogTitle } from "../ui/dialog.tsx";
+import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu.tsx";
 import { Monogram } from "../ui/monogram.tsx";
 import { Page, Row, SectionHeading } from "./layout.tsx";
 import { failed } from "../state/notices.ts";
@@ -30,8 +32,10 @@ function standing(provider: Provider): string {
 			return provider.credential === undefined ? "No key" : "Key kept";
 		case "sign_in":
 			return provider.credential === undefined ? "Not signed in" : "Signed in";
+		case "agent":
+			return `Through ${provider.through ?? "its agent"}`;
 		case "server":
-			return "A server of yours";
+			return "On this computer";
 	}
 }
 
@@ -118,6 +122,14 @@ function ProviderList(props: {
 								<span className="mt-1.5 size-2 shrink-0 rounded-full bg-muted-foreground/30 group-data-connected/provider:bg-success" />
 							</Tabs.Tab>
 						))}
+						{/* Each provider but a server of the person's takes accounts: another account of a server would reach the same server. */}
+						<AddAccountLine
+							hosts={providers.filter((each) => each.account === undefined && each.connects !== "server")}
+							onAdded={(id) => {
+								props.onChanged();
+								props.onChoose(id);
+							}}
+						/>
 					</Tabs.List>
 					{providers.map((each) => (
 						<Tabs.Panel key={each.id} value={each.id} className="min-w-0 outline-none">
@@ -165,47 +177,99 @@ function ProviderDetails(props: { readonly provider: Provider; readonly onChange
 			<Row title="Status" description={stood} />
 			{provider.connects === "api_key" ? <KeyDetails provider={provider} onChanged={props.onChanged} onFailed={failed} /> : null}
 			{provider.connects === "sign_in" ? <SignInDetails provider={provider} onChanged={props.onChanged} onFailed={failed} /> : null}
-			{provider.connects === "server" ? (
-				<Row title="Server" description="Runs on this computer and needs no key: its models are listed as it answers." />
-			) : null}
-			{provider.account === undefined ? (
-				<AddAccount
-					provider={provider}
-					onAdded={(id) => {
-						props.onChanged();
-						props.onChoose(id);
-					}}
-					onFailed={failed}
+			{provider.connects === "agent" ? (
+				<Row
+					title={`Signed in through ${provider.through ?? "its agent"}`}
+					description="Its own sign-in on this computer, and its plan's limits: each account of it a sign-in of its own."
 				/>
-			) : (
-				<AccountDetails provider={provider} onChanged={props.onChanged} onFailed={failed} />
-			)}
+			) : null}
+			{provider.connects === "server" ? (
+				<Row title="On this computer" description="A server of yours that needs no key: its models are listed as it answers." />
+			) : null}
+			{provider.account === undefined ? null : <AccountDetails provider={provider} onChanged={props.onChanged} onFailed={failed} />}
 			{refused === undefined ? null : <p className="px-3.5 py-3 text-xs text-error-foreground">{refused}</p>}
 		</div>
 	);
 }
 
-/** Another account of a provider to add, by the name the person gives it: a second sign-in, login or key of it. */
-function AddAccount(props: { readonly provider: Provider; readonly onAdded: (id: string) => void; readonly onFailed: (error: unknown) => void }): ReactNode {
+/**
+ * The list's last line: another account of one of the node's providers — a second key, sign-in or login of it, its
+ * models told apart by its name — the provider chosen from a menu, the account named in a dialog; once added, it is
+ * chosen, its details next, where its key, sign-in or login is given.
+ */
+function AddAccountLine(props: { readonly hosts: readonly Provider[]; readonly onAdded: (id: string) => void }): ReactNode {
 	const client = useClient();
-	const { provider } = props;
+	const [of, setOf] = useState<Provider | undefined>(undefined);
+	const [open, setOpen] = useState(false);
 	const [name, setName] = useState("");
+	const [refused, setRefused] = useState<string | undefined>(undefined);
+	const [adding, startAdding] = useTransition();
+	const choose = (host: Provider): void => {
+		setOf(host);
+		setName("");
+		setRefused(undefined);
+		setOpen(true);
+	};
 	const add = (event: FormEvent): void => {
 		event.preventDefault();
-		if (name.trim() === "") return;
-		client.addAccount(provider.id, name.trim()).then(props.onAdded, props.onFailed);
-		setName("");
+		if (of === undefined || name.trim() === "") return;
+		startAdding(async () => {
+			try {
+				const id = await client.addAccount(of.id, name.trim());
+				setOpen(false);
+				props.onAdded(id);
+			} catch (error) {
+				setRefused(error instanceof Error ? error.message : String(error));
+			}
+		});
 	};
 	return (
-		<Row title="Another account" description={`Another sign-in, login or key of ${provider.name}, its models told apart by its name.`}>
-			<form onSubmit={add} className="flex items-center gap-2">
-				<Field label={`The name of another ${provider.name} account`} placeholder="Name, such as Work" value={name} onValueChange={setName} className="w-48" />
-				<Button type="submit" size="sm" variant="outline" disabled={name.trim() === ""}>
-					Add
-				</Button>
-			</form>
-		</Row>
+		<>
+			<Menu>
+				<MenuTrigger className="flex items-center gap-2.5 px-4 py-3 text-left text-ui text-muted-foreground outline-none hover:bg-accent/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-inset">
+					<Plus className="size-4" />
+					Add account
+				</MenuTrigger>
+				<MenuPopup align="start" className="w-56">
+					{props.hosts.map((host) => (
+						<MenuItem key={host.id} onClick={() => choose(host)}>
+							<Monogram name={host.name} />
+							{host.name}
+						</MenuItem>
+					))}
+				</MenuPopup>
+			</Menu>
+			<Dialog open={open} onOpenChange={setOpen}>
+				<DialogPopup className="w-[26rem] max-w-[calc(100vw-2rem)] p-5">
+					<form onSubmit={add}>
+						<DialogTitle className="text-base font-semibold">Another {of?.name} account</DialogTitle>
+						<DialogDescription className="mt-2 text-sm text-balance text-muted-foreground">{of === undefined ? null : accountWords(of)}</DialogDescription>
+						<Field label="The account's name" placeholder="Name, such as Work" value={name} onValueChange={setName} className="mt-4" />
+						{refused === undefined ? null : <p className="mt-2 text-sm text-error-foreground">{refused}</p>}
+						<div className="mt-5 flex justify-end gap-2">
+							<DialogClose render={<Button variant="outline" size="sm" />}>Cancel</DialogClose>
+							<Button type="submit" size="sm" disabled={adding || name.trim() === ""}>
+								{adding ? "Adding…" : "Add"}
+							</Button>
+						</div>
+					</form>
+				</DialogPopup>
+			</Dialog>
+		</>
 	);
+}
+
+/** What another account of `provider` is, and what is given once it is added. */
+function accountWords(provider: Provider): string {
+	switch (provider.connects) {
+		case "agent":
+			return `A login of ${provider.through ?? "its agent"} of its own, its models told apart by its name. Once it is added, its details tell how to sign in to it.`;
+		case "sign_in":
+			return "A sign-in of its own, its models told apart by its name. Once it is added, sign in to it with the other account.";
+		case "api_key":
+		case "server":
+			return "A key of its own, its models told apart by its name. Once it is added, give it its key.";
+	}
 }
 
 /** An account the person added: its name to change, and the account to remove, its sign-in or key forgotten with it. */

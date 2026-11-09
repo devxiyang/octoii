@@ -10,9 +10,12 @@ import { tokens } from "./numbers.ts";
 /** What the picker draws on: the models the node lists, and its providers, each with how it is connected. */
 export type Directory = { readonly models: readonly Model[]; readonly providers: readonly Provider[] };
 
-/** Whether a provider's models may be chosen: it holds a credential, or it is a server, whose models are listed as it answers. */
+/**
+ * Whether a provider's models may be chosen: it holds a credential, or it is a server or reached through an agent, whose
+ * models are listed as it answers.
+ */
 export function isConnected(provider: Provider): boolean {
-	return provider.connects === "server" || provider.credential !== undefined;
+	return provider.connects === "server" || provider.connects === "agent" || provider.credential !== undefined;
 }
 
 /** A model as the picker offers it. */

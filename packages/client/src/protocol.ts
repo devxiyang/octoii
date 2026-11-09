@@ -397,10 +397,11 @@ export const EntrySchema = Type.Union([
 export type Entry = Static<typeof EntrySchema>;
 
 /**
- * How a provider is connected: by an API key the person gives; by a sign-in in a browser; or as a server of the
- * person's, which takes a key or none and says itself how it stands.
+ * How a provider is connected: by an API key the person gives; by a sign-in in a browser; through an agent on the node's
+ * computer, signed in to on its own; or as a server of the person's, which takes a key or none and says itself how it
+ * stands.
  */
-export const ConnectsSchema = Type.Union([Type.Literal("api_key"), Type.Literal("sign_in"), Type.Literal("server")]);
+export const ConnectsSchema = Type.Union([Type.Literal("api_key"), Type.Literal("sign_in"), Type.Literal("agent"), Type.Literal("server")]);
 export type Connects = Static<typeof ConnectsSchema>;
 
 /** An account the person added of one of the node's providers: the provider it is another of, by its id, and the name it was given. */
@@ -416,6 +417,8 @@ export const ProviderSchema = Type.Object({
 	id: Type.String(),
 	name: Type.String(),
 	connects: ConnectsSchema,
+	/** The agent it is reached through, such as "Claude Code", where it is. */
+	through: Type.Optional(Type.String()),
 	credential: Type.Optional(Type.String()),
 	account: Type.Optional(AddedSchema),
 	/** Its quota, where it is used up still. */
