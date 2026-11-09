@@ -1,10 +1,11 @@
 /**
  * Asking before a thread is deleted, as it goes for good: its title, what goes with it, and the button that deletes it,
- * which waits on the node while it deletes; the place shown left for the home where it was the thread deleted.
+ * which waits on the node while it deletes; the place shown left for home where it was the thread deleted.
  */
 import { type ReactNode, useState, useTransition } from "react";
 import type { Listed } from "@octoii-works/octoii-client";
 import { useClient } from "@octoii-works/octoii-client/react";
+import { HOME } from "../../core/route.ts";
 import { threadTitle } from "../../core/threads.ts";
 import { go, useRoute } from "../state/navigation.ts";
 import { Button } from "../ui/button.tsx";
@@ -24,7 +25,7 @@ export function DeleteDialog(props: DeleteDialogProps): ReactNode {
 			try {
 				await client.delete(props.row.id);
 				props.onOpenChange(false);
-				if (route.place === "thread" && route.thread === props.row.id) go({ place: "home" });
+				if (route.place === "thread" && route.thread === props.row.id) go(HOME);
 			} catch (error) {
 				setFailure(error instanceof Error ? error.message : String(error));
 			}

@@ -5,17 +5,23 @@ import { isSignInReturn } from "../src/core/sign-in.ts";
 describe("a route's address", () => {
 	const places: readonly Route[] = [
 		HOME,
-		{ place: "new" },
 		{ place: "new", project: "/work/octoii" },
 		{ place: "thread", thread: "0199f0c2-7a10-7000-8000-000000000001" },
 		{ place: "thread", thread: "t1", over: { kind: "settings", section: "providers" } },
-		{ place: "home", over: { kind: "settings", section: "general" } },
+		{ ...HOME, over: { kind: "settings", section: "general" } },
 	];
 
 	it("reads back as the place it names, each name encoded", () => {
 		for (const place of places) expect(routeOf(routeAddress(place))).toEqual(place);
 		expect(routeAddress({ place: "new", project: "/work/octoii" })).toBe("#/new/%2Fwork%2Foctoii");
 		expect(routeAddress({ place: "thread", thread: "t1", over: { kind: "settings", section: "chat" } })).toBe("#/thread/t1?settings=chat");
+	});
+
+	it("is home, a new thread in the last project's folder, at the root", () => {
+		expect(HOME).toEqual({ place: "new" });
+		expect(routeAddress(HOME)).toBe("#/");
+		expect(routeAddress({ ...HOME, over: { kind: "settings", section: "general" } })).toBe("#/?settings=general");
+		expect(routeOf("#/new")).toEqual(HOME);
 	});
 
 	it("leads home from an address it cannot read, and opens no settings for a section it does not know", () => {

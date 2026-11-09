@@ -1,6 +1,6 @@
 /**
- * The app: the sidebar, which ⌘B hides — a drawer over the page where it is narrow; the chat — the inbox at home, a
- * thread beside the right panel ⌘⌥B shows, or over it where the page is narrow, or a new one; settings
+ * The app: the sidebar, which ⌘B hides — a drawer over the page where it is narrow; the chat — a thread beside the
+ * right panel ⌘⌥B shows, or over it where the page is narrow, or a new one, at home; settings
  * over it where the route opens them; the command palette, ⌘K; and the notices of what failed, over everything. The
  * device's theme applies throughout; where the node knows this browser by no session, the pairing page.
  */
@@ -17,7 +17,6 @@ import { go, useRoute } from "../components/state/navigation.ts";
 import { placePanel, usePanelPlace } from "../components/state/panel.ts";
 import { cn } from "../components/ui/cn.ts";
 import { TooltipProvider } from "../components/ui/tooltip.tsx";
-import { InboxScreen } from "../screens/inbox.tsx";
 import { NewThreadScreen } from "../screens/new-thread.tsx";
 import { ThreadScreen } from "../screens/thread.tsx";
 import { ConnectionLine, PairingPage, unpaired } from "./access.tsx";
@@ -74,10 +73,8 @@ export function App(): ReactNode {
 						<main className={cn("relative flex min-w-0 flex-1 gap-1.5 py-1.5 pe-1.5 max-md:ps-1.5", sidebarHidden && "ps-1.5")}>
 							{route.place === "thread" ? (
 								<ThreadScreen key={route.thread} thread={route.thread} device={device} sidebarHidden={sidebarHidden} onShowSidebar={showSidebar} />
-							) : route.place === "new" ? (
-								<NewThreadScreen key={route.project ?? ""} project={route.project} device={device} sidebarHidden={sidebarHidden} onShowSidebar={showSidebar} />
 							) : (
-								<InboxScreen sidebarHidden={sidebarHidden} onShowSidebar={showSidebar} />
+								<NewThreadScreen key={route.project ?? ""} project={route.project} device={device} sidebarHidden={sidebarHidden} onShowSidebar={showSidebar} />
 							)}
 						</main>
 					</div>
@@ -85,7 +82,7 @@ export function App(): ReactNode {
 						section={settingsOf(route)}
 						onSection={(section) => go(withOverlay(route, section === undefined ? undefined : { kind: "settings", section }))}
 					/>
-					<Palette isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} onGo={go} />
+					<Palette route={route} isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} onGo={go} />
 				</div>
 			</TooltipProvider>
 		</NoticesProvider>

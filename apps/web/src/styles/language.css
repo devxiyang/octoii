@@ -36,15 +36,7 @@
 	@apply rounded-lg bg-muted;
 }
 
-/*
- * A tray set into a page, for a column of cards: a tint of the ink over whatever the page is, so the cards it holds
- * stand lighter than it in every theme; rounded as they are, a step out.
- */
-@utility tray {
-	@apply rounded-2xl bg-foreground/4 p-1.5;
-}
-
-/* A label over a group, quiet: small capitals, spaced — an inbox's columns, a waterfall's heads. */
+/* A label over a group, quiet: small capitals, spaced — a waterfall's heads, the folders a chooser lists. */
 @utility label-caps {
 	@apply text-2xs font-medium tracking-caps text-muted-foreground uppercase;
 }

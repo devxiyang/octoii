@@ -57,8 +57,8 @@ export function AskInline(props: { readonly thread: string; readonly ask: Ask })
 	);
 }
 
-/** The answer of one request, by what its form asks: on its card in the timeline, or on its thread's in the inbox. */
-export function AskForm(props: {
+/** The answer of one request, by what its form asks. */
+function AskForm(props: {
 	readonly thread: string;
 	readonly workspace: string | undefined;
 	readonly project: string | undefined;

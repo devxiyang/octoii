@@ -5,8 +5,8 @@
  */
 import { type ReactNode, useState } from "react";
 import { useThreads } from "@octoii-works/octoii-client/react";
-import { Inbox, MessageSquare, Settings, SquarePen } from "lucide-react";
-import type { Route } from "../../core/route.ts";
+import { MessageSquare, Settings, SquarePen } from "lucide-react";
+import { type Route, withSettings } from "../../core/route.ts";
 import { activeAt, projectOf, projectsOf, threadTitle } from "../../core/threads.ts";
 import { shortAgo } from "../../core/time.ts";
 import { useNow } from "../effects/now.ts";
@@ -23,15 +23,20 @@ type Found = {
 	readonly to: Route;
 };
 
-/** The palette, open or closed, going where the person takes it. */
-export function Palette(props: { readonly isOpen: boolean; readonly onClose: () => void; readonly onGo: (route: Route) => void }): ReactNode {
+/** The palette, open or closed over the place `route` names, going where the person takes it. */
+export function Palette(props: {
+	readonly route: Route;
+	readonly isOpen: boolean;
+	readonly onClose: () => void;
+	readonly onGo: (route: Route) => void;
+}): ReactNode {
 	const [query, setQuery] = useState("");
 	const rows = useThreads() ?? [];
 	const now = useNow(30_000);
 	const actions: readonly Found[] = [
 		{ id: "new", title: "New thread", aside: "⌘N", icon: <SquarePen />, to: { place: "new" } },
-		{ id: "inbox", title: "Go to the inbox", icon: <Inbox />, to: { place: "home" } },
-		{ id: "settings", title: "Open settings", icon: <Settings />, to: { place: "home", over: { kind: "settings", section: "general" } } },
+		// Settings open over the place the palette was opened at, which closing them leaves as it was.
+		{ id: "settings", title: "Open settings", icon: <Settings />, to: withSettings(props.route, "general") },
 	];
 	const projectItems: readonly Found[] = projectsOf(rows).map((project) => ({
 		id: `project:${project.folder}`,

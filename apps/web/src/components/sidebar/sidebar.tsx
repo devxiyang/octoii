@@ -1,6 +1,6 @@
 /**
- * The sidebar: the button that hides it and the brand; search, a project filter and a new thread; the inbox, with how
- * many threads wait on the person; the threads, newest first, each section under its heading — those pinned atop, those
+ * The sidebar: the button that hides it and the brand; search, a project filter and a new thread; the threads, newest
+ * first, each section under its heading — those pinned atop, those
  * that work under them, those at rest under those, or under their projects where the device groups them so, and those
  * snoozed folded at the foot, those archived not at all — a sub-thread on its parent's card, by their count and how
  * they stand; and settings at its foot. Its right edge drags it wider or narrower, the width kept for the device.
@@ -8,10 +8,9 @@
 import { type ReactNode, useState } from "react";
 import type { Listed } from "@octoii-works/octoii-client";
 import { useThreads } from "@octoii-works/octoii-client/react";
-import { Activity, AlarmClock, FolderOpen, Inbox, ListFilter, MessagesSquare, PanelLeft, Pin, Search, Settings, SquarePen, X } from "lucide-react";
+import { Activity, AlarmClock, FolderOpen, ListFilter, MessagesSquare, PanelLeft, Pin, Search, Settings, SquarePen, X } from "lucide-react";
 import type { Directory } from "../../core/models.ts";
 import type { Overlay, Route } from "../../core/route.ts";
-import { inboxOf } from "../../core/inbox.ts";
 import { lineOf, matchingRows, type Project, projectOf, projectsOf, rowsBySection, standingsOf, subThreadsBy } from "../../core/threads.ts";
 import { useDirectory } from "../composer/directory.ts";
 import { useNow } from "../effects/now.ts";
@@ -86,18 +85,6 @@ export function Sidebar(props: SidebarProps): ReactNode {
 					<SquarePen className="size-4" />
 				</IconButton>
 			</div>
-			<div className="px-2 pb-2">
-				<button
-					type="button"
-					onClick={() => go({ place: "home" })}
-					aria-current={props.route.place === "home" ? "page" : undefined}
-					className="flex h-control w-full items-center gap-2 rounded-lg border border-transparent px-2 text-sm font-medium hover:bg-sidebar-row-hover aria-[current=page]:border-sidebar-border aria-[current=page]:bg-sidebar-row-active aria-[current=page]:shadow-xs/5"
-				>
-					<Inbox className="size-4 text-sidebar-muted" />
-					<span className="flex-1 text-left">Inbox</span>
-					<AskingCount rows={rows ?? []} now={now} />
-				</button>
-			</div>
 			<div className="min-h-0 flex-1 overflow-y-auto px-2 scrollbar-none">
 				{rows === undefined ? null : shown.length === 0 ? (
 					<p className="py-6 text-center text-xs text-muted-foreground/60">{query === "" ? "No threads yet" : "No threads found"}</p>
@@ -112,13 +99,6 @@ export function Sidebar(props: SidebarProps): ReactNode {
 			</div>
 		</aside>
 	);
-}
-
-/** How many threads wait on the person, on a tint of waiting; nothing where none does. */
-function AskingCount(props: { readonly rows: readonly Listed[]; readonly now: number }): ReactNode {
-	const asking = inboxOf(props.rows, props.now).asking.length;
-	if (asking === 0) return null;
-	return <span className="rounded-full bg-warning-surface px-1.5 text-xs text-warning-foreground tabular-nums">{asking}</span>;
 }
 
 /** The threads pinned, those that work, those at rest, by project where the device groups them so, and those snoozed at the foot. */
