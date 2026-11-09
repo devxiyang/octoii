@@ -2,18 +2,21 @@
  * A turn of the thread: the words that began it, or that steered it on — the person's, a task its parent gave it, or
  * what came of one it gave a sub-thread in the background; its work — as it comes while it works, folded under how long
  * it worked once it ended, but for the sub-threads it delegated to that still work; then its reply, a block at a time,
- * the files it changed, what waits on the person, why it failed where it did, and how long it has worked while it
- * works. The reply stands in one place as the turn works and once it ended, so the blocks drawn while it was written
- * are kept as it ends; and a turn the same as it was is not drawn again, as only the turn that runs changes.
+ * the files it changed, what waits on the person, why it failed where it did, and, while it works, what it does now and
+ * how long it has worked. The reply stands in one place as the turn works and once it ended, so the blocks drawn while
+ * it was written are kept as it ends; and a turn the same as it was is not drawn again, as only the turn that runs
+ * changes. A turn that works only grows as it goes: its steps are added at the end, each fading in as it comes, and
+ * what it does now changes its words in one line of its own, so nothing of it moves back as it calls its tools.
  */
 import { memo, type ReactNode } from "react";
-import { Brain, CircleAlert, Globe } from "lucide-react";
+import { CircleAlert, Globe } from "lucide-react";
 import { useThreads } from "@octoii-works/octoii-client/react";
 import { standingOf } from "../../core/sub-threads.ts";
 import { subThreadOf } from "../../core/threads.ts";
-import { callDuration, duration, runningTime } from "../../core/time.ts";
+import { duration, runningTime } from "../../core/time.ts";
 import { callsIn, type Laid, laidOut, replyOf, type Said, type TimelineTurn, type Work } from "../../core/timeline.ts";
-import { toolOf, verbOf } from "../../core/tools.ts";
+import { verbOf } from "../../core/tools.ts";
+import { useArrived } from "../effects/arrived.ts";
 import { Counting } from "../effects/now.ts";
 import { cn } from "../ui/cn.ts";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger, FoldChevron } from "../ui/collapsible.tsx";
@@ -21,7 +24,7 @@ import { AskInline } from "../composer/asks.tsx";
 import { Calls, Thought } from "./calls.tsx";
 import { TurnChanges } from "./changes.tsx";
 import { Prose } from "./markdown.tsx";
-import { CallMark, Mark } from "./marks.tsx";
+import { Mark } from "./marks.tsx";
 import { Reply } from "./reply.tsx";
 import { Delegations, SubThreadTold } from "./sub-thread.tsx";
 import { UserMessage } from "./user-message.tsx";
@@ -49,7 +52,7 @@ export const Turn = memo(function Turn(props: { readonly thread: string; readonl
 					<AskInline key={ask.request.key} thread={props.thread} ask={ask} />
 				))}
 				{turn.ending.state === "failed" ? <FailureLine text={turn.ending.why} /> : null}
-				{working ? <WorkingFor since={turn.startedAt} /> : null}
+				{working ? <Doing turn={turn} /> : null}
 			</div>
 		</div>
 	);
@@ -63,19 +66,15 @@ function Words(props: { readonly said: Said; readonly parent: string | undefined
 }
 
 /**
- * The work of a turn that works, as it comes: its steps laid out; that its model thinks, while the request it waits on
- * has written nothing yet; and the calls being formed.
+ * The work of a turn that works, as it comes: its steps laid out, each that came after the work was first drawn fading
+ * in, the last of them its tail, which keeps what its commands printed till another step follows it.
  */
 function LiveWork(props: { readonly thread: string; readonly turn: TimelineTurn }): ReactNode {
-	const { turn } = props;
-	const thinking = turn.asking !== undefined && turn.writing.words === "" && turn.writing.calls.length === 0;
+	const laid = laidOut(props.turn.work);
+	const arrived = useArrived(laid.map(keyOf));
 	return (
 		<div className="work-list empty:hidden">
-			<LaidSteps thread={props.thread} laid={laidOut(turn.work)} />
-			{thinking && turn.asking !== undefined ? <Thinking since={turn.asking} /> : null}
-			{turn.writing.calls.map((call) => (
-				<FormingCall key={call.id} tool={call.tool} />
-			))}
+			<LaidSteps thread={props.thread} laid={laid} arrived={arrived} />
 		</div>
 	);
 }
@@ -147,26 +146,52 @@ function FoldedWork(props: { readonly thread: string; readonly turn: TimelineTur
 	);
 }
 
-/** Work of the thread `thread` as `laid` lays it out, in order: a stretch of calls as one line, delegations as sub-threads, each other step on its own. */
-function LaidSteps(props: { readonly thread: string; readonly laid: readonly Laid[] }): ReactNode {
-	return props.laid.map((laid) => {
-		switch (laid.kind) {
-			case "calls":
-				return <Calls key={laid.key} thread={props.thread} steps={laid.steps} calls={laid.calls} />;
-			case "delegations":
-				return <Delegations key={laid.key} thread={props.thread} calls={laid.calls} />;
-			case "step":
-				return <WorkStep key={laid.step.kind === "call" ? laid.step.id : laid.step.key} thread={props.thread} step={laid.step} />;
-		}
+/** The key of what is laid out: a stretch's, delegations', or its step's. */
+function keyOf(laid: Laid): string {
+	if (laid.kind !== "step") return laid.key;
+	return laid.step.kind === "call" ? laid.step.id : laid.step.key;
+}
+
+/**
+ * Work of the thread `thread` as `laid` lays it out, in order: a stretch of calls as one line, delegations as
+ * sub-threads, each other step on its own; where the work goes on, each that `arrived` names fading in, and the last
+ * its tail.
+ */
+function LaidSteps(props: { readonly thread: string; readonly laid: readonly Laid[]; readonly arrived?: (key: string) => boolean }): ReactNode {
+	const { arrived } = props;
+	return props.laid.map((laid, place) => {
+		const key = keyOf(laid);
+		const tail = arrived !== undefined && place === props.laid.length - 1;
+		const shown = (() => {
+			switch (laid.kind) {
+				case "calls":
+					return <Calls thread={props.thread} steps={laid.steps} calls={laid.calls} tail={tail} />;
+				case "delegations":
+					return <Delegations thread={props.thread} calls={laid.calls} />;
+				case "step":
+					return <WorkStep thread={props.thread} step={laid.step} tail={tail} />;
+			}
+		})();
+		if (arrived === undefined) return <ArrivedStep key={key}>{shown}</ArrivedStep>;
+		return (
+			<ArrivedStep key={key} fades={arrived(key)}>
+				{shown}
+			</ArrivedStep>
+		);
 	});
 }
 
+/** A step of the work, fading in as it came after the work was first drawn. */
+function ArrivedStep(props: { readonly fades?: boolean; readonly children: ReactNode }): ReactNode {
+	return <div className={cn("flex flex-col gap-0.5", props.fades === true && "animate-fade-in motion-reduce:animate-none")}>{props.children}</div>;
+}
+
 /** One step of the work on its own: a call that waits on the person, what the model thought, a search of the web, its words on the way, a request that came to nothing, or the thread summed up. */
-function WorkStep(props: { readonly thread: string; readonly step: Work }): ReactNode {
+function WorkStep(props: { readonly thread: string; readonly step: Work; readonly tail: boolean }): ReactNode {
 	const { step } = props;
 	switch (step.kind) {
 		case "call":
-			return <Calls thread={props.thread} steps={[step]} calls={[step]} />;
+			return <Calls thread={props.thread} steps={[step]} calls={[step]} tail={props.tail} />;
 		case "thought":
 			return <Thought text={step.text} took={step.took} />;
 		case "web-search":
@@ -211,44 +236,32 @@ function FailureLine(props: { readonly text: string }): ReactNode {
 	);
 }
 
-/** That the model thinks, since the request it waits on was made: its line, counting on each second. */
-function Thinking(props: { readonly since: number }): ReactNode {
-	return (
-		<p className="work-line tabular-nums">
-			<Mark>
-				<Brain />
-			</Mark>
-			<span className="shimmer">
-				Thinking <Counting since={props.since} written={callDuration} />
-			</span>
-		</p>
-	);
-}
-
-/** A call being formed, by its tool: its mark, and its verb as it goes — its tool's name where the page has none — shimmering. */
-function FormingCall(props: { readonly tool: string }): ReactNode {
-	const verb = verbOf({ tool: props.tool, state: "running" });
-	return (
-		<p className="work-line">
-			<CallMark call={{ work: toolOf(props.tool).work, tool: props.tool, state: "running", trouble: undefined }} />
-			<span className={cn("shimmer", verb === undefined && "font-mono text-xs")}>{verb ?? props.tool}</span>
-		</p>
-	);
-}
-
-/** How long a turn that works has worked, counted on each second — this line alone drawn again as it counts. */
-function WorkingFor(props: { readonly since: number | undefined }): ReactNode {
+/**
+ * What a turn that works does now — thinks, while the request it waits on has written nothing; forms a call, by its
+ * tool's verb; or works — and how long it has worked, counted on each second: one line in one place, its words changing
+ * as the turn goes, so the turn neither grows nor shrinks as its model thinks and calls.
+ */
+function Doing(props: { readonly turn: TimelineTurn }): ReactNode {
+	const { turn } = props;
 	return (
 		<p className="meta-line">
-			<span className="shimmer">
-				{props.since === undefined ? (
-					"Working"
-				) : (
-					<>
-						Working for <Counting since={props.since} written={runningTime} />
-					</>
-				)}
-			</span>
+			<span className="shimmer">{doingOf(turn)}</span>
+			{turn.startedAt === undefined ? null : (
+				<span className="text-muted-foreground/70">
+					· <Counting since={turn.startedAt} written={runningTime} />
+				</span>
+			)}
 		</p>
 	);
+}
+
+/** What a turn that works does now, in words. */
+function doingOf(turn: TimelineTurn): string {
+	const [forming, ...more] = turn.writing.calls;
+	if (forming !== undefined) {
+		const verb = verbOf({ tool: forming.tool, state: "running" }) ?? `Calling ${forming.tool}`;
+		return more.length === 0 ? verb : `${verb}, and ${String(more.length)} more`;
+	}
+	if (turn.asking !== undefined && turn.writing.words === "") return "Thinking";
+	return "Working";
 }

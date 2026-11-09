@@ -1,20 +1,22 @@
 /**
  * A thread's timeline: its rows in a column of the chat's width — its turns, and what is the thread's own between them,
  * its window summed up or what waits on the person — in the order their ids give, on a list that draws the rows in view
- * alone, each as tall as it measures — so a long thread, its images among it, costs what is seen — followed at its end while the
- * reader is there and let be once they scroll up, a button bringing them back down; its place kept as earlier turns are
- * read in above it. Nothing of the thread stands till its latest entries are read; then its turns fade in, as the page
- * first shows them, so a thread opens rather than appears. Above the turns, where the client holds the latest of the
+ * alone, each as tall as it measures — so a long thread, its images among it, costs what is seen — followed at its end
+ * at once as it grows while the reader is there, what comes fading in, and let be once they scroll up, a button bringing
+ * them back down; its place kept as earlier turns are read in above it. Nothing of the thread stands till its latest
+ * entries are read; then its turns fade in, as the page first shows them, so a thread opens rather than appears; and
+ * each row that comes after fades in as it does, once. Above the turns, where the client holds the latest of the
  * log alone, a button that reads further back. At the bottom of the page floats what stands over the turns — the
  * composer and what docks on it — however few the turns are, the turns scrolling under it, and their end keeping room
  * as tall as it stands, so the last of them is never under it.
  */
-import { type ComponentProps, type ReactNode, type RefObject, useRef, useState } from "react";
+import { type AnimationEvent, type ComponentProps, type ReactNode, type RefObject, useRef, useState } from "react";
 import { ArrowDown, ShieldQuestion } from "lucide-react";
 import { type ContextProp, Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import type { TimelineRow } from "../../core/timeline.ts";
 import { AskInline } from "../composer/asks.tsx";
 import { LimitedCard } from "./limited.tsx";
+import { useArrived } from "../effects/arrived.ts";
 import { useRoomKept } from "../effects/room.ts";
 import { cn } from "../ui/cn.ts";
 import { SummedUp, Turn } from "./turn.tsx";
@@ -55,6 +57,10 @@ export function Timeline(props: TimelineProps): ReactNode {
 	const scroller = useRef<HTMLElement | null>(null);
 	const atEnd = useRef(true);
 	const keepRoom = useRoomKept(holder, scroller, atEnd);
+	// What came after the thread's latest entries were read fades in as it comes, once: a row the list draws again as it
+	// is scrolled back to stands as it was.
+	const arrived = useArrived(props.read ? props.rows.map((row) => row.key) : undefined);
+	const faded = useRef(new Set<string>());
 	const ends: Ends = { read: props.read, complete: props.complete, empty: props.rows.length === 0, onEarlier: props.onEarlier };
 	return (
 		<div ref={holder} className="relative flex min-h-0 flex-1 flex-col">
@@ -69,8 +75,9 @@ export function Timeline(props: TimelineProps): ReactNode {
 				firstItemIndex={firstIndex}
 				initialTopMostItemIndex={{ index: "LAST", align: "end" }}
 				computeItemKey={(_, row) => row.key}
-				// Kept to the end as the turns grow while the reader is there; let be once they scroll up.
-				followOutput={(bottom) => (bottom ? "smooth" : false)}
+				// Kept to the end at once as the turns grow while the reader is there — what comes fades in, so a scroll that
+				// glided would chase it, each growth starting another; let be once they scroll up.
+				followOutput={(bottom) => (bottom ? "auto" : false)}
 				atBottomStateChange={(bottom) => {
 					atEnd.current = bottom;
 					setAtBottom(bottom);
@@ -78,11 +85,17 @@ export function Timeline(props: TimelineProps): ReactNode {
 				atBottomThreshold={64}
 				increaseViewportBy={{ top: 1200, bottom: 600 }}
 				components={{ Header: Head, List: Turns, Footer: Room }}
-				itemContent={(_, row) => (
-					<div className="chat-column">
-						<Row thread={props.thread} parent={props.parent} row={row} />
-					</div>
-				)}
+				itemContent={(_, row) => {
+					const fades = arrived(row.key) && !faded.current.has(row.key);
+					const done = (event: AnimationEvent): void => {
+						if (event.target === event.currentTarget) faded.current.add(row.key);
+					};
+					return (
+						<div className={cn("chat-column", fades && "animate-fade-in motion-reduce:animate-none")} onAnimationEnd={fades ? done : undefined}>
+							<Row thread={props.thread} parent={props.parent} row={row} />
+						</div>
+					);
+				}}
 			/>
 			<Foot measure={keepRoom} waiting={props.waiting} list={list} atBottom={atBottom}>
 				{props.foot}

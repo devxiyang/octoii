@@ -112,7 +112,8 @@ function InputArea(props: {
 	const working = conversation.status === "running" || conversation.inbox.length > 0;
 	return (
 		<div className="flex flex-col justify-end">
-			<Queued thread={thread} inbox={conversation.inbox} />
+			{/* What waits steers a turn that works, docked till its next step; sent to a thread at rest, it begins the next turn, shown in the timeline as it does. */}
+			<Queued thread={thread} inbox={conversation.status === "running" ? conversation.inbox : []} />
 			<Composer
 				model={row?.manifest.model}
 				onModel={(model) => void client.configure(thread, { model }).catch((error: unknown) => failed("The model could not be changed", error))}

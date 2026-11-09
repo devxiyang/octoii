@@ -269,7 +269,9 @@ function partOf(turn: Turn, part: Part, next: Part | undefined, place: number, i
 	const { work, answer } = workOf(turn, part, held, beside.asks);
 	const waiting = part.steps.find((step) => step.reply === undefined && step.failure === undefined);
 	return {
-		key: index === 0 ? (turn.id ?? first ?? turn.end?.id ?? `turn-${String(place)}`) : (first ?? `turn-${String(place)}-${String(index)}`),
+		// Known by the entry it began with, which it has from the first, not by its fiber's key, which the client may learn
+		// after — so a turn keeps its row as it goes, rather than being drawn anew.
+		key: index === 0 ? (first ?? turn.id ?? turn.end?.id ?? `turn-${String(place)}`) : (first ?? `turn-${String(place)}-${String(index)}`),
 		said: part.inputs.flatMap((input) => {
 			const from = threadOfActor(input.actor);
 			const text = from === undefined ? inputText(input.message) : threadText(input.message);
@@ -423,6 +425,27 @@ export function laidOut(work: readonly Work[]): readonly Laid[] {
 }
 
 /** The call of `calls` that prints as it runs — a script's own among them — whose output its line shows as it comes; none where none does. */
+/**
+ * What a stretch's box shows of what its commands printed: what the command that runs printed so far; or, where the
+ * stretch is its turn's tail, what the latest command printed as it ended — kept till another step follows the stretch,
+ * so the box holds between the commands of one stretch rather than going and coming back; none where nothing printed.
+ */
+export function printBoxOf(calls: readonly CallLine[], tail: boolean): string | undefined {
+	const printing = printingOf(calls)?.printed;
+	if (printing !== undefined || !tail) return printing;
+	return lastPrinted(calls);
+}
+
+/** What the latest of `calls`, or of those made under them, that is a command printed, as it ended. */
+function lastPrinted(calls: readonly CallLine[]): string | undefined {
+	for (const call of calls.toReversed()) {
+		const inner = lastPrinted(call.calls);
+		if (inner !== undefined) return inner;
+		if (call.work === "command" && call.output !== undefined && call.output !== "") return call.output;
+	}
+	return undefined;
+}
+
 export function printingOf(calls: readonly CallLine[]): CallLine | undefined {
 	for (const call of calls) {
 		if (call.state === "running" && call.printed !== undefined) return call;

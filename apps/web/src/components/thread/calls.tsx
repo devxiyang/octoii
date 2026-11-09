@@ -12,7 +12,7 @@ import { memo, type ReactNode } from "react";
 import { Ban, Brain, ShieldQuestion } from "lucide-react";
 import { callDuration, duration } from "../../core/time.ts";
 import { lastLines } from "../../core/calls.ts";
-import { type CallLine, declinedText, printingOf, type Work } from "../../core/timeline.ts";
+import { type CallLine, declinedText, printBoxOf, type Work } from "../../core/timeline.ts";
 import { summaryOf } from "../../core/tools.ts";
 import { Counting } from "../effects/now.ts";
 import { cn } from "../ui/cn.ts";
@@ -23,12 +23,15 @@ import { ChangeCount } from "./changes.tsx";
 import { Prose } from "./markdown.tsx";
 import { CallMark, Mark, MarkStack } from "./marks.tsx";
 
-/** What a stretch's line is given: the thread whose work it is, its steps — its calls and what was thought between them — and its calls. */
-type StretchProps = { readonly thread: string; readonly steps: readonly Work[]; readonly calls: readonly CallLine[] };
+/**
+ * What a stretch's line is given: the thread whose work it is, its steps — its calls and what was thought between them
+ * — its calls, and whether it is the tail of a turn that works, which keeps what its commands printed.
+ */
+type StretchProps = { readonly thread: string; readonly steps: readonly Work[]; readonly calls: readonly CallLine[]; readonly tail?: boolean };
 
-/** Whether two stretches hold the same steps and calls, each the same object: a line kept the same is not drawn again. */
+/** Whether two stretches hold the same steps and calls, each the same object, at the same place: a line kept the same is not drawn again. */
 function sameStretch(a: StretchProps, b: StretchProps): boolean {
-	return a.thread === b.thread && sameItems(a.steps, b.steps) && sameItems(a.calls, b.calls);
+	return a.thread === b.thread && a.tail === b.tail && sameItems(a.steps, b.steps) && sameItems(a.calls, b.calls);
 }
 
 /** Whether two lists hold the same items, in order. */
@@ -42,11 +45,11 @@ export const Calls = memo(function Calls(props: StretchProps): ReactNode {
 	if (only !== undefined && props.calls.length === 1 && only.ask !== undefined) return <AskInline thread={props.thread} ask={only.ask} />;
 	const one = props.calls.length === 1 ? only : undefined;
 	const marked = one === undefined ? props.calls : [one, ...one.calls];
-	const printing = printingOf(props.calls);
+	const printed = printBoxOf(props.calls, props.tail === true);
 	return (
 		<>
 			<StretchLine thread={props.thread} steps={props.steps} calls={props.calls} one={one} marked={marked} />
-			{printing?.printed === undefined ? null : <Printed printed={printing.printed} />}
+			{printed === undefined ? null : <Printed printed={printed} />}
 		</>
 	);
 }, sameStretch);

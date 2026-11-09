@@ -114,7 +114,8 @@ describe("a thread's timeline", () => {
 		expect(rows.map((row) => row.kind)).toEqual(["turn", "summed-up", "turn", "ask", "summed-up"]);
 		const [within] = rows;
 		expect(within?.kind === "turn" ? within.turn.work.map((each) => each.kind) : []).toEqual(["compaction"]);
-		expect(rows.map((row) => row.key).slice(1)).toEqual([id(4, 5), "t2", id(8, 9), id(9, 10)]);
+		// A turn is known by the entry it began with, which it has from the first.
+		expect(rows.map((row) => row.key).slice(1)).toEqual([id(4, 5), id(5, 6), id(8, 9), id(9, 10)]);
 	});
 
 	it("gives an ended turn's words, its work by its tools, the words on the way, its answer, and how long it took", () => {
@@ -130,7 +131,8 @@ describe("a thread's timeline", () => {
 				]),
 			),
 		);
-		expect(turn?.key).toBe("t1");
+		// Known by the words it began with, which it has from the first, not by its fiber's key, learnt after.
+		expect(turn?.key).toBe(id(0, 1));
 		expect(turn?.said.map((each) => each.text)).toEqual(["Fix the build"]);
 		expect(turn?.work).toMatchObject([
 			{ kind: "words", text: "Let me look." },
@@ -273,7 +275,7 @@ describe("a thread's timeline", () => {
 		expect(turns[0]?.endedAt).toBe(START + 4000);
 		expect(turns[1]?.answer?.text).toBe("Built and tested.");
 		expect(turns[1]?.startedAt).toBe(START + 4000);
-		expect(turns.map((turn) => turn.key)).toEqual(["t1", id(4, 4)]);
+		expect(turns.map((turn) => turn.key)).toEqual([id(0, 1), id(4, 4)]);
 	});
 
 	it("gives whose words a turn took: a thread's task by its text, what a sub-thread told by its words after Siphon's note, the person's as theirs", () => {
