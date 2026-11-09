@@ -58,14 +58,13 @@ pub fn open(host: Host, options: OpenOptions) !Machine {
     const handle = host.handle orelse return error.NoMachine;
     var namespace: h.beak_handle = 0;
     try beak.check(h.beak_namespace_open(&namespace));
-    errdefer _ = h.beak_close(namespace);
+    const machine: Machine = .{ .handle = handle, .namespace = namespace, .base = options.base, .excludes = host.excludes };
+    errdefer machine.close();
     var file_system = std.mem.zeroes(h.beak_file_system);
     file_system.type = h.BEAK_FILE_SYSTEM_MACHINE;
     file_system.handle = handle;
     file_system.path = beak.bytes(root);
     try beak.check(h.beak_namespace_mount(namespace, beak.bytes(""), &file_system, true));
-    const machine: Machine = .{ .handle = handle, .namespace = namespace, .base = options.base, .excludes = host.excludes };
-    errdefer machine.close();
     for (host.hidden) |place| try machine.hide(place);
     if (options.threads) |volume| if (host.threads) |folder| try machine.showThreads(volume, folder);
     return machine;
@@ -332,11 +331,14 @@ pub const Ended = union(enum) { code: i64, signal: i64, timed_out };
 /// a time: what comes between is handed on together.
 pub const heard_every_ms = 100;
 
+/// How long a command past its time has, once asked to end, before it is killed.
+pub const term_grace_ms = 2_000;
+
 /// Waits, sleeping on `waits`, till `command` ends, `timeout_ms` at most, as waitpid waits with an alarm set: what it
 /// delivers of its output handed to `heard` as it comes, `heard_every_ms` apart at most — gathered in memory of
 /// `allocator`'s between, each poll's events read in memory it lets go of after — and the last of it as it ends. A
-/// command still running past its time is killed, its whole group; so is one a stop cuts the sleep off from,
-/// `Canceled`, and one whose output `heard` refuses.
+/// command still running past its time is asked to end, its whole group, and killed past `term_grace_ms`, as
+/// timeout(1) ends one; one a stop cuts the sleep off from, `Canceled`, or whose output `heard` refuses, is killed.
 pub fn waitForEnd(io: std.Io, allocator: Allocator, waits: *Waits, command: h.beak_handle, timeout_ms: u32, heard: anytype) !Ended {
     const set = try waits.eventSet();
     try beak.check(h.beak_events_add(set, command));
@@ -347,16 +349,22 @@ pub fn waitForEnd(io: std.Io, allocator: Allocator, waits: *Waits, command: h.be
     var gathered: std.ArrayList(u8) = .empty;
     defer gathered.deinit(allocator);
     var handed_at: i64 = 0;
+    var asked_to_end: ?i64 = null;
     while (true) {
         const now = std.Io.Clock.awake.now(io).toMilliseconds();
-        if (now >= deadline) {
+        if (asked_to_end) |at| if (now >= at + term_grace_ms) {
             _ = h.beak_command_signal(command, h.BEAK_SIGNAL_KILL);
             try heard.take(gathered.items);
             return .timed_out;
+        };
+        if (asked_to_end == null and now >= deadline) {
+            _ = h.beak_command_signal(command, h.BEAK_SIGNAL_TERMINATE);
+            asked_to_end = now;
         }
+        const ends_at = if (asked_to_end) |at| at + term_grace_ms else deadline;
         // What was gathered is handed on once its time comes, though nothing more comes.
-        const due = if (gathered.items.len == 0) deadline else @max(now, handed_at + heard_every_ms);
-        try waits.untilNews(@intCast(@min(deadline, due) - now));
+        const due = if (gathered.items.len == 0) ends_at else @max(now, handed_at + heard_every_ms);
+        try waits.untilNews(@intCast(@max(0, @min(ends_at, due) - now)));
         _ = scratch_arena.reset(.retain_capacity);
         const arena = scratch_arena.allocator();
         const outputs = beak.outputs(&arena);
@@ -370,6 +378,8 @@ pub fn waitForEnd(io: std.Io, allocator: Allocator, waits: *Waits, command: h.be
                 h.BEAK_EVENT_OUTPUT => try gathered.appendSlice(allocator, beak.slice(event.bytes)),
                 h.BEAK_EVENT_EXIT => {
                     try heard.take(gathered.items);
+                    // Ended as it was asked to past its time, it timed out all the same.
+                    if (asked_to_end != null) return .timed_out;
                     if (beak.get(event.signal)) |signal| return .{ .signal = signal };
                     return .{ .code = beak.get(event.code) orelse 0 };
                 },

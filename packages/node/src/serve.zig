@@ -30,6 +30,8 @@ const message_bytes_max = Request.message_bytes_max;
 
 /// Where the protocol's WebSocket is.
 pub const socket_path = "/ws";
+/// How long serving waits, once the system ran out of what taking a connection needs, before it takes the next.
+const accept_retry_ms = 100;
 
 /// What serving a client takes: Siphon, the allocator a client's buffers live on, the access that authenticates
 /// clients and pairs browsers, the app's files where there are any, and the name of the cookie a browser holds its
@@ -50,9 +52,24 @@ pub fn serve(server: *const Server, port: u16) !void {
     var clients: Io.Group = .init;
     defer clients.cancel(io);
     while (true) {
-        const stream = try listener.accept(io);
+        const stream = try accepted(&listener, io) orelse continue;
         clients.concurrent(io, serveClient, .{ server, stream }) catch stream.close(io);
     }
+}
+
+/// The next connection the listener takes; null for one lost alone — aborted by its peer before it was taken — or for a
+/// failure of the system's, logged and waited out a while, as a server's accept loop takes them: a cancel, or the
+/// listener's end, alone ends serving.
+fn accepted(listener: *Io.net.Server, io: Io) !?Io.net.Stream {
+    return listener.accept(io) catch |err| switch (err) {
+        error.Canceled, error.SocketNotListening => return err,
+        error.ConnectionAborted, error.ProtocolFailure, error.BlockedByFirewall, error.WouldBlock => null,
+        else => {
+            log.warn("a client's connection could not be taken: {s}", .{@errorName(err)});
+            try io.sleep(.fromMilliseconds(accept_retry_ms), .awake);
+            return null;
+        },
+    };
 }
 
 /// Listens on the loopback address at `port`, as a server that may start again at once listens: its address taken though

@@ -626,7 +626,9 @@ fn answerWith(runtime: *Runtime, made: *const h.beak_event, name: []const u8, pa
     var arena_allocator: std.heap.ArenaAllocator = .init(runtime.allocator);
     defer arena_allocator.deinit();
     var changes: Changes = .{ .arena = arena_allocator.allocator() };
-    changes.answer(beak.slice(made.process), made.started, beak.slice(made.key), name, payload) catch return;
+    changes.answer(beak.slice(made.process), made.started, beak.slice(made.key), name, payload) catch |failure| {
+        return log.warn("the request {s} of {s} went unanswered: {s}", .{ beak.slice(made.key), beak.slice(made.process), @errorName(failure) });
+    };
     _ = runtime.commit(&changes) catch |failure| {
         log.warn("the request {s} of {s} went unanswered: {s}", .{ beak.slice(made.key), beak.slice(made.process), @errorName(failure) });
     };
