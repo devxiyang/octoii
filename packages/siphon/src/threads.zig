@@ -79,6 +79,13 @@ pub const parent_label = "siphon.parent";
 /// The label a thread's directory carries of its project, by its folder; the empty value for one of none.
 pub const project_label = "siphon.project";
 
+/// The labels a thread's directory carries of how the person keeps it — pinned, archived — `true`, or the empty value
+/// for not, so the label index finds the threads kept either way; and the annotation that holds till when they have
+/// seen what it brought them. Neither is in `thread.json`, which holds what the thread runs with.
+pub const pinned_label = "siphon.pinned";
+pub const archived_label = "siphon.archived";
+const seen_annotation = "siphon.seen_until";
+
 /// The ids of the sub-threads of the thread `tid`, as the label index finds them, as a process's children are found
 /// by their parent's id.
 pub fn subThreadsOf(volume: beak.Volume, arena: *const Allocator, tid: []const u8) ![]const []const u8 {
@@ -317,11 +324,13 @@ pub fn made(changes: *Changes, runtime: *const Runtime, tid: []const u8, manifes
     const arena = changes.arena;
     const thread = try pathOf(arena, tid);
     try changes.mkdir(thread);
-    try changes.write(try beak.join(arena, thread, "thread.json"), try foundation.json.encode(arena, manifest));
+    try changes.write(try beak.join(arena, thread, "thread.json"), try foundation.json.encode(arena, settingsOf(manifest)));
     try changes.mkdir(try beak.join(arena, thread, "inbox"));
     try changes.mkdir(try log.pathOf(arena, thread));
     try changes.label(thread, project_label, manifest.project orelse "");
     try changes.label(thread, parent_label, if (manifest.parent) |parent| parent.thread else "");
+    try changes.label(thread, pinned_label, labelled(manifest.pinned));
+    try changes.label(thread, archived_label, labelled(manifest.archived));
     try changes.annotate(thread, &.{.{ .name = status_annotation, .value = @tagName(Status.created) }});
     try changes.start(thread, "main", thread_program, runtime.versionOf(thread_program).?, "", "");
 }
@@ -360,6 +369,9 @@ pub fn configure(runtime: *Runtime, arena: Allocator, tid: []const u8, configure
         if (@field(configured, name)) |value| @field(manifest, name) = value;
     }
     var changes: Changes = .{ .arena = arena };
+    if (configured.pinned) |pinned| try changes.label(thread, pinned_label, labelled(pinned));
+    if (configured.archived) |archived| try changes.label(thread, archived_label, labelled(archived));
+    if (configured.seen_until) |seen| try changes.annotate(thread, &.{.{ .name = seen_annotation, .value = try arena.print("{d}", .{seen}) }});
     if (configured.snoozed_until) |until| {
         const snooze = try beak.join(arena, thread, snooze_name);
         if (until > runtime.now()) {
@@ -367,9 +379,8 @@ pub fn configure(runtime: *Runtime, arena: Allocator, tid: []const u8, configure
             try changes.expire(snooze, until);
         } else if (manifest.snoozed_until != null) try changes.delete(snooze);
     }
-    manifest.snoozed_until = null;
     if (manifest.budget_nanodollars == 0) manifest.budget_nanodollars = null;
-    try changes.write(try beak.join(arena, thread, "thread.json"), try foundation.json.encode(arena, manifest));
+    try changes.write(try beak.join(arena, thread, "thread.json"), try foundation.json.encode(arena, settingsOf(manifest)));
     _ = try runtime.commit(&changes);
 }
 
@@ -687,12 +698,38 @@ pub fn takeInputs(writer: *log.Writer) ![]const Taken {
     return taken;
 }
 
-/// The manifest of the thread at `thread`: its `thread.json`, and the time of its snooze, where it sleeps.
+/// The manifest of the thread at `thread`: what it runs with, as its `thread.json` holds it; how the person keeps it, as
+/// its directory's labels and annotations hold it; and the time of its snooze, where it sleeps.
 pub fn manifestOf(volume: beak.Volume, arena: *const Allocator, thread: []const u8) !Manifest {
     var manifest = try foundation.json.decode(Manifest, arena.*, try volume.readAll(arena, try beak.join(arena.*, thread, "thread.json")));
+    const entry = try volume.stat(arena, thread) orelse return error.NoSuchThread;
+    const directory = entry.directory orelse return error.DamagedThread;
+    manifest.pinned = isLabelled(beak.labelOf(directory.*.labels, directory.*.label_count, pinned_label));
+    manifest.archived = isLabelled(beak.labelOf(directory.*.labels, directory.*.label_count, archived_label));
+    manifest.seen_until = try timeOf(entry, seen_annotation);
     const snooze = try volume.stat(arena, try beak.join(arena.*, thread, snooze_name));
-    manifest.snoozed_until = if (snooze) |entry| beak.get(entry.expires) else null;
+    manifest.snoozed_until = if (snooze) |found| beak.get(found.expires) else null;
     return manifest;
+}
+
+/// What of `manifest` its `thread.json` holds: what the thread runs with, none of how the person keeps it, which its
+/// directory holds.
+fn settingsOf(manifest: Manifest) Manifest {
+    var settings = manifest;
+    settings.pinned = false;
+    settings.archived = false;
+    settings.seen_until = null;
+    settings.snoozed_until = null;
+    return settings;
+}
+
+/// A flag as a label holds it: `true`, or the empty value for not.
+fn labelled(flag: bool) []const u8 {
+    return if (flag) "true" else "";
+}
+
+fn isLabelled(value: ?[]const u8) bool {
+    return std.mem.eql(u8, value orelse "", "true");
 }
 
 /// The file that holds the input `id` while it waits in the inbox of the thread at `thread`.

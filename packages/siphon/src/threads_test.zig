@@ -160,6 +160,12 @@ test "a thread's model, title, mode and how the person keeps it are changed as t
     try std.testing.expect(kept.pinned and kept.archived);
     try std.testing.expectEqual(@as(?i64, 5_000), kept.snoozed_until);
     try std.testing.expectEqual(@as(?i64, 7_000), kept.seen_until);
+    // How the person keeps it is the directory's: the label index finds the archived threads, and thread.json holds none
+    // of it.
+    const archived = try siphon.runtime.volume.find(&arena, threads.kind, .{ .name = threads.archived_label, .value = "true" }, "");
+    try std.testing.expectEqual(@as(usize, 1), archived.len);
+    const settings = try siphon.runtime.volume.readAll(&arena, try @import("beak.zig").join(arena, thread, "thread.json"));
+    try std.testing.expect(std.mem.indexOf(u8, settings, "\"pinned\":true") == null and std.mem.indexOf(u8, settings, "seen_until\":7") == null);
     try std.testing.expectEqualStrings("Named", kept.title.?);
     // The snooze ends at its time, Beak taking it away as the volume steps then — told as any change is.
     clock.now_ms = 5_000;
