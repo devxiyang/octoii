@@ -310,7 +310,12 @@ export type SignedIn = { readonly account: AccountInfo; readonly limits: readonl
  * it is of, where it is of some alone, such as "Opus"; how much of it is used, in percent, and when it is given again, in
  * milliseconds since the epoch, each where it is known.
  */
-export type Limit = { readonly window_minutes: number; readonly scope: string | null; readonly used_percent: number | null; readonly resets_at_ms: number | null };
+export type Limit = {
+	readonly window_minutes: number;
+	readonly scope: string | null;
+	readonly used_percent: number | null;
+	readonly resets_at_ms: number | null;
+};
 
 /** A window of a plan's limit, as Claude Code's `/usage` tells it. */
 type Window = { readonly utilization: number | null; readonly resets_at: string | null };
