@@ -18,9 +18,13 @@ const trust = tools.trust;
 const system = @import("system.zig");
 const title = @import("title.zig");
 
+/// How many times a phase of a thread's main fiber that threw runs again, after Beak's delay, before the fiber fails —
+/// and is started again by what is next delivered to its thread.
+const retries = 3;
+
 /// Registers the program of a thread's main fiber.
 pub fn register(runtime: *Runtime) !void {
-    try runtime.register(.{ .kind = threads.thread_program, .phase = threadPhase });
+    try runtime.register(.{ .kind = threads.thread_program, .retries = retries, .phase = threadPhase });
 }
 
 /// Where a thread's main fiber stands: gathering what its model is told before a turn, by the context request of
@@ -38,6 +42,8 @@ const Running = struct { turn: []const u8, began: log.Address };
 fn threadPhase(_: ?*anyopaque, phase: *Phase) anyerror!void {
     const thread = threads.threadOf(phase.path);
     if (phase.checkpoint.len == 0) {
+        // A turn the main fiber before this one left running is settled with what this phase goes on to do.
+        if (try threads.lostTurn(phase.runtime.volume, &phase.arena, thread)) |began| try settleLost(phase, thread, began);
         if ((try threads.waiting(phase.runtime.volume, &phase.arena, thread)).len == 0) return phase.waitForChange(null, try beak.join(phase.arena, thread, "inbox"));
         return gatherBefore(phase, thread);
     }
@@ -80,7 +86,7 @@ fn begin(phase: *Phase, thread: []const u8, gathering: []const u8, gathered: sys
     try title.startFor(phase, thread);
     const turn = try phase.mint();
     try phase.start(turn, threads.turn_program, null);
-    try threads.setRunning(&phase.changes, thread, phase.time);
+    try threads.setRunning(&phase.changes, thread, phase.time, taken[0]);
     const running: Standing = .{ .running = .{ .turn = turn, .began = taken[0] } };
     return phase.waitForExit(running, try beak.childPath(phase.arena, phase.path, turn));
 }
@@ -92,9 +98,19 @@ fn failBefore(phase: *Phase, thread: []const u8, why: []const u8) !void {
     if ((try threads.takeInputs(&writer)).len == 0) return phase.next(null);
     _ = try writer.append(log.TurnEnd{ .id = try phase.mint(), .outcome = .failed, .reason = try phase.arena.print("what the model is told could not be gathered: {s}", .{why}) });
     // A turn that failed at once began and ended in the same commit.
-    try threads.setRunning(&phase.changes, thread, phase.time);
+    try threads.setRunning(&phase.changes, thread, phase.time, null);
     try threads.setEnded(&phase.changes, thread, .failed, phase.time);
     return phase.next(null);
+}
+
+/// Settles, with the phase's commit, the turn a main fiber before this one left running as it ended, begun with the
+/// entry at `began`: every call it left without a result answered interrupted, and its `turn-end` failed, as init
+/// settles the children of a process that died.
+fn settleLost(phase: *Phase, thread: []const u8, began: log.Address) !void {
+    var writer: log.Writer = try .init(phase, thread);
+    try answerUnanswered(&writer, began);
+    _ = try writer.append(log.TurnEnd{ .id = try phase.mint(), .outcome = .failed, .reason = "its thread's fiber ended while it ran" });
+    try threads.setEnded(&phase.changes, thread, .failed, phase.time);
 }
 
 /// Answers every call the turn at `turn`, as it ran, left without a result; appends its `turn-end`, as it ended with

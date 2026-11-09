@@ -130,6 +130,10 @@ pub const Status = enum { created, running, replied, failed, stopped };
 pub const status_annotation = "siphon.status";
 const began_annotation = "siphon.began_at";
 const ended_annotation = "siphon.ended_at";
+/// The annotation on a thread's directory that holds, while a turn runs, where in its log the turn began — the address
+/// of the entry it began with, as JSON — so a main fiber that comes after the one running it settles it, as a journal
+/// holds where its open transaction began.
+const began_with_annotation = "siphon.began_with";
 
 /// What a thread is doing: its status, when its latest turn began and when it ended — none before its first, and no
 /// end while it runs; what its model requests used so far, none before its first; the inputs that wait in its inbox
@@ -327,9 +331,33 @@ pub fn deliver(runtime: *Runtime, arena: Allocator, tid: []const u8, input: Inpu
     const id = try arena.dupe(u8, &try runtime.volume.mint(time));
     var changes: Changes = .{ .arena = arena };
     try inboxed(&changes, thread, id, input, operation);
+    try revived(&changes, runtime, arena, thread);
     try recordDone(&changes, operation, .{ .method = "threads.deliver", .thread = tid, .result = id }, time);
     _ = try runtime.commit(&changes);
     return id;
+}
+
+/// Adds to `changes` the main fiber of the thread at `thread` started again where it ended — failed past its retries,
+/// killed, or gone with its retention — as socket activation starts a service a message comes for, so what is
+/// delivered is taken; a main fiber that lives, or that is still exiting, is left as it is.
+fn revived(changes: *Changes, runtime: *Runtime, arena: Allocator, thread: []const u8) !void {
+    const main = try mainOf(arena, thread);
+    if (try runtime.volume.stat(&arena, main)) |entry| {
+        const record = (entry.directory orelse return error.DamagedThread).*.process orelse return error.DamagedThread;
+        if (record.*.state != h.BEAK_PROCESS_ZOMBIE) return;
+        try changes.reap(main);
+    }
+    try changes.start(thread, "main", thread_program, runtime.versionOf(thread_program) orelse return error.NoSuchProgram, "", "");
+}
+
+/// Where the turn the thread at `thread` stands running in began, where no main fiber runs it any more: one that ended
+/// mid-turn, its checkpoint gone with it, left it so; null where no turn runs.
+pub fn lostTurn(volume: beak.Volume, arena: *const Allocator, thread: []const u8) !?log.Address {
+    const entry = try volume.stat(arena, thread) orelse return error.NoSuchThread;
+    const status = beak.annotationOf(entry, status_annotation) orelse return error.DamagedThread;
+    if (!std.mem.eql(u8, status, @tagName(Status.running))) return null;
+    const began_with = beak.annotationOf(entry, began_with_annotation) orelse return null;
+    return try foundation.json.decode(log.Address, arena.*, began_with);
 }
 
 /// What the operation `operation` did, where it was done within the last day; null where it was not. One done as
@@ -513,13 +541,14 @@ fn jsonOf(given: []const u8) ?foundation.json.Raw {
     return if (given.len > 0) .{ .text = given } else null;
 }
 
-/// The thread at `thread` at work from `time` on, with the commit of `changes`: running, its latest turn begun then and
-/// not ended.
-pub fn setRunning(changes: *Changes, thread: []const u8, time: i64) Allocator.Error!void {
+/// The thread at `thread` at work from `time` on, with the commit of `changes`: running, its latest turn begun then with
+/// the entry at `began_with` — none for a turn that ends in the commit it begins in — and not ended.
+pub fn setRunning(changes: *Changes, thread: []const u8, time: i64, began_with: ?log.Address) Allocator.Error!void {
     try changes.annotate(thread, &.{
         .{ .name = status_annotation, .value = @tagName(Status.running) },
         .{ .name = began_annotation, .value = try changes.arena.print("{d}", .{time}) },
         .{ .name = ended_annotation, .value = null },
+        .{ .name = began_with_annotation, .value = if (began_with) |address| try foundation.json.encode(changes.arena, address) else null },
     });
 }
 
@@ -528,6 +557,7 @@ pub fn setEnded(changes: *Changes, thread: []const u8, outcome: log.Outcome, tim
     try changes.annotate(thread, &.{
         .{ .name = status_annotation, .value = @tagName(outcome) },
         .{ .name = ended_annotation, .value = try changes.arena.print("{d}", .{time}) },
+        .{ .name = began_with_annotation, .value = null },
     });
 }
 

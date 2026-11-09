@@ -599,3 +599,43 @@ test "a call that may have acted, cut off as the host ends, is answered interrup
     try expectEntries(siphon, arena, tid, &.{ "system", "input", "reply", "result interrupted", "reply", "turn-end" });
     try std.testing.expectEqual(@as(u32, 0), again.began.load(.monotonic));
 }
+
+/// Whether the main fiber of the thread `tid` ended.
+const MainEnded = struct {
+    siphon: *Siphon,
+    arena: Allocator,
+    tid: []const u8,
+
+    fn check(ended: *const MainEnded) bool {
+        const main = threads.mainOf(ended.arena, threads.pathOf(ended.arena, ended.tid) catch return false) catch return false;
+        const entry = (ended.siphon.runtime.volume.stat(&ended.arena, main) catch return false) orelse return false;
+        const record = (entry.directory orelse return false).*.process orelse return false;
+        return record.*.state == @import("beak.zig").h.BEAK_PROCESS_ZOMBIE;
+    }
+};
+
+test "a thread whose main fiber ended takes what is delivered next: started again, the turn it left running settled failed" {
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var fake: ai.testing.Fake = .init(arena, &.{ try streamed(arena, &.{call("c1", "deploy", "{}")}), try message(arena, "back") });
+    const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
+    var clock: testing.Clock = .{ .now_ms = 1_000 };
+    const siphon = try openOver(&clock, .memory, &providers);
+    defer siphon.close();
+    var slow: Slow = .{};
+    try siphon.tools.add(slow.tool());
+    const tid = try threads.create(siphon.runtime, arena, .{ .title = "Test", .model = "fake/m", .mode = .@"full-access" }, "create");
+    _ = try threads.deliver(siphon.runtime, arena, tid, said("deploy"), "op-1");
+    try testing.pumpUntil(siphon, &slow, Slow.hasBegun);
+    // The main fiber killed mid-turn, its turn and call with it: what it would have settled is left as it stood.
+    var killing: @import("runtime.zig").Changes = .{ .arena = arena };
+    try killing.signal(try threads.mainOf(arena, try threads.pathOf(arena, tid)), @import("beak.zig").h.BEAK_SIGNAL_KILL, "test");
+    _ = try siphon.runtime.commit(&killing);
+    const ended: MainEnded = .{ .siphon = siphon, .arena = arena, .tid = tid };
+    try testing.pumpUntil(siphon, &ended, MainEnded.check);
+    try std.testing.expectEqual(threads.Status.running, (try threads.state(siphon.runtime, arena, tid)).status);
+    _ = try threads.deliver(siphon.runtime, arena, tid, said("again"), "op-2");
+    try std.testing.expectEqual(threads.Status.replied, (try testing.pumpUntilSettled(siphon, arena, tid)).status);
+    try expectEntries(siphon, arena, tid, &.{ "system", "input", "reply", "result interrupted", "turn-end", "input", "reply", "turn-end" });
+}
