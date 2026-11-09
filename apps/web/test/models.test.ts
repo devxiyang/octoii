@@ -78,7 +78,7 @@ describe("the model picker", () => {
 	it("takes the recent models from the newest threads, each once, and stars a model or no longer", () => {
 		const row = (id: string, chosen?: string): Listed => ({
 			id,
-			manifest: { vocabulary: 1, mode: "auto", ...(chosen === undefined ? {} : { model: chosen }) },
+			manifest: { mode: "auto", ...(chosen === undefined ? {} : { model: chosen }) },
 			state: { status: "replied", inbox: [], processes: [] },
 		});
 		expect(recentModelsOf([row("3", "b"), row("2"), row("1", "a"), row("0", "b")])).toEqual(["b", "a"]);

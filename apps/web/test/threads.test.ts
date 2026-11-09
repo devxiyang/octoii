@@ -31,7 +31,7 @@ const idle: State = { status: "replied", inbox: [], processes: [] };
 /** A thread working in `project`'s folder, its project that folder. */
 const row = (id: string, project: string | undefined, state: State = idle, title?: string): Listed => ({
 	id,
-	manifest: { vocabulary: 1, mode: "default", ...(project === undefined ? {} : { workspace: project, project }), ...(title === undefined ? {} : { title }) },
+	manifest: { mode: "default", ...(project === undefined ? {} : { workspace: project, project }), ...(title === undefined ? {} : { title }) },
 	state,
 });
 

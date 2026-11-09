@@ -65,8 +65,6 @@ pub const Manifest = struct {
     /// The thread, and its call, that delegated it, where it is a sub-thread; the thread also its label
     /// `siphon.parent`, which the label index finds its sub-threads by, the empty value where it has none.
     parent: ?Parent = null,
-    /// The version of `ai`'s vocabulary its log is kept in.
-    vocabulary: u32 = vocabulary.version,
 };
 
 /// Where a sub-thread came from: the thread that delegated it, by its id, and the call that did, by Siphon's id of it.

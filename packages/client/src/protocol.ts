@@ -69,8 +69,6 @@ export const ManifestSchema = Type.Object({
 	seen_until: Type.Optional(Type.Number()),
 	/** The thread that delegated it, and Siphon's id of the call that did, where it is a sub-thread. */
 	parent: Type.Optional(Type.Object({ thread: Type.String(), call: Type.String() })),
-	/** The version of `ai`'s vocabulary its log is kept in. */
-	vocabulary: Type.Number(),
 });
 export type Manifest = Static<typeof ManifestSchema>;
 
@@ -118,8 +116,8 @@ export const SettingsChangeSchema = Type.Object({
 export type SettingsChange = Static<typeof SettingsChangeSchema>;
 
 /**
- * A manifest as a thread is made with: the vocabulary is the node's to name, its project the one its workspace is in,
- * and the mode the environment's settings name where none is given.
+ * A manifest as a thread is made with: its project the one its workspace is in, and the mode the environment's settings
+ * name where none is given.
  */
 export const ManifestGivenSchema = Type.Object({
 	model: Type.Optional(Type.String()),

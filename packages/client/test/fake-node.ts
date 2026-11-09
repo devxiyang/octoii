@@ -346,5 +346,5 @@ const idle: State = { status: "created", inbox: [], processes: [] };
 
 /** A thread as a list shows it. */
 function rowOf(id: string, kept: Kept): Listed {
-	return { id, manifest: { vocabulary: 1, mode: "default", ...(kept.title === undefined ? {} : { title: kept.title }) }, state: idle };
+	return { id, manifest: { mode: "default", ...(kept.title === undefined ? {} : { title: kept.title }) }, state: idle };
 }

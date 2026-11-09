@@ -6,7 +6,7 @@ import type { CallLine } from "../src/core/timeline.ts";
 
 const sub = (status: State["status"], span: Pick<State, "began_at" | "ended_at"> = {}): Listed => ({
 	id: "s",
-	manifest: { vocabulary: 1, mode: "auto", parent: { thread: "p", call: "c" } },
+	manifest: { mode: "auto", parent: { thread: "p", call: "c" } },
 	state: { status, ...span, inbox: [], processes: [] },
 });
 

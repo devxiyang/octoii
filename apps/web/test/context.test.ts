@@ -6,7 +6,7 @@ import { isCompacting, PARTS, sharesOf } from "../src/core/context.ts";
 /** A thread at rest, its fibers those given. */
 const row = (processes: readonly Process[]): Listed => ({
 	id: "t1",
-	manifest: { vocabulary: 1, mode: "default" },
+	manifest: { mode: "default" },
 	state: { status: "replied", inbox: [], processes: [...processes] },
 });
 
