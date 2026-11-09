@@ -56,14 +56,15 @@ fn list(call: *Call) Error![]const ModelFacts {
     return facts;
 }
 
-/// Who Claude Code is signed in as, as the gateway tells: an email, and the plan it is on where it says.
-const Account = struct { email: []const u8, subscription_type: ?[]const u8 = null };
+/// Who Claude Code is signed in as, as the gateway tells: an email, the plan it is on where it says, and how much of
+/// each of the plan's limits is used.
+const Account = struct { email: []const u8, subscription_type: ?[]const u8 = null, limits: []const seam.Limit = &.{} };
 
 /// The most of the gateway's account read.
 const account_bytes_max = 64 << 10;
 
-/// Connected where Claude Code is signed in on this computer, as the gateway tells: as whom, on which plan; else what
-/// the gateway says is wrong — Claude Code not there, or not signed in.
+/// Connected where Claude Code is signed in on this computer, as the gateway tells: as whom, on which plan, and how
+/// much of each of its limits is used; else what the gateway says is wrong — Claude Code not there, or not signed in.
 fn status(call: *Call) Error!seam.Status {
     const url = try call.arena.print("{s}/account", .{call.baseUrl(base_url)});
     const response = try http.send(call, .{ .url = url });
@@ -71,8 +72,8 @@ fn status(call: *Call) Error!seam.Status {
     defer response.close();
     const body = response.body.allocRemaining(call.arena, .limited(account_bytes_max)) catch return http.readFailure(call, response);
     const account = try http.parse(Account, call, body, "account");
-    const plan = account.subscription_type orelse return .{ .connected = true, .account = account.email };
-    return .{ .connected = true, .account = try call.arena.print("{s} ({s})", .{ account.email, plan }) };
+    const plan = account.subscription_type orelse return .{ .connected = true, .account = account.email, .limits = account.limits };
+    return .{ .connected = true, .account = try call.arena.print("{s} ({s})", .{ account.email, plan }), .limits = account.limits };
 }
 
 fn modelsUrl(call: *Call) Error![]const u8 {

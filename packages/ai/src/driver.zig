@@ -88,7 +88,14 @@ pub const Status = struct {
     account: ?[]const u8 = null,
     /// What is wrong, in words for the person, where it is not connected.
     problem: ?[]const u8 = null,
+    /// How much of each of its plan's limits is used, where the provider tells.
+    limits: []const Limit = &.{},
 };
+
+/// One of a plan's limits, as its provider tells how much of it is used: how long its window lasts, in minutes — 300
+/// for five hours, 10080 for a week — the models it is of, where it is of some alone, such as "Opus"; how much of it is
+/// used, in percent, and when it is given again, in milliseconds since the epoch, each where the provider says.
+pub const Limit = struct { window_minutes: u32, scope: ?[]const u8 = null, used_percent: ?f64 = null, resets_at_ms: ?i64 = null };
 
 /// What a sign-in in a browser takes.
 pub const SignInOptions = struct {

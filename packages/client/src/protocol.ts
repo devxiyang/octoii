@@ -423,8 +423,29 @@ export const ProviderSchema = Type.Object({
 });
 export type Provider = Static<typeof ProviderSchema>;
 
-/** How a provider stands, as it was asked: whether a request may reach it, who it is connected as, and what is wrong. */
-export const ProviderStatusSchema = Type.Object({ connected: Type.Boolean(), account: Type.Optional(Type.String()), problem: Type.Optional(Type.String()) });
+/**
+ * One of a plan's limits, as its provider tells how much of it is used: how long its window lasts, in minutes — 300
+ * for five hours, 10080 for a week — the models it is of, where it is of some alone, such as "Opus"; how much is used,
+ * in percent, and when it is given again, in milliseconds since the epoch, each where the provider says.
+ */
+export const LimitSchema = Type.Object({
+	window_minutes: Type.Number(),
+	scope: Type.Optional(Type.String()),
+	used_percent: Type.Optional(Type.Number()),
+	resets_at_ms: Type.Optional(Type.Number()),
+});
+export type Limit = Static<typeof LimitSchema>;
+
+/**
+ * How a provider stands, as it was asked: whether a request may reach it, who it is connected as, what is wrong, and how
+ * much of each of its plan's limits is used, where it tells.
+ */
+export const ProviderStatusSchema = Type.Object({
+	connected: Type.Boolean(),
+	account: Type.Optional(Type.String()),
+	problem: Type.Optional(Type.String()),
+	limits: Type.Optional(Type.Array(LimitSchema)),
+});
 export type ProviderStatus = Static<typeof ProviderStatusSchema>;
 
 /**

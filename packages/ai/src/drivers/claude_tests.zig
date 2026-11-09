@@ -92,7 +92,11 @@ test "Claude's models are those the gateway lists, costing nothing, and it stand
     var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_allocator.deinit();
     const arena = arena_allocator.allocator();
-    var gateway: Gateway = .{ .arena = arena, .listing = opus_and_sonnet, .account = "{\"email\":\"person@example.com\",\"organization\":null,\"subscription_type\":\"max\"}" };
+    var gateway: Gateway = .{ .arena = arena, .listing = opus_and_sonnet, .account =
+        \\{"email":"person@example.com","organization":null,"subscription_type":"max",
+        \\ "limits":[{"window_minutes":300,"scope":null,"used_percent":40,"resets_at_ms":1762750800000},
+        \\  {"window_minutes":10080,"scope":"Opus","used_percent":12.5,"resets_at_ms":null}]}
+    };
     const models = try modelsOver(arena, &gateway);
     try models.refresh();
     const opus = (try models.find(arena, "claude/claude-opus-5-5")).?.model;
@@ -102,6 +106,11 @@ test "Claude's models are those the gateway lists, costing nothing, and it stand
     const signed_in = try models.status(arena, "claude");
     try std.testing.expect(signed_in.connected);
     try std.testing.expectEqualStrings("person@example.com (max)", signed_in.account.?);
+    try std.testing.expectEqual(@as(usize, 2), signed_in.limits.len);
+    try std.testing.expectEqual(@as(u32, 300), signed_in.limits[0].window_minutes);
+    try std.testing.expectEqual(@as(?f64, 40), signed_in.limits[0].used_percent);
+    try std.testing.expectEqual(@as(?i64, 1_762_750_800_000), signed_in.limits[0].resets_at_ms);
+    try std.testing.expectEqualStrings("Opus", signed_in.limits[1].scope.?);
     var signed_out: Gateway = .{ .arena = arena, .listing = opus_and_sonnet };
     const out = try (try modelsOver(arena, &signed_out)).status(arena, "claude");
     try std.testing.expect(!out.connected);

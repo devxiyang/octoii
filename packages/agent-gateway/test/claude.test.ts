@@ -57,6 +57,11 @@ class Played {
 		return Promise.resolve(this.#account);
 	}
 
+	/** The plan's usage, as Claude Code's `/usage` tells it: its five hours, two fifths used. */
+	usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET(): Promise<{ rate_limits: object }> {
+		return Promise.resolve({ rate_limits: { five_hour: { utilization: 40, resets_at: "2026-11-10T05:00:00Z" }, seven_day: null } });
+	}
+
 	/** What the process is fed next: a message of the person's, its blocks. */
 	async heard(): Promise<readonly { readonly type: string; readonly text?: string; readonly tool_use_id?: string }[]> {
 		const next = await this.#prompt.next();
@@ -466,7 +471,12 @@ describe("Claude through Claude Code", () => {
 		const positions = await Positions.open(undefined);
 		const signedIn = claudeOf(positions, [], { account: { email: "person@example.com", subscriptionType: "max" } });
 		const signed = await handlerOf({ claude: signedIn })(new Request("http://gateway/claude/v1/account"));
-		expect(await signed.json()).toEqual({ email: "person@example.com", organization: null, subscription_type: "max" });
+		expect(await signed.json()).toEqual({
+			email: "person@example.com",
+			organization: null,
+			subscription_type: "max",
+			limits: [{ window_minutes: 300, scope: null, used_percent: 40, resets_at_ms: Date.UTC(2026, 10, 10, 5) }],
+		});
 		const signedOut = claudeOf(positions, []);
 		const nobody = await handlerOf({ claude: signedOut })(new Request("http://gateway/claude/v1/account"));
 		expect(nobody.status).toBe(401);

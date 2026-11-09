@@ -4,7 +4,7 @@
  * page on the right under a breadcrumb, with a button that puts this device's settings back as they came.
  */
 import { type ReactNode, useRef, useState } from "react";
-import { Archive, Keyboard, MessageSquareText, MessagesSquare, Palette, RotateCcw, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { Archive, Gauge, Keyboard, MessageSquareText, MessagesSquare, Palette, RotateCcw, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { SETTINGS_SECTIONS, type SettingsSection } from "../../core/route.ts";
 import { useShortcut } from "../effects/shortcut.ts";
 import { useDevice } from "../state/device.ts";
@@ -15,6 +15,7 @@ import { Kbd } from "../ui/kbd.tsx";
 import { AppearancePage, ChatPage, GeneralPage } from "./device-pages.tsx";
 import { KeybindingsPage } from "./keybindings-page.tsx";
 import { ProvidersPage } from "./providers-page.tsx";
+import { UsagePage } from "./usage-page.tsx";
 import { ArchivePage } from "./archive-page.tsx";
 import { ThreadsPage } from "./threads-page.tsx";
 
@@ -25,6 +26,7 @@ const SECTION_ICONS: Readonly<Record<SettingsSection, typeof Palette>> = {
 	chat: MessageSquareText,
 	keybindings: Keyboard,
 	providers: Sparkles,
+	usage: Gauge,
 	threads: MessagesSquare,
 	archive: Archive,
 };
@@ -137,6 +139,8 @@ function SectionPage(props: { readonly section: SettingsSection }): ReactNode {
 			return <KeybindingsPage />;
 		case "providers":
 			return <ProvidersPage />;
+		case "usage":
+			return <UsagePage />;
 		case "threads":
 			return <ThreadsPage />;
 		case "archive":

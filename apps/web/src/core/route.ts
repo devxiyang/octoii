@@ -11,6 +11,7 @@ export const SETTINGS_SECTIONS = [
 	{ key: "chat", label: "Chat", group: "" },
 	{ key: "keybindings", label: "Keybindings", group: "" },
 	{ key: "providers", label: "Providers", group: "Agents" },
+	{ key: "usage", label: "Usage", group: "Agents" },
 	{ key: "threads", label: "Threads", group: "Agents" },
 	{ key: "archive", label: "Archive", group: "Agents" },
 ] as const;

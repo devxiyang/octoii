@@ -55,13 +55,17 @@ function decodedOf(escaped: string): string | undefined {
 	}
 }
 
-/** Who Claude Code is signed in as — its email, organization and plan — or that it is signed in as nobody. */
+/**
+ * Who Claude Code is signed in as — its email, organization and plan, and how much of each of its plan's limits is used
+ * — or that it is signed in as nobody.
+ */
 async function account(claude: Claude): Promise<Response> {
 	try {
 		const signed = await claude.account();
 		if (signed === undefined)
 			return errorResponse("authentication_error", `Claude Code is not signed in on this computer: run \`${claude.signIn}\` in a terminal and sign in.`);
-		return Response.json({ email: signed.email, organization: signed.organization ?? null, subscription_type: signed.subscriptionType ?? null });
+		const { account: info, limits } = signed;
+		return Response.json({ email: info.email, organization: info.organization ?? null, subscription_type: info.subscriptionType ?? null, limits });
 	} catch (error) {
 		return errorResponse("api_error", error instanceof Error ? error.message : String(error));
 	}

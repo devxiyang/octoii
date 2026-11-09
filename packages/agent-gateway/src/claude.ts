@@ -159,10 +159,16 @@ export class Claude {
 		return this.#options.signIn;
 	}
 
-	/** Who Claude Code is signed in as now, asked of a process started for it: none where it is signed in as nobody. */
-	async account(): Promise<AccountInfo | undefined> {
-		const account = await this.#asked((query) => query.accountInfo());
-		return account.email === undefined ? undefined : account;
+	/**
+	 * Who Claude Code is signed in as now, and how much of each of its plan's limits is used, asked of a process started
+	 * for it: none where it is signed in as nobody.
+	 */
+	async account(): Promise<SignedIn | undefined> {
+		return this.#asked(async (query) => {
+			const account = await query.accountInfo();
+			if (account.email === undefined) return undefined;
+			return { account, limits: await limitsOf(query) };
+		});
 	}
 
 	/** What `ask` asks of a process of Claude Code started for it alone, which ends as it is answered. */
@@ -294,6 +300,45 @@ export class Claude {
 			}
 		}
 	}
+}
+
+/** Who Claude Code is signed in as, and how much of each of its plan's limits is used. */
+export type SignedIn = { readonly account: AccountInfo; readonly limits: readonly Limit[] };
+
+/**
+ * One of a plan's limits as its usage tells: how long its window lasts, in minutes — five hours, or a week — the models
+ * it is of, where it is of some alone, such as "Opus"; how much of it is used, in percent, and when it is given again, in
+ * milliseconds since the epoch, each where it is known.
+ */
+export type Limit = { readonly window_minutes: number; readonly scope: string | null; readonly used_percent: number | null; readonly resets_at_ms: number | null };
+
+/** A window of a plan's limit, as Claude Code's `/usage` tells it. */
+type Window = { readonly utilization: number | null; readonly resets_at: string | null };
+
+const FIVE_HOURS = 5 * 60;
+const WEEK = 7 * 24 * 60;
+
+/**
+ * The plan's limits as Claude Code's own `/usage` tells them, none where it tells none. The SDK names this call
+ * experimental; the SDK is pinned, and a change of it is met here, as its usage is not asked of anything else.
+ */
+async function limitsOf(query: Query): Promise<readonly Limit[]> {
+	const usage = await query.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({ skipBehaviors: true }).catch(() => undefined);
+	const limits = usage?.rate_limits;
+	if (limits === undefined || limits === null) return [];
+	const windows: (readonly [number, string | null, Window | null | undefined])[] = [
+		[FIVE_HOURS, null, limits.five_hour],
+		[WEEK, null, limits.seven_day],
+		[WEEK, "Opus", limits.seven_day_opus],
+		[WEEK, "Sonnet", limits.seven_day_sonnet],
+		...(limits.model_scoped ?? []).map((scoped) => [WEEK, scoped.display_name, scoped] as const),
+	];
+	return windows.flatMap(([minutes, scope, window]) => (window === null || window === undefined ? [] : [limitOf(minutes, scope, window)]));
+}
+
+function limitOf(minutes: number, scope: string | null, window: Window): Limit {
+	const resets = window.resets_at === null ? Number.NaN : Date.parse(window.resets_at);
+	return { window_minutes: minutes, scope, used_percent: window.utilization, resets_at_ms: Number.isNaN(resets) ? null : resets };
 }
 
 /** Tells what failed where nothing waits to hear it: on the gateway's standard error, which its host keeps. */
