@@ -1,7 +1,9 @@
 //! A server's process on the machine, as Beak runs a command one talks to — a coprocess — for mcp's stdio transport:
 //! what is written reaches its input whole and in order; the whole lines of its output come as Beak tells of them, on a
 //! set of the process's own that its reader alone waits on, never polled for; its standard error kept by Beak, the tail
-//! of it told as it ends. It runs where the thread's files are, so the host never starts a server itself.
+//! of it told as it ends. It runs where the thread's files are, so the host never starts a server itself. Stopped, its
+//! input is closed and its reader woken; let go, the machine ends what still runs of it as a server is ended — past a
+//! grace terminated, then killed — nobody waiting.
 const Coprocess = @This();
 
 const std = @import("std");
@@ -20,6 +22,8 @@ set: h.beak_handle,
 name: []u8,
 /// How it ended, once Beak told of it, where lines it wrote came with it: told at the read after theirs.
 exit: ?Exit = null,
+/// Set as the transport stops it, before its set is woken: its reader tells of its end from then.
+stopping: std.atomic.Value(bool) = .init(false),
 
 const Exit = struct { code: ?i64, signal: ?i64 };
 
@@ -52,7 +56,7 @@ pub fn start(gpa: Allocator, slot: *Slot, options: Options) Error!*Coprocess {
     spawn.lines = true;
     var command: h.beak_handle = 0;
     if (try beak.failed(slot.arena, h.beak_command_spawn(&spawn, &command))) |why| return slot.fail(.{ .connection_lost = try std.fmt.allocPrint(slot.arena, "the MCP server {s} could not be started: {s}", .{ options.name, why }) });
-    errdefer end(command);
+    errdefer _ = h.beak_close(command);
     var set: h.beak_handle = 0;
     if (try beak.failed(slot.arena, h.beak_events_open(&set))) |why| return slot.fail(.{ .connection_lost = try std.fmt.allocPrint(slot.arena, "the MCP server {s} could not be waited on: {s}", .{ options.name, why }) });
     errdefer _ = h.beak_close(set);
@@ -64,7 +68,7 @@ pub fn start(gpa: Allocator, slot: *Slot, options: Options) Error!*Coprocess {
 }
 
 pub fn process(coprocess: *Coprocess) mcp.stdio.Process {
-    return .{ .context = coprocess, .vtable = &.{ .write = write, .read = read, .closeInput = closeInput, .kill = kill, .release = release } };
+    return .{ .context = coprocess, .vtable = &.{ .write = write, .read = read, .stop = stop, .release = release } };
 }
 
 fn of(context: *anyopaque) *Coprocess {
@@ -77,7 +81,9 @@ fn write(context: *anyopaque, arena: Allocator, line: []const u8) Allocator.Erro
     return try std.fmt.allocPrint(arena, "the MCP server {s} takes nothing written to it: {s}", .{ coprocess.name, why });
 }
 
-/// The whole lines the server wrote since the last read, waiting on its set till there are some; or how it ended.
+/// The whole lines the server wrote since the last read, waiting on its set till there are some; or how it ended — at
+/// once where it is stopped, as each poll looks: a poll takes back the wakes given, so a stop before one is seen after
+/// it, and a stop after one wakes the wait.
 fn read(context: *anyopaque, arena: Allocator) Allocator.Error!mcp.stdio.Process.Read {
     const coprocess = of(context);
     while (true) {
@@ -93,6 +99,7 @@ fn read(context: *anyopaque, arena: Allocator) Allocator.Error!mcp.stdio.Process
             h.BEAK_EVENT_EXIT => coprocess.exit = .{ .code = beak.get(event.code), .signal = beak.get(event.signal) },
             else => {},
         };
+        if (coprocess.stopping.load(.seq_cst)) return .{ .ended = try std.fmt.allocPrint(arena, "the MCP server {s} was stopped", .{coprocess.name}) };
         if (lines.items.len > 0) return .{ .lines = lines.items };
         if (coprocess.exit == null) {
             var ready = false;
@@ -121,24 +128,21 @@ fn endOf(coprocess: *Coprocess, arena: Allocator, exit: Exit) Allocator.Error![]
 /// How much of the tail of a server's standard error is told as it ends.
 const errors_told_max = 2000;
 
-fn closeInput(context: *anyopaque) void {
-    _ = h.beak_command_close_input(of(context).command);
+/// Asks the server to end, as a server is asked — its input closed once what was written reaches it — and wakes its
+/// reader to tell of its end.
+fn stop(context: *anyopaque) void {
+    const coprocess = of(context);
+    _ = h.beak_command_close_input(coprocess.command);
+    coprocess.stopping.store(true, .seq_cst);
+    _ = h.beak_events_wake(coprocess.set);
 }
 
-fn kill(context: *anyopaque) void {
-    _ = h.beak_command_signal(of(context).command, h.BEAK_SIGNAL_KILL);
-}
-
+/// Lets the server go, nothing reading it: its set closed, then its command, which the machine ends as a server is
+/// ended where it still runs.
 fn release(context: *anyopaque) void {
     const coprocess = of(context);
     _ = h.beak_close(coprocess.set);
-    end(coprocess.command);
+    _ = h.beak_close(coprocess.command);
     coprocess.gpa.free(coprocess.name);
     coprocess.gpa.destroy(coprocess);
-}
-
-/// Kills the command's group, where it still runs, and closes its handle.
-fn end(command: h.beak_handle) void {
-    _ = h.beak_command_signal(command, h.BEAK_SIGNAL_KILL);
-    _ = h.beak_close(command);
 }

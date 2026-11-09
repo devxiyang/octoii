@@ -118,17 +118,6 @@ pub const Router = struct {
         return router.closed;
     }
 
-    /// Waits until the channel closes, `wait_ms` at most: whether it did. Each message that comes wakes the wait,
-    /// which goes on to the same end.
-    pub fn waitClosed(router: *Router, wait_ms: u64) bool {
-        const io = router.host.io;
-        router.lock.lockUncancelable(io);
-        defer router.lock.unlock(io);
-        const deadline = (Io.Timeout{ .duration = .{ .raw = .fromMilliseconds(@intCast(wait_ms)), .clock = .awake } }).toDeadline(io);
-        while (!router.closed) router.arrived.waitTimeout(io, &router.lock, deadline) catch return router.closed;
-        return true;
-    }
-
     /// The channel's end, as an incoming, its reason in the slot's arena.
     fn ended(router: *Router, slot: *Slot) Allocator.Error!Incoming {
         return .{ .closed = if (router.reason) |reason| try slot.arena.dupe(u8, reason) else null };

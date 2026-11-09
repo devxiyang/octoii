@@ -1,14 +1,15 @@
 //! The MCP servers whose tools a thread's scripts call, as configurations name them in the common `mcpServers` shape:
 //! the person's own, in the Home's `mcp.json`; then its project's, in the `.mcp.json` of the project's folder, once the
 //! person trusts them, as a project's code runs — one of a name the person's has standing for theirs, as the nearer
-//! setting holds. Each is a command the machine runs, in its configuration's folder unless it names its own, talked
-//! to over its standard input and output, its `env` set over the machine's own, or, where `inheritEnv` is false, all it
-//! has; connected as its tools are first asked for, then kept and shared by every thread, in the servers' pool. A tool of
-//! one is named `<server>.<tool>`, as a mount table names what is under a mount point: a call of one goes to its
-//! server; and the model is told the tools of them all as a catalog, called from `execute`. A server whose
-//! configuration changed is connected anew, and one its configuration no longer names, or names untrusted, is stopped
-//! once nothing uses it. A client is shown the servers a thread working in a folder would use, each as it stands, and
-//! the project's configuration with what the person decided on it, nothing started for the showing.
+//! setting holds. Each is a command the machine runs, in its configuration's folder unless it names its own, talked to
+//! over its standard input and output, its `env` set over the machine's own, or, where `inheritEnv` is false, all it
+//! has; connected as its tools are first asked for, then kept and shared by every thread, in the servers' pool, and
+//! stopped once no thread used it for a while, to be started again as one next does. A tool of one is named
+//! `<server>.<tool>`, as a mount table names what is under a mount point: a call of one goes to its server; and the
+//! model is told the tools of them all as a catalog, called from `execute`. A server whose configuration changed is
+//! connected anew, and one its configuration no longer names, or names untrusted, is stopped once nothing uses it. A
+//! client is shown the servers a thread working in a folder would use, each as it stands, and the project's
+//! configuration with what the person decided on it, nothing started for the showing.
 const Servers = @This();
 
 const std = @import("std");
@@ -36,8 +37,11 @@ host: Tool.Host,
 pool: mcp.Pool,
 
 pub fn init(runtime: *Runtime, host: Tool.Host) Servers {
-    return .{ .allocator = runtime.allocator, .runtime = runtime, .host = host, .pool = .init(runtime.allocator, .{ .host = .{ .io = runtime.host.io }, .client = .{ .name = "octoii", .version = "0.0.1" } }) };
+    return .{ .allocator = runtime.allocator, .runtime = runtime, .host = host, .pool = .init(runtime.allocator, .{ .host = .{ .io = runtime.host.io }, .client = .{ .name = "octoii", .version = "0.0.1" } }, idle_ms) };
 }
+
+/// How long a server no thread uses keeps running before it is stopped.
+const idle_ms = 10 * std.time.ms_per_min;
 
 /// Closes each server's client, its server ended: no task holds one now.
 pub fn deinit(servers: *Servers) void {
@@ -276,9 +280,6 @@ fn readOnMachine(handle: ?h.beak_handle, arena: Allocator, path: []const u8) !?[
 /// The most of a configuration read.
 const configuration_bytes_max = 1 << 20;
 
-/// How long a server has to exit once it is let go of, before it is killed.
-const shutdown_ms = 2000;
-
 /// What makes a server's transport, as the pool asks for one: the server run on the machine, talked to over stdio.
 const Making = struct {
     servers: *Servers,
@@ -300,7 +301,7 @@ const Making = struct {
             .inherit = server.inherit,
             .name = server.name,
         });
-        const stdio = try mcp.stdio.Stdio.start(servers.allocator, &servers.pool.options.host, slot, coprocess.process(), shutdown_ms);
+        const stdio = try mcp.stdio.Stdio.start(servers.allocator, &servers.pool.options.host, slot, coprocess.process());
         return stdio.transport();
     }
 };

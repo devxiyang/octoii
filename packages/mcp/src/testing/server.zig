@@ -167,7 +167,9 @@ pub const Session = struct {
     subscriptions: std.ArrayList([]const u8) = .empty,
     running: std.ArrayList(Running) = .empty,
     next_ask: usize = 1,
-    ended: bool = false,
+    /// Whether it ended: the client closed it, or the server; read from a task of its own, as a pool closes a client on
+    /// its own task.
+    ended: std.atomic.Value(bool) = .init(false),
 };
 
 pub const FakeServer = struct {
@@ -247,7 +249,7 @@ pub const FakeServer = struct {
     }
 
     fn closed(context: *anyopaque) void {
-        of(context).session.ended = true;
+        of(context).session.ended.store(true, .release);
     }
 
     fn handle(context: *anyopaque, sink: memory.Sink, text: []const u8) void {

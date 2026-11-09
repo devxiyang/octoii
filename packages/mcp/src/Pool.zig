@@ -2,8 +2,10 @@
 //! every task that asks after, as a host's pool of connections keeps one to each place; one whose server went away is
 //! connected again as it is next asked for; a host that only reads what stands leases what is connected alone, starting
 //! nothing. The host makes a key's transport as it asks, so the pool knows no transport; and it says which keys of a
-//! source of them stand — the keys of one beginning alike, as the files of a
-//! folder share its path — so that a client of a key that no longer does is closed once its last lease is given back.
+//! source of them stand — the keys of one beginning alike, as the files of a folder share its path — so that a client
+//! of a key that no longer does is closed once its last lease is given back. A client no lease held for the pool's idle
+//! time is closed, its server stopped, as a pool closes a connection idle past its timeout — by a task of the pool's
+//! own, started as the first is connected — and is connected anew as it is next asked for.
 const Pool = @This();
 
 const std = @import("std");
@@ -17,10 +19,14 @@ const transport_ = @import("transport.zig");
 
 gpa: Allocator,
 options: Client.Options,
-/// Guards `entries`, which entry holds which client, and the clients' holds.
+/// How long a client no lease holds stays connected; null, till its key no longer stands.
+idle_ms: ?u64,
+/// Guards `entries`, which entry holds which client, the clients' holds, and `sweeping`.
 lock: Io.Mutex = .init,
 /// Each key ever asked for, kept till the pool is let go.
 entries: std.StringArrayHashMapUnmanaged(*Entry) = .empty,
+/// The task that closes the clients idle past `idle_ms`, once one is connected.
+sweeping: ?Io.Future(void) = null,
 
 /// A key's place in the pool: the client of its server, where one is connected. One task connects it, holding
 /// `connecting`; the others asking meanwhile wait for it there.
@@ -29,8 +35,9 @@ const Entry = struct {
     held: ?*Held = null,
 };
 
-/// A client, held by its entry while it stands there and by each lease on it; let go of as its last hold is.
-const Held = struct { client: *Client, holds: u32 };
+/// A client, held by its entry while it stands there and by each lease on it; let go of as its last hold is; and when
+/// a hold of it was last given back, which, its entry's hold alone left, it is idle since.
+const Held = struct { client: *Client, holds: u32, released_at: i64 = 0 };
 
 /// Makes the transport of a key's server, as the host reaches it.
 pub const Maker = struct {
@@ -52,13 +59,15 @@ pub const Lease = struct {
     }
 };
 
-/// A pool whose clients connect with `options`, which outlive it.
-pub fn init(gpa: Allocator, options: Client.Options) Pool {
-    return .{ .gpa = gpa, .options = options };
+/// A pool whose clients connect with `options`, which outlive it, each closed once no lease held it for `idle_ms` —
+/// null, kept till its key no longer stands.
+pub fn init(gpa: Allocator, options: Client.Options, idle_ms: ?u64) Pool {
+    return .{ .gpa = gpa, .options = options, .idle_ms = idle_ms };
 }
 
 /// Closes every client, once no lease is held.
 pub fn deinit(pool: *Pool) void {
+    if (pool.sweeping) |*sweeping| sweeping.cancel(pool.options.host.io);
     for (pool.entries.keys(), pool.entries.values()) |key, entry| {
         if (entry.held) |held| pool.drop(held);
         pool.gpa.free(key);
@@ -75,6 +84,7 @@ pub fn lease(pool: *Pool, arena: Allocator, key: []const u8, maker: Maker) Alloc
     entry.connecting.lockUncancelable(io);
     defer entry.connecting.unlock(io);
     if (pool.standing(entry)) |held| return .{ .done = .{ .pool = pool, .held = held } };
+    pool.startSweeping() catch return .{ .failed = .{ .connection_lost = "The host's io runs nothing concurrently, which closing idle clients needs" } };
     var slot: Slot = .{ .arena = arena };
     const transport = maker.make(maker.context, &slot) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
@@ -176,15 +186,58 @@ fn drop(pool: *Pool, held: *Held) void {
     const io = pool.options.host.io;
     pool.lock.lockUncancelable(io);
     held.holds -= 1;
+    held.released_at = pool.options.host.nowMs();
     const last = held.holds == 0;
     pool.lock.unlock(io);
     if (last) pool.free(held);
 }
 
-/// Closes the client and lets it go, outside the lock, as closing waits for its server.
+/// Closes the client and lets it go, outside the lock, as closing waits for its transport.
 fn free(pool: *Pool, held: *Held) void {
     held.client.deinit();
     pool.gpa.destroy(held);
+}
+
+/// Starts the task that closes idle clients, where the pool closes them and it does not run yet.
+fn startSweeping(pool: *Pool) error{ConcurrencyUnavailable}!void {
+    const idle_ms = pool.idle_ms orelse return;
+    const io = pool.options.host.io;
+    pool.lock.lockUncancelable(io);
+    defer pool.lock.unlock(io);
+    if (pool.sweeping == null) pool.sweeping = try io.concurrent(sweep, .{ pool, idle_ms });
+}
+
+/// Closes each client as it comes to be idle past `idle_ms`, till the pool is let go. It sleeps till the next one idle
+/// is past it, or, none idle, `idle_ms`: one idle later is past it later still, so nothing need wake the sweep.
+fn sweep(pool: *Pool, idle_ms: u64) void {
+    const host = &pool.options.host;
+    while (true) switch (pool.sweepAt(host.nowMs(), idle_ms)) {
+        .idle => |held| pool.free(held),
+        .wait_ms => |wait_ms| host.sleep(wait_ms) catch return,
+    };
+}
+
+/// What the sweep comes to: a client idle past its time, taken from its entry to close outside the lock; else how long
+/// till the next is.
+const Swept = union(enum) { idle: *Held, wait_ms: u64 };
+
+fn sweepAt(pool: *Pool, now: i64, idle_ms: u64) Swept {
+    const io = pool.options.host.io;
+    pool.lock.lockUncancelable(io);
+    defer pool.lock.unlock(io);
+    var wait_ms = idle_ms;
+    for (pool.entries.values()) |entry| {
+        const held = entry.held orelse continue;
+        if (held.holds > 1) continue;
+        const idle_for: u64 = @intCast(@max(0, now - held.released_at));
+        if (idle_for >= idle_ms) {
+            entry.held = null;
+            held.holds = 0;
+            return .{ .idle = held };
+        }
+        wait_ms = @min(wait_ms, idle_ms - idle_for);
+    }
+    return .{ .wait_ms = wait_ms };
 }
 
 fn isAmong(key: []const u8, keys: []const []const u8) bool {
@@ -240,7 +293,7 @@ test "a server is connected once, as it is first asked for, and its client share
     var test_host: TestHost = .{};
     const host = test_host.host();
     var fakes: Fakes = .{ .arena = arena, .host = &host };
-    var pool: Pool = .init(std.testing.allocator, testOptions(host));
+    var pool: Pool = .init(std.testing.allocator, testOptions(host), null);
     defer pool.deinit();
     const first = (try pool.lease(arena, "a", fakes.maker())).done;
     const second = (try pool.lease(arena, "a", fakes.maker())).done;
@@ -262,7 +315,7 @@ test "a server that went away is connected again as it is next asked for, and on
     var test_host: TestHost = .{};
     const host = test_host.host();
     var fakes: Fakes = .{ .arena = arena, .host = &host };
-    var pool: Pool = .init(std.testing.allocator, testOptions(host));
+    var pool: Pool = .init(std.testing.allocator, testOptions(host), null);
     defer pool.deinit();
     const first = (try pool.lease(arena, "a", fakes.maker())).done;
     const gone = first.client();
@@ -285,7 +338,7 @@ test "what stands is leased without starting what does not: a key never connecte
     var test_host: TestHost = .{};
     const host = test_host.host();
     var fakes: Fakes = .{ .arena = arena, .host = &host };
-    var pool: Pool = .init(std.testing.allocator, testOptions(host));
+    var pool: Pool = .init(std.testing.allocator, testOptions(host), null);
     defer pool.deinit();
     try std.testing.expect(pool.leaseStanding("a") == null);
     const first = (try pool.lease(arena, "a", fakes.maker())).done;
@@ -306,7 +359,7 @@ test "a client of a key its source no longer names is closed once its last lease
     var test_host: TestHost = .{};
     const host = test_host.host();
     var fakes: Fakes = .{ .arena = arena, .host = &host };
-    var pool: Pool = .init(std.testing.allocator, testOptions(host));
+    var pool: Pool = .init(std.testing.allocator, testOptions(host), null);
     defer pool.deinit();
     const kept = (try pool.lease(arena, "a/kept", fakes.maker())).done;
     kept.release();
@@ -315,14 +368,51 @@ test "a client of a key its source no longer names is closed once its last lease
     other.release();
     pool.retain("a/", &.{"a/kept"});
     // Leased still, it is open: the lease goes on with it.
-    try std.testing.expect(!fakes.made.items[1].session.ended);
+    try std.testing.expect(!fakes.made.items[1].session.ended.load(.acquire));
     _ = (try leased.client().callTool(arena, "echo", null, .{})).done;
     leased.release();
-    try std.testing.expect(fakes.made.items[1].session.ended);
-    try std.testing.expect(!fakes.made.items[0].session.ended);
-    try std.testing.expect(!fakes.made.items[2].session.ended);
+    try std.testing.expect(fakes.made.items[1].session.ended.load(.acquire));
+    try std.testing.expect(!fakes.made.items[0].session.ended.load(.acquire));
+    try std.testing.expect(!fakes.made.items[2].session.ended.load(.acquire));
     // Asked for again, it is connected anew.
     const anew = (try pool.lease(arena, "a/dropped", fakes.maker())).done;
+    defer anew.release();
+    try std.testing.expectEqual(@as(usize, 4), fakes.made.items.len);
+}
+
+/// When `fake`'s session ended, on the host's clock, waiting two seconds for it at most.
+fn endedAt(host: transport_.Host, fake: *server_.FakeServer) !i64 {
+    const began = host.nowMs();
+    while (!fake.session.ended.load(.acquire)) {
+        if (host.nowMs() - began > 2000) return error.TestUnexpectedResult;
+        try std.testing.io.sleep(.fromMilliseconds(5), .awake);
+    }
+    return host.nowMs();
+}
+
+test "a client no lease held for the idle time is closed and connected anew as next asked for; one leased is kept" {
+    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    // The sweep sleeps on the host's io, as a host's does, so its waits take their time.
+    const host: transport_.Host = .{ .io = std.testing.io };
+    var fakes: Fakes = .{ .arena = arena, .host = &host };
+    var pool: Pool = .init(std.testing.allocator, testOptions(host), 300);
+    defer pool.deinit();
+    const held = (try pool.lease(arena, "held", fakes.maker())).done;
+    defer held.release();
+    const idle = (try pool.lease(arena, "idle", fakes.maker())).done;
+    const idle_since = host.nowMs();
+    idle.release();
+    (try pool.lease(arena, "again", fakes.maker())).done.release();
+    try std.testing.io.sleep(.fromMilliseconds(150), .awake);
+    // Leased again before its time runs out, it is idle anew from then.
+    pool.leaseStanding("again").?.release();
+    try std.testing.expect(try endedAt(host, fakes.made.items[1]) - idle_since >= 300);
+    try std.testing.expect(!fakes.made.items[2].session.ended.load(.acquire));
+    _ = try endedAt(host, fakes.made.items[2]);
+    try std.testing.expect(!fakes.made.items[0].session.ended.load(.acquire));
+    const anew = (try pool.lease(arena, "idle", fakes.maker())).done;
     defer anew.release();
     try std.testing.expectEqual(@as(usize, 4), fakes.made.items.len);
 }

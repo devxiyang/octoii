@@ -4,6 +4,7 @@ const Allocator = std.mem.Allocator;
 const Client = @import("Client.zig");
 const transport_ = @import("transport.zig");
 const stdio_ = @import("stdio.zig");
+const Child = @import("testing/child.zig").Child;
 const failure_ = @import("failure.zig");
 
 const server_path = @import("test_options").example_stdio_server;
@@ -15,7 +16,7 @@ fn connected(a: Allocator, host: *const transport_.Host, eras: []const u8, env: 
     const stderr = try a.create(std.ArrayList([]const u8));
     stderr.* = .empty;
     var slot: failure_.Slot = .{ .arena = a };
-    const child = try stdio_.Child.start(a, host.io, &slot, .{
+    const child = try Child.start(a, host.io, &slot, .{
         .command = server_path,
         .args = &.{eras},
         .env = env,
@@ -26,7 +27,7 @@ fn connected(a: Allocator, host: *const transport_.Host, eras: []const u8, env: 
             }
         }.line },
     });
-    const stdio = try stdio_.Stdio.start(a, host, &slot, child.process(), 1000);
+    const stdio = try stdio_.Stdio.start(a, host, &slot, child.process());
     const made = try Client.connect(a, a, .{ .host = host.*, .client = .{ .name = "test", .version = "1" }, .timeout_ms = 5000, .probe_timeout_ms = 2000 }, stdio.transport());
     return .{ .client = made.client, .stderr = stderr };
 }

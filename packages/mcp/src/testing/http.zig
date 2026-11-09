@@ -54,7 +54,7 @@ pub const HttpServer = struct {
     /// Ends the session, so that its next request is answered 404.
     pub fn expireSession(server: *HttpServer) void {
         server.session_id = null;
-        server.fake.session.ended = true;
+        server.fake.session.ended.store(true, .release);
     }
 
     /// The headers of the request `index`, by name in any case.
