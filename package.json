@@ -7,12 +7,12 @@
     "bun": "1.4.4"
   },
   "scripts": {
-    "lint": "oxlint --type-aware --deny-warnings --report-unused-disable-directives packages/terminal packages/client apps/web oxlint-plugin-octoii",
+    "lint": "oxlint --type-aware --deny-warnings --report-unused-disable-directives packages/agent-gateway packages/terminal packages/client apps/web oxlint-plugin-octoii",
     "format": "bun fmt \"**/*.{ts,tsx,js,mjs}\"",
     "format:check": "bun fmt --check \"**/*.{ts,tsx,js,mjs}\"",
     "knip": "knip --no-progress",
     "typecheck": "bun check --no-script -b -p tsconfig.projects.json",
-    "test": "bun run --filter './packages/terminal' --filter './packages/client' --filter './apps/web' --filter './oxlint-plugin-octoii' --parallel test",
+    "test": "bun run --filter './packages/agent-gateway' --filter './packages/terminal' --filter './packages/client' --filter './apps/web' --filter './oxlint-plugin-octoii' --parallel test",
     "test:node": "node node_modules/vitest/vitest.mjs run",
     "check": "bun run format:check && bun run lint && bun run knip && bun run typecheck && bun run test && bun run test:node",
     "build": "bun run --workspaces --if-present build"
@@ -20,6 +20,7 @@
   "workspaces": {
     "packages": [
       "oxlint-plugin-octoii",
+      "packages/agent-gateway",
       "packages/client",
       "packages/terminal",
       "apps/web"

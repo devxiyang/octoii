@@ -1,0 +1,30 @@
+{
+	"$schema": "https://json.schemastore.org/package.json",
+	"name": "@octoii-works/octoii-agent-gateway",
+	"version": "0.0.1",
+	"private": true,
+	"description": "Octoii's agent gateway: models that come only through an agent — Claude's plans through Claude Code — answered as Anthropic's Messages API on a channel the node holds, the agent thinking and Octoii acting",
+	"homepage": "https://github.com/octoii-works/octoii/tree/main/packages/agent-gateway#readme",
+	"license": "MIT",
+	"author": "Elian Yang (https://elianyang.com)",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/octoii-works/octoii.git",
+		"directory": "packages/agent-gateway"
+	},
+	"type": "module",
+	"scripts": {
+		"typecheck": "bun check",
+		"test": "bun test --timeout=60000 --no-env-file --no-install ./test"
+	},
+	"devDependencies": {
+		"@types/bun": "catalog:"
+	},
+	"dependencies": {
+		"@anthropic-ai/claude-agent-sdk": "0.3.319",
+		"@anthropic-ai/sdk": "1.6.0",
+		"@modelcontextprotocol/sdk": "1.32.2",
+		"typebox": "catalog:",
+		"zod": "4.6.7"
+	}
+}

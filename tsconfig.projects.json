@@ -5,6 +5,9 @@
       "path": "oxlint-plugin-octoii"
     },
     {
+      "path": "packages/agent-gateway"
+    },
+    {
       "path": "packages/terminal"
     },
     {

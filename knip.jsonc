@@ -6,6 +6,11 @@
 			"entry": ["vitest.bun-test.ts"],
 			"project": ["*.ts"]
 		},
+		"packages/agent-gateway": {
+			// The program the node runs, as its build compiles it.
+			"entry": ["src/main.ts", "test/**/*.ts"],
+			"project": ["src/**/*.ts", "test/**/*.ts"]
+		},
 		"packages/*": {
 			"entry": ["test/**/*.{ts,tsx}"],
 			"project": ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"]
