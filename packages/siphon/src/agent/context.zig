@@ -28,7 +28,7 @@ pub const Composition = struct { tokens: u64, parts: []const Share };
 
 /// What fills the window the log of the thread at `thread` ends in.
 pub fn of(runtime: *const Runtime, arena: *const Allocator, thread: []const u8) !Composition {
-    return compositionOf(arena.*, try Window.of(arena.*, try log.lines(runtime.volume, arena, thread)));
+    return compositionOf(arena.*, try Window.read(runtime.volume, arena, thread));
 }
 
 /// What fills `window`.

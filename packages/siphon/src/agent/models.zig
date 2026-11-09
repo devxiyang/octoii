@@ -70,7 +70,7 @@ fn act(context: ?*anyopaque, request: *Request) anyerror!void {
 /// that reads them takes one.
 pub fn render(runtime: *const Runtime, arena: *const Allocator, asked: ModelRequest, served: ?ai.Model) !vocabulary.ResponsesRequest {
     const model = asked.model orelse return error.NoModel;
-    const window: Window = try .of(arena.*, try log.lines(runtime.volume, arena, try threads.pathOf(arena.*, asked.thread)));
+    const window: Window = try .read(runtime.volume, arena, try threads.pathOf(arena.*, asked.thread));
     var items: std.ArrayList(vocabulary.Item) = .empty;
     var declared: std.ArrayList(vocabulary.Tool) = .empty;
     const searches = if (served) |facts| system.searches(facts) else true;

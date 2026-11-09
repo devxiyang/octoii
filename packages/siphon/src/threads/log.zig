@@ -315,6 +315,20 @@ pub fn readBefore(volume: beak.Volume, arena: *const Allocator, thread: []const 
     }
 }
 
+/// Where the entry of id `id` begins in the log of the thread at `thread`: in the last segment named at most it, as ids
+/// rise along the log; null where the log holds no such entry.
+pub fn cursorOf(volume: beak.Volume, arena: *const Allocator, thread: []const u8, id: []const u8) !?Cursor {
+    const all = try segments(volume, arena, thread);
+    var index = all.len;
+    while (index > 0) : (index -= 1) {
+        const segment = all[index - 1];
+        if (std.mem.order(u8, beginsWith(segment.name), id) == .gt) continue;
+        const offset = try lineStart(volume, arena, try segmentPath(arena.*, thread, segment.name), segment.length, id) orelse return null;
+        return .{ .segment = segment.name, .offset = offset };
+    }
+    return null;
+}
+
 /// The id of the entry that begins the segment of `name`.
 fn beginsWith(name: []const u8) []const u8 {
     return if (std.mem.endsWith(u8, name, segment_extension)) name[0 .. name.len - segment_extension.len] else name;

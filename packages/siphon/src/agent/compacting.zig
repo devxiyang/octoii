@@ -78,7 +78,7 @@ fn compactPhase(_: ?*anyopaque, phase: *Phase) anyerror!void {
     const thread = threads.threadOf(phase.path);
     if (phase.checkpoint.len == 0) {
         if (phase.stop_handler) return phase.stopped(null);
-        const window = try Window.of(phase.arena, try log.lines(phase.runtime.volume, &phase.arena, thread));
+        const window = try Window.read(phase.runtime.volume, &phase.arena, thread);
         const cut = try compaction.cutOf(phase.arena, window) orelse return phase.done(Compacted{ .written = false });
         return recap(phase, thread, cut);
     }
@@ -139,6 +139,9 @@ fn regathered(phase: *Phase, thread: []const u8, gathering: []const u8, written:
     const told = try system.changes(phase.arena, &.{}, try foundation.json.decode(system.Told, phase.arena, answer.payload));
     var writer: log.Writer = try .init(phase, thread);
     _ = try writer.append(log.Compaction{ .id = try phase.mint(), .request = written.request, .response = written.response, .kept = cut.kept, .from = cut.from });
+    // The new window is read from the entry it keeps first, which comes before every other it keeps.
+    const from = try log.cursorOf(phase.runtime.volume, &phase.arena, thread, cut.kept) orelse return error.KeptGone;
+    try phase.changes.annotate(thread, &.{.{ .name = Window.from_annotation, .value = try foundation.json.encode(phase.arena, from) }});
     _ = try writer.append(log.System{ .id = try phase.mint(), .request = gathering, .sections = told.sections, .tools = told.tools });
     return phase.done(Compacted{ .written = true });
 }

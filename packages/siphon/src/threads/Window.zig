@@ -11,6 +11,7 @@ const Allocator = std.mem.Allocator;
 const foundation = @import("foundation");
 const vocabulary = @import("vocabulary");
 const log = @import("log.zig");
+const beak = @import("../beak.zig");
 
 const ReasoningEffort = vocabulary.items.ReasoningEffort;
 
@@ -35,6 +36,18 @@ effort: ?ReasoningEffort = null,
 answered: usize = 0,
 /// The effort the log's last configuration set, the window's or after it; none where none did.
 effort_set: ?ReasoningEffort = null,
+
+/// The annotation on a thread's directory that holds where its window begins in its log — the entry its compaction keeps
+/// first, as JSON — set in the commit that appends the compaction, so the window is read from there and the log before
+/// it never; none for a log no compaction cut, which is read whole.
+pub const from_annotation = "siphon.window_from";
+
+/// The window the log of the thread at `thread` ends in, read from where the thread's directory says it begins.
+pub fn read(volume: beak.Volume, arena: *const Allocator, thread: []const u8) !Window {
+    const entry = try volume.stat(arena, thread) orelse return error.NoSuchThread;
+    const from: ?log.Cursor = if (beak.annotationOf(entry, from_annotation)) |text| try foundation.json.decode(log.Cursor, arena.*, text) else null;
+    return of(arena.*, (try log.readFrom(volume, arena, thread, from, std.math.maxInt(u64))).lines);
+}
 
 /// The window the log's `lines` end in.
 pub fn of(arena: Allocator, lines: []const []const u8) !Window {

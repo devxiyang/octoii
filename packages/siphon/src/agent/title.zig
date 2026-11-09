@@ -75,13 +75,18 @@ fn ask(run: *Phase, thread: []const u8) !void {
     return run.waitForMail(Asking{ .key = asked }, asked);
 }
 
-/// The id of the thread's first input; none where it has none.
+/// The id of the thread's first input; none where it has none: read from the log's start a block at a time, to it.
 fn firstInput(run: *Phase, thread: []const u8) !?[]const u8 {
-    for (try log.lines(run.runtime.volume, &run.arena, thread)) |line| {
-        const head = try log.headOf(run.arena, line);
-        if (std.mem.eql(u8, head.type, "input")) return head.id;
+    var from: ?log.Cursor = null;
+    while (true) {
+        const read = try log.readFrom(run.runtime.volume, &run.arena, thread, from, 64 << 10);
+        for (read.lines) |line| {
+            const head = try log.headOf(run.arena, line);
+            if (std.mem.eql(u8, head.type, "input")) return head.id;
+        }
+        if (!read.more) return null;
+        from = read.cursor;
     }
-    return null;
 }
 
 /// The title the model's `words` give: their first line, the quotes and the full stop around it let go of, cut short

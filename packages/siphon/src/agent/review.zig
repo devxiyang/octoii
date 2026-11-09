@@ -14,6 +14,7 @@ const Runtime = runtime_.Runtime;
 const Request = runtime_.Request;
 const threads = @import("../threads.zig");
 const log = threads.log;
+const beak = @import("../beak.zig");
 const review = @import("../tools.zig").review;
 const models = @import("models.zig");
 
@@ -85,40 +86,84 @@ fn requestOf(runtime: *const Runtime, arena: Allocator, asked: review.Asked) !vo
 
 /// What the judge reads of the thread at `thread`: what the person said, and the calls it made — its model's, and those
 /// made under them, as a script's — each by its tool and its arguments, a line each, in the order of its log — the
-/// oldest left out past `transcript_bytes_max`, but the person's first words.
+/// oldest left out past `transcript_bytes_max`, but the person's first words. The log is read back from its end a page at
+/// a time, as far as the transcript holds, and from its start to the first words: a long one is never read whole.
 fn transcriptOf(runtime: *const Runtime, arena: Allocator, thread: []const u8) ![]const u8 {
-    var lines: std.ArrayList([]const u8) = .empty;
-    for (try log.lines(runtime.volume, &arena, thread)) |line| {
-        const kind = (try log.headOf(arena, line)).type;
-        if (std.mem.eql(u8, kind, "input")) {
-            const input = try foundation.json.decode(log.Input, arena, line);
-            try lines.append(arena, try arena.print("person: {s}\n", .{try wordsOf(arena, input.message)}));
-        } else if (std.mem.eql(u8, kind, "reply")) {
-            const reply = try foundation.json.decode(log.Reply, arena, line);
-            const response = try foundation.json.decode(vocabulary.Response, arena, reply.response.text);
-            for (response.output) |item| switch (item) {
-                .function_call => |call| try lines.append(arena, try callLine(arena, call)),
-                else => {},
-            };
-        } else if (std.mem.eql(u8, kind, "calls")) {
-            for ((try foundation.json.decode(log.Calls, arena, line)).calls) |call| try lines.append(arena, try callLine(arena, call));
+    return transcriptWithin(runtime.volume, arena, thread, transcript_bytes_max);
+}
+
+/// The transcript of the thread at `thread` on `volume`, `bytes_max` at most but the person's first words.
+fn transcriptWithin(volume: beak.Volume, arena: Allocator, thread: []const u8, bytes_max: usize) ![]const u8 {
+    const first = try firstWords(volume, arena, thread);
+    var newest_first: std.ArrayList([]const u8) = .empty;
+    var used: usize = if (first) |words| words.len else 0;
+    var before: ?[]const u8 = null;
+    while (true) {
+        const page = try log.readBefore(volume, &arena, thread, before, transcript_page);
+        var at = page.lines.len;
+        while (at > 0) {
+            at -= 1;
+            const said = try linesOf(arena, page.lines[at]);
+            var each = said.len;
+            while (each > 0) {
+                each -= 1;
+                if (used + said[each].len > bytes_max) {
+                    std.mem.reverse([]const u8, newest_first.items);
+                    return std.mem.concat(arena, u8, &.{ first orelse "", "…\n", try std.mem.concat(arena, u8, newest_first.items) });
+                }
+                used += said[each].len;
+                try newest_first.append(arena, said[each]);
+            }
         }
+        if (page.complete or page.lines.len == 0) break;
+        before = (try log.headOf(arena, page.lines[0])).id;
     }
-    return keptWithin(arena, lines.items, transcript_bytes_max);
+    // Read back to its start, the log holds the first words among the rest.
+    std.mem.reverse([]const u8, newest_first.items);
+    return std.mem.concat(arena, u8, newest_first.items);
+}
+
+/// How many entries the transcript reads back at a time.
+const transcript_page = 64;
+
+/// The line of the transcript the person's first input gives; none where they gave none: read from the log's start to it.
+fn firstWords(volume: beak.Volume, arena: Allocator, thread: []const u8) !?[]const u8 {
+    var from: ?log.Cursor = null;
+    while (true) {
+        const read = try log.readFrom(volume, &arena, thread, from, 64 << 10);
+        for (read.lines) |line| {
+            if (!std.mem.eql(u8, (try log.headOf(arena, line)).type, "input")) continue;
+            return (try linesOf(arena, line))[0];
+        }
+        if (!read.more) return null;
+        from = read.cursor;
+    }
+}
+
+/// The lines of the transcript the log's entry `line` gives: an input's words, the calls a reply made, those made under
+/// a call; none for any other entry.
+fn linesOf(arena: Allocator, line: []const u8) ![]const []const u8 {
+    var lines: std.ArrayList([]const u8) = .empty;
+    const kind = (try log.headOf(arena, line)).type;
+    if (std.mem.eql(u8, kind, "input")) {
+        const input = try foundation.json.decode(log.Input, arena, line);
+        try lines.append(arena, try arena.print("person: {s}\n", .{try wordsOf(arena, input.message)}));
+    } else if (std.mem.eql(u8, kind, "reply")) {
+        const reply = try foundation.json.decode(log.Reply, arena, line);
+        const response = try foundation.json.decode(vocabulary.Response, arena, reply.response.text);
+        for (response.output) |item| switch (item) {
+            .function_call => |call| try lines.append(arena, try callLine(arena, call)),
+            else => {},
+        };
+    } else if (std.mem.eql(u8, kind, "calls")) {
+        for ((try foundation.json.decode(log.Calls, arena, line)).calls) |call| try lines.append(arena, try callLine(arena, call));
+    }
+    return lines.items;
 }
 
 /// A call's line of the transcript: its tool and its arguments.
 fn callLine(arena: Allocator, call: vocabulary.items.FunctionCall) ![]const u8 {
     return arena.print("call: {s} {s}\n", .{ call.name, call.arguments });
-}
-
-/// `lines` within `bytes_max`: the first, then as many of the newest as fit with it, in their order.
-fn keptWithin(arena: Allocator, lines: []const []const u8, bytes_max: usize) ![]const u8 {
-    if (lines.len == 0) return "";
-    var used = lines[0].len;
-    var from = lines.len;
-    while (from > 1 and used + lines[from - 1].len <= bytes_max) : (from -= 1) used += lines[from - 1].len;
-    return std.mem.concat(arena, u8, &.{ lines[0], if (from > 1) "…\n" else "", try std.mem.concat(arena, u8, lines[from..]) });
 }
 
 /// The words of a message the person sent, its text parts in their order.
@@ -136,12 +181,24 @@ fn wordsOf(arena: Allocator, message: vocabulary.items.InputMessage) ![]const u8
     };
 }
 
-test "a transcript keeps the person's first words and as many of the newest lines as fit" {
+test "a transcript keeps the person's first words and as many of the newest lines as fit, read back no further" {
     var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
     defer arena_allocator.deinit();
     const arena = arena_allocator.allocator();
-    const lines = [_][]const u8{ "person: fix it\n", "call: a\n", "call: b\n", "call: c\n" };
-    try std.testing.expectEqualStrings("person: fix it\ncall: a\ncall: b\ncall: c\n", try keptWithin(arena, &lines, 1024));
-    try std.testing.expectEqualStrings("person: fix it\n…\ncall: b\ncall: c\n", try keptWithin(arena, &lines, 31));
-    try std.testing.expectEqualStrings("", try keptWithin(arena, &.{}, 10));
+    const volume = try beak.Volume.open(.{ .type = beak.h.BEAK_DEVICE_MEMORY, .path = beak.bytes("") }, 1);
+    defer volume.close();
+    const thread = "siphon.thread:t";
+    var entries: std.ArrayList(u8) = .empty;
+    try entries.appendSlice(arena, try log.lineOf(arena, log.Input{ .id = "e1", .delivery_id = "d1", .actor = "person", .message = .{ .role = .user, .content = .{ .text = "fix it" } } }));
+    for ([_][]const u8{ "a", "b", "c" }, [_][]const u8{ "e2", "e3", "e4" }) |name, id| {
+        const made = [_]vocabulary.items.FunctionCall{.{ .call_id = id, .name = name, .arguments = "{}" }};
+        try entries.appendSlice(arena, try log.lineOf(arena, log.Calls{ .id = id, .under = "u", .calls = &made }));
+    }
+    var changes: runtime_.Changes = .{ .arena = arena };
+    try changes.mkdir(thread);
+    try changes.mkdir(try log.pathOf(arena, thread));
+    try changes.write(try log.segmentPath(arena, thread, "e1" ++ log.segment_extension), entries.items);
+    _ = try volume.commit(1, changes.items());
+    try std.testing.expectEqualStrings("person: fix it\ncall: a {}\ncall: b {}\ncall: c {}\n", try transcriptWithin(volume, arena, thread, 1024));
+    try std.testing.expectEqualStrings("person: fix it\n…\ncall: b {}\ncall: c {}\n", try transcriptWithin(volume, arena, thread, 40));
 }

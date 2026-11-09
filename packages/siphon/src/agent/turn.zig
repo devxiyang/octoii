@@ -122,7 +122,7 @@ fn answered(phase: *Phase, thread: []const u8, key: []const u8, attempt: u32, co
 
 /// The window the log of the thread at `thread` ends in.
 fn windowOf(phase: *Phase, thread: []const u8) !Window {
-    return Window.of(phase.arena, try log.lines(phase.runtime.volume, &phase.arena, thread));
+    return Window.read(phase.runtime.volume, &phase.arena, thread);
 }
 
 /// Whether the thread's `window` is too full for its model's next request, with something in it to recap; never where

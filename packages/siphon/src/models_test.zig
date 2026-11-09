@@ -252,6 +252,15 @@ test "the person compacts a thread's window in the background, once at a time, a
     try std.testing.expectEqual(.completed, (try testing.pumpUntilEnded(siphon, &arena, try compacting.pathOf(arena, thread))).status);
     _ = try expectKinds(siphon, arena, tid, &.{ "system", "input", "reply", "turn-end", "input", "reply", "turn-end", "compaction", "system" });
     try std.testing.expect(shareOf(try context.of(siphon.runtime, &arena, thread), .recap) > 0);
+    // The window is read from the entry its compaction keeps first, as the thread's directory records it: what it reads
+    // is the window the whole log ends in, the log before it left unread.
+    const read = try threads.Window.read(siphon.runtime.volume, &arena, thread);
+    const whole_log = try threads.Window.of(arena, try threads.log.lines(siphon.runtime.volume, &arena, thread));
+    try std.testing.expectEqual(whole_log.conversation.len, read.conversation.len);
+    for (whole_log.conversation, read.conversation) |expected, found| try std.testing.expectEqualStrings(expected, found);
+    try std.testing.expectEqual(whole_log.told.len, read.told.len);
+    const from = (try siphon.runtime.volume.stat(&arena, thread)).?;
+    try std.testing.expect(@import("beak.zig").annotationOf(from, threads.Window.from_annotation) != null);
 
     // Ended, it starts anew as it is asked again: with nothing more to recap, it ends having written nothing.
     try std.testing.expect(try asked(siphon, arena, thread));

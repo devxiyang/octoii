@@ -261,7 +261,7 @@ const instructions_bytes_max = 64 << 10;
 /// The sections the model of the thread at `thread` was told, by the system entries of the window its log ends in —
 /// those it begins with, then those within it — as `fold` takes them; a window begins told nothing before it.
 pub fn toldIn(volume: beak.Volume, arena: *const Allocator, thread: []const u8) ![]const log.Section {
-    const window: Window = try .of(arena.*, try log.lines(volume, arena, thread));
+    const window: Window = try .read(volume, arena, thread);
     var entries: std.ArrayList(log.System) = .empty;
     for ([_][]const []const u8{ window.told, window.conversation }) |lines| {
         for (lines) |line| {
