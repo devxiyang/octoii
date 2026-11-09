@@ -114,6 +114,6 @@ fn act(context: ?*anyopaque, request: *Request) anyerror!void {
         .task => |each| each,
         .program => return error.NoSuchTool,
     };
-    const run: Tool.Run = .{ .arena = arena, .runtime = table.runtime, .host = &table.host, .thread = asked.thread, .arguments = asked.arguments, .key = request.key, .writes = asked.writes, .waits = &request.task.waits, .request = request };
+    const run: Tool.Run = .{ .arena = arena, .runtime = table.runtime, .host = &table.host, .thread = asked.thread, .arguments = asked.arguments, .key = request.key, .writes = asked.writes, .waits = request.waits, .request = request };
     try request.answer(try Tool.outcomeOf(&table.host, arena, request.key, try task(tool.context, &run)));
 }

@@ -6,8 +6,9 @@
 //!
 //! The runtime is single-threaded: its loop alone touches what it keeps and what the parts on it keep — it runs the
 //! phases, the work other tasks post and its listener's turn at each pump's end, one after another, so none lands
-//! inside another. Any other task reaches it by posting work, which wakes the loop, or by publishing what streams,
-//! which the loop tells its listener. The tasks acting on requests answer through Beak, which serializes its calls.
+//! inside another — and it alone commits, as Redis's main thread alone writes. Any other task reaches it by posting
+//! work, which wakes the loop, by publishing what streams, which the loop tells its listener, or as the job it does
+//! finishes on the loop: a request's answer among them.
 //!
 //! The runtime is told what changes, never looks for it: as each pump ends it reads on in its volume's journal from the
 //! last commit it told of, as a replica reads on from its offset — Beak's records among the changes, processes, their
@@ -53,9 +54,8 @@ programs: std.ArrayList(*Registered) = .empty,
 handlers: std.StringHashMapUnmanaged(Request.Handler) = .empty,
 /// The requests a person answers, as no handler acts on them — by their names, each with what its answer fits.
 asked_of_person: std.StringHashMapUnmanaged(Answering) = .empty,
-/// The requests being acted on. The loop alone changes it.
-acting: std.ArrayList(*Request) = .empty,
-/// The jobs whose tasks run, or ended and wait to be reaped. The loop alone changes it.
+/// The jobs whose tasks run, or ended and wait to be reaped — the requests acted on among them. The loop alone changes
+/// it.
 jobs: std.ArrayList(*Running) = .empty,
 /// What hears from the loop; none until one listens.
 listener: ?Listener = null,
@@ -63,9 +63,6 @@ listener: ?Listener = null,
 watched: std.AutoHashMapUnmanaged(h.beak_handle, Watcher) = .empty,
 loop: ?Io.Future(void) = null,
 stopping: std.atomic.Value(bool) = .init(false),
-/// Set as the runtime closes: what a cancelled task answers then is not committed, so its request waits on, and comes
-/// back to its fiber interrupted when the volume opens again, as though the host had ended.
-closing: std.atomic.Value(bool) = .init(false),
 
 /// Work a task posts the loop, as a workqueue takes it: run as the loop pumps, in the order posted, or dropped where the
 /// loop never runs it, as the runtime closes; either frees what the work holds.
@@ -191,17 +188,13 @@ pub fn open(allocator: Allocator, host: Host, options: Options) !*Runtime {
     return runtime;
 }
 
-/// Stops the loop, cancels the tasks acting on requests — whose requests wait on, answered when the volume opens again —
-/// drops the work posted and not taken, and closes the volume.
+/// Stops the loop, stops the jobs and drops them unfinished — a request's left unanswered, to come back to its fiber
+/// interrupted when the volume opens again — drops the work posted and not taken, and closes the volume.
 pub fn close(runtime: *Runtime) void {
     const allocator = runtime.allocator;
     runtime.stop();
-    runtime.closing.store(true, .release);
-    for (runtime.acting.items) |request| {
-        request.task.stop();
-        request.deinit();
-    }
-    runtime.acting.deinit(allocator);
+    // A request's job dropped leaves the request unanswered: it waits on, and comes back to its fiber interrupted as the
+    // volume opens again, as though the host had ended.
     for (runtime.jobs.items) |running| {
         running.task.stop();
         running.job.drop(running.job.context);
@@ -551,46 +544,32 @@ fn begin(runtime: *Runtime, made: *const h.beak_event) void {
     const handler = runtime.handlers.get(beak.slice(made.name)) orelse return;
     if (made.retold) return runtime.answerWith(made, Request.interrupted_name, "");
     const request = Request.init(runtime, made, handler) catch |err| return runtime.answerWith(made, Request.failed_name, @errorName(err));
-    runtime.acting.append(runtime.allocator, request) catch |err| {
-        request.deinit();
-        return runtime.answerWith(made, Request.failed_name, @errorName(err));
-    };
-    request.task.start(Request.run, .{request}) catch |err| {
-        _ = runtime.acting.pop();
-        request.deinit();
-        return runtime.answerWith(made, Request.failed_name, @errorName(err));
-    };
+    // A job that cannot start is dropped, its request with it.
+    runtime.spawn(request.job()) catch |err| runtime.answerWith(made, Request.failed_name, @errorName(err));
 }
 
 /// Cuts off the request of `key` that `process` made, as a signal is sent, never waiting: its task, cancelled from one
 /// of its own, answers at once with what has come, and the request is reaped once that is done. Where no task can be
 /// started to cut it off, it is cut off here, waiting.
 fn interrupt(runtime: *Runtime, process: []const u8, key: []const u8) void {
-    for (runtime.acting.items, 0..) |request, index| {
-        if (!std.mem.eql(u8, request.process, process) or !std.mem.eql(u8, request.key, key)) continue;
-        if (request.task.canceller != null) return;
-        request.task.cut() catch |err| {
-            log.warn("the request {s} of {s} is cut off waiting: {s}", .{ request.key, request.process, @errorName(err) });
-            _ = runtime.acting.swapRemove(index);
-            request.task.stop();
-            request.deinit();
+    for (runtime.jobs.items, 0..) |running, index| {
+        if (!Request.isJobOf(running.job, process, key)) continue;
+        if (running.task.canceller != null) return;
+        running.task.cut() catch |err| {
+            log.warn("the request {s} of {s} is cut off waiting: {s}", .{ key, process, @errorName(err) });
+            _ = runtime.jobs.orderedRemove(index);
+            running.task.stop();
+            running.job.finish(running.job.context);
+            running.task.deinit();
+            runtime.allocator.destroy(running);
         };
         return;
     }
 }
 
-/// Frees the requests done with, as a parent reaps its children.
+/// Finishes the jobs whose tasks ended, as a parent reaps its children.
 fn reap(runtime: *Runtime) void {
-    var index = runtime.acting.items.len;
-    while (index > 0) {
-        index -= 1;
-        const request = runtime.acting.items[index];
-        if (!request.task.ended()) continue;
-        _ = runtime.acting.swapRemove(index);
-        request.task.join();
-        request.deinit();
-    }
-    index = 0;
+    var index: usize = 0;
     while (index < runtime.jobs.items.len) {
         const running = runtime.jobs.items[index];
         if (!running.task.ended()) {

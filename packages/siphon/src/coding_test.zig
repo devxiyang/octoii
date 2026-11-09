@@ -11,6 +11,7 @@ const Waits = @import("runtime.zig").Waits;
 const coding = @import("tools.zig").coding;
 const log = @import("threads.zig").log;
 const testing = @import("testing.zig");
+const Request = @import("runtime.zig").Request;
 const beak = @import("beak.zig");
 const h = beak.h;
 
@@ -252,7 +253,11 @@ test "a stop ends a command the shell runs, its group killed, and its call is an
     const Running = struct {
         siphon: *Siphon,
         fn command(running: *const @This()) bool {
-            return running.siphon.runtime.acting.items.len > 0 and std.mem.eql(u8, running.siphon.runtime.acting.items[0].name, tools.Tool.request_name);
+            for (running.siphon.runtime.jobs.items) |each| {
+                const request = Request.ofJob(each.job) orelse continue;
+                if (std.mem.eql(u8, request.name, tools.Tool.request_name)) return true;
+            }
+            return false;
         }
     };
     const running: Running = .{ .siphon = siphon };
@@ -293,7 +298,8 @@ test "what a command prints is told on its call's stream as it comes, and the st
         key: ?[]const u8 = null,
         fn twice(told: *@This()) bool {
             const runtime = told.siphon.runtime;
-            if (told.key == null) for (runtime.acting.items) |request| {
+            if (told.key == null) for (runtime.jobs.items) |each| {
+                const request = Request.ofJob(each.job) orelse continue;
                 if (std.mem.eql(u8, request.name, tools.Tool.request_name)) told.key = std.testing.allocator.dupe(u8, request.key) catch return false;
             };
             const stream = runtime.streams.by_key.get(told.key orelse return false) orelse return false;
