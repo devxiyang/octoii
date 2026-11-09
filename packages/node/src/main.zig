@@ -54,7 +54,7 @@ pub fn main(minimal: std.process.Init.Minimal) u8 {
 /// A pipe or a socket whose reader is gone ends the write to it, never the node — as a server that writes to pipes and
 /// sockets has it: a coprocess that stopped reading, a client that went away.
 fn ignoreBrokenPipes() void {
-    if (builtin.os.tag == .windows) return;
+    if (builtin.target.os.tag == .windows) return;
     const ignore: std.posix.Sigaction = .{ .handler = .{ .handler = std.posix.SIG.IGN }, .mask = std.posix.sigemptyset(), .flags = 0 };
     std.posix.sigaction(.PIPE, &ignore, null);
 }
@@ -63,11 +63,11 @@ fn ignoreBrokenPipes() void {
 fn run(gpa: Allocator, minimal: std.process.Init.Minimal) u8 {
     var threaded: std.Io.Threaded = .init(gpa, .{ .argv0 = .init(minimal.args), .environ = minimal.environ });
     defer threaded.deinit();
-    var arena_state: std.heap.ArenaAllocator = .init(std.heap.page_allocator);
-    defer arena_state.deinit();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.heap.page_allocator);
+    defer arena_allocator.deinit();
     var environ = std.process.Environ.createMap(minimal.environ, gpa) catch |err| return failed(err);
     defer environ.deinit();
-    const process: Process = .{ .gpa = gpa, .io = threaded.io(), .environ = &environ, .arena = arena_state.allocator() };
+    const process: Process = .{ .gpa = gpa, .io = threaded.io(), .environ = &environ, .arena = arena_allocator.allocator() };
     var args = std.process.Args.Iterator.initAllocator(minimal.args, process.arena) catch |err| return failed(err);
     defer args.deinit();
     _ = args.skip();
@@ -236,7 +236,7 @@ fn joinRelay(process: Process, node: *Node, reach: Reach) !*Station {
 /// The address that pairs a browser with the node at `port` by `credential`: the app's pairing page, the credential in
 /// the address's fragment, which a browser never sends to any server.
 fn pairingAddress(arena: Allocator, port: u16, credential: []const u8) ![]const u8 {
-    return std.fmt.allocPrint(arena, "http://127.0.0.1:{d}/pair#token={s}", .{ port, credential });
+    return arena.print("http://127.0.0.1:{d}/pair#token={s}", .{ port, credential });
 }
 
 /// Where a device opens Octoii that is not on the machine: the web app, which reaches the machine through its relay.
@@ -245,7 +245,7 @@ const app_origin = "https://app.octoii.com";
 /// The address that pairs a device with the machine of `key`, reached through `relay`, by `credential`: the web app's
 /// pairing page, what it needs in the address's fragment, which a browser never sends to any server.
 fn remotePairingAddress(arena: Allocator, relay: []const u8, key: anytype, credential: []const u8) ![:0]const u8 {
-    return std.fmt.allocPrintSentinel(arena, app_origin ++ "/pair#relay={s}&key={f}&token={s}", .{ relay, key, credential }, 0);
+    return arena.printSentinel(app_origin ++ "/pair#relay={s}&key={f}&token={s}", .{ relay, key, credential }, 0);
 }
 
 /// The access kept in the Home `options` names, as the person's commands reach it beside a node that may be running.
@@ -288,7 +288,7 @@ fn printPairing(io: std.Io, local: []const u8, remote: [:0]const u8) !void {
 fn openApp(process: Process, options: Options) !void {
     const link = try (try accessOf(process, options)).makeLink(process.arena, options.label, Access.all_scopes);
     const address = try pairingAddress(process.arena, options.port, link.credential);
-    const opener = switch (builtin.os.tag) {
+    const opener = switch (builtin.target.os.tag) {
         .macos => [_][]const u8{ "open", address },
         .windows => [_][]const u8{ "cmd.exe", "/c", "start", "", address },
         else => [_][]const u8{ "xdg-open", address },

@@ -85,7 +85,7 @@ fn withReferencesRead(call: *Call, request: SpeechRequest) Error!SpeechRequest {
     const given = request.input_references orelse return request;
     const read = try call.arena.alloc(speech.SpeechInputReference, given.len);
     for (given, read, 0..) |reference, *made, index| {
-        const what = try std.fmt.allocPrint(call.arena, "The input_references[{d}]", .{index});
+        const what = try call.arena.print("The input_references[{d}]", .{index});
         made.* = switch (reference) {
             .text => reference,
             .image => |image| image: {

@@ -22,9 +22,9 @@ fn connectedExample(arena: Allocator, host: *const mcp.transport.Host, machine: 
 }
 
 test "a server run on the machine is talked to a line at a time, with the machine's variables and those it is given" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const machine = try testing.openLocalMachine();
     defer _ = h.beak_close(machine);
     const host: mcp.transport.Host = .{ .io = std.testing.io };
@@ -43,9 +43,9 @@ test "a server run on the machine is talked to a line at a time, with the machin
 }
 
 test "a server that inherits nothing starts with the variables it is given alone" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const machine = try testing.openLocalMachine();
     defer _ = h.beak_close(machine);
     const host: mcp.transport.Host = .{ .io = std.testing.io };
@@ -59,9 +59,9 @@ test "a server that inherits nothing starts with the variables it is given alone
 }
 
 test "a server that exits unasked closes its transport, saying how it ended and what it wrote to its standard error" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const machine = try testing.openLocalMachine();
     defer _ = h.beak_close(machine);
     const host: mcp.transport.Host = .{ .io = std.testing.io };
@@ -73,9 +73,9 @@ test "a server that exits unasked closes its transport, saying how it ended and 
 }
 
 test "a server's transport closes without waiting on its end, which the machine brings as a server's: by its input's end, else a terminate" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     const folder = try tmp.dir.realPathFileAlloc(std.testing.io, ".", arena);

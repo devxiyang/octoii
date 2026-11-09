@@ -131,7 +131,7 @@ fn unknown(call: *Call, data: []const u8) Error {
 /// An `image_generation.completed` of `b64_json`, its usage in the vocabulary's shape and OpenAI's meters as ai's
 /// account.
 fn completed(arena: Allocator, b64_json: []const u8, format: []const u8, created: i64, usage: ?WireUsage) Allocator.Error!images.ImageCompletedEvent {
-    var event: images.ImageCompletedEvent = .{ .b64_json = b64_json, .media_type = try std.fmt.allocPrint(arena, "image/{s}", .{format}), .created = created };
+    var event: images.ImageCompletedEvent = .{ .b64_json = b64_json, .media_type = try arena.print("image/{s}", .{format}), .created = created };
     const given = usage orelse return event;
     const made = given.made();
     event.usage = .{ .prompt_tokens = given.input_tokens, .completion_tokens = given.output_tokens, .total_tokens = given.total_tokens, .completion_tokens_details = .{ .image_tokens = made.images } };

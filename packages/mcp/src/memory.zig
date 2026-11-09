@@ -48,6 +48,7 @@ pub const Pair = struct {
 
     pub fn init(gpa: Allocator, host: *const Host, server: Server) Allocator.Error!*Pair {
         const pair = try gpa.create(Pair);
+        errdefer gpa.destroy(pair);
         pair.* = .{ .gpa = gpa, .router = .init(gpa, host), .server = server };
         return pair;
     }
@@ -120,10 +121,10 @@ const Exchange = struct {
     /// Cancels with `notifications/cancelled`, as a channel without a stream per request does.
     fn cancel(context: *anyopaque, reason: []const u8) void {
         const exchange = Exchange.of(context);
-        var scratch: std.heap.ArenaAllocator = .init(exchange.pair.gpa);
-        defer scratch.deinit();
-        var slot: Slot = .{ .arena = scratch.allocator() };
-        if (transport_.cancelledNotification(scratch.allocator(), exchange.mailbox.id, reason)) |cancelled| {
+        var scratch_arena: std.heap.ArenaAllocator = .init(exchange.pair.gpa);
+        defer scratch_arena.deinit();
+        var slot: Slot = .{ .arena = scratch_arena.allocator() };
+        if (transport_.cancelledNotification(scratch_arena.allocator(), exchange.mailbox.id, reason)) |cancelled| {
             exchange.pair.deliver(&slot, cancelled) catch {};
         } else |_| {}
         closeOf(context);

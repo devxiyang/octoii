@@ -10,7 +10,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Waits = @import("Waits.zig");
 
-arena_state: std.heap.ArenaAllocator,
+arena_allocator: std.heap.ArenaAllocator,
 /// The waits of the task that waits on it, which the loop wakes as it completes.
 waits: *Waits,
 state: std.atomic.Value(State) = .init(.pending),
@@ -25,13 +25,14 @@ pub const Outcome = union(enum) { result: []const u8, failure: []const u8 };
 /// A completion the task whose waits are `waits` waits on.
 pub fn create(allocator: Allocator, waits: *Waits) Allocator.Error!*Completion {
     const completion = try allocator.create(Completion);
-    completion.* = .{ .arena_state = .init(allocator), .waits = waits };
+    errdefer allocator.destroy(completion);
+    completion.* = .{ .arena_allocator = .init(allocator), .waits = waits };
     return completion;
 }
 
 /// Memory that lasts as long as the completion: what the work is given, and what comes of it.
 pub fn arena(completion: *Completion) Allocator {
-    return completion.arena_state.allocator();
+    return completion.arena_allocator.allocator();
 }
 
 /// Completes it, from the loop, with `outcome`, copied: the task woken, or, where it gave up on it, the completion let
@@ -71,8 +72,8 @@ pub fn release(completion: *Completion) void {
 }
 
 fn destroy(completion: *Completion) void {
-    const allocator = completion.arena_state.child_allocator;
-    completion.arena_state.deinit();
+    const allocator = completion.arena_allocator.child_allocator;
+    completion.arena_allocator.deinit();
     allocator.destroy(completion);
 }
 

@@ -135,7 +135,7 @@ const Parts = struct { scheme: []const u8, origin: []const u8, path: []const u8,
 fn partsOf(arena: Allocator, url: []const u8) ?Parts {
     const uri = std.Uri.parse(url) catch return null;
     const host = componentText(uri.host orelse return null);
-    const origin = if (uri.port) |port| std.fmt.allocPrint(arena, "{s}://{s}:{d}", .{ uri.scheme, host, port }) catch return null else std.fmt.allocPrint(arena, "{s}://{s}", .{ uri.scheme, host }) catch return null;
+    const origin = if (uri.port) |port| arena.print("{s}://{s}:{d}", .{ uri.scheme, host, port }) catch return null else arena.print("{s}://{s}", .{ uri.scheme, host }) catch return null;
     return .{ .scheme = uri.scheme, .origin = origin, .path = componentText(uri.path), .query = if (uri.query) |query| componentText(query) else null };
 }
 
@@ -154,10 +154,10 @@ fn trimmedPath(path: []const u8) []const u8 {
 pub fn protectedResourceMetadataUrls(arena: Allocator, server_url: []const u8, challenge: BearerChallenge) Allocator.Error![]const []const u8 {
     if (challenge.resource_metadata) |named| return arena.dupe([]const u8, &.{named});
     const parts = partsOf(arena, server_url) orelse return &.{};
-    const root = try std.fmt.allocPrint(arena, "{s}/.well-known/oauth-protected-resource", .{parts.origin});
+    const root = try arena.print("{s}/.well-known/oauth-protected-resource", .{parts.origin});
     const path = trimmedPath(parts.path);
     if (path.len == 0) return arena.dupe([]const u8, &.{root});
-    return arena.dupe([]const u8, &.{ try std.fmt.allocPrint(arena, "{s}{s}", .{ root, path }), root });
+    return arena.dupe([]const u8, &.{ try arena.print("{s}{s}", .{ root, path }), root });
 }
 
 /// Where an issuer's metadata may be, in the specification's order: for an issuer with a path, the OAuth address with
@@ -166,13 +166,13 @@ pub fn authorizationServerMetadataUrls(arena: Allocator, issuer: []const u8) All
     const parts = partsOf(arena, issuer) orelse return &.{};
     const path = trimmedPath(parts.path);
     if (path.len == 0) return arena.dupe([]const u8, &.{
-        try std.fmt.allocPrint(arena, "{s}/.well-known/oauth-authorization-server", .{parts.origin}),
-        try std.fmt.allocPrint(arena, "{s}/.well-known/openid-configuration", .{parts.origin}),
+        try arena.print("{s}/.well-known/oauth-authorization-server", .{parts.origin}),
+        try arena.print("{s}/.well-known/openid-configuration", .{parts.origin}),
     });
     return arena.dupe([]const u8, &.{
-        try std.fmt.allocPrint(arena, "{s}/.well-known/oauth-authorization-server{s}", .{ parts.origin, path }),
-        try std.fmt.allocPrint(arena, "{s}/.well-known/openid-configuration{s}", .{ parts.origin, path }),
-        try std.fmt.allocPrint(arena, "{s}{s}/.well-known/openid-configuration", .{ parts.origin, path }),
+        try arena.print("{s}/.well-known/oauth-authorization-server{s}", .{ parts.origin, path }),
+        try arena.print("{s}/.well-known/openid-configuration{s}", .{ parts.origin, path }),
+        try arena.print("{s}{s}/.well-known/openid-configuration", .{ parts.origin, path }),
     });
 }
 
@@ -332,15 +332,15 @@ pub fn parseRegistrationResponse(slot: *Slot, status: u16, body: []const u8) Err
 
 /// A random `state`, its bytes in hex.
 pub fn randomState(arena: Allocator, random: *const [protocol.oauth_state_bytes]u8) Allocator.Error![]const u8 {
-    return std.fmt.allocPrint(arena, "{x}", .{random});
+    return arena.print("{x}", .{random});
 }
 
 /// The server's canonical URI, its `resource` indicator: without fragment, and without the slash of an empty path.
 pub fn canonicalResource(arena: Allocator, server_url: []const u8) Allocator.Error![]const u8 {
     const parts = partsOf(arena, server_url) orelse return server_url;
     const path = if (std.mem.eql(u8, parts.path, "/")) "" else parts.path;
-    if (parts.query) |query| return std.fmt.allocPrint(arena, "{s}{s}?{s}", .{ parts.origin, path, query });
-    return std.fmt.allocPrint(arena, "{s}{s}", .{ parts.origin, path });
+    if (parts.query) |query| return arena.print("{s}{s}?{s}", .{ parts.origin, path, query });
+    return arena.print("{s}{s}", .{ parts.origin, path });
 }
 
 /// What an authorization request carries.
@@ -367,7 +367,7 @@ pub fn authorizationUrl(arena: Allocator, server: AuthorizationServerMetadata, r
     const fragment_at = std.mem.indexOfScalar(u8, endpoint, '#') orelse endpoint.len;
     const base = endpoint[0..fragment_at];
     const separator: []const u8 = if (std.mem.indexOfScalar(u8, base, '?') == null) "?" else if (base[base.len - 1] == '?' or base[base.len - 1] == '&') "" else "&";
-    return std.fmt.allocPrint(arena, "{s}{s}{s}{s}", .{ base, separator, try foundation.oauth.formEncoded(arena, fields.items), endpoint[fragment_at..] });
+    return arena.print("{s}{s}{s}{s}", .{ base, separator, try foundation.oauth.formEncoded(arena, fields.items), endpoint[fragment_at..] });
 }
 
 /// What a sign-in waits for its callback to carry.
@@ -466,8 +466,8 @@ fn formRequest(arena: Allocator, endpoint: []const u8, server: AuthorizationServ
     try headers.appendSlice(arena, &.{ .{ .name = "content-type", .value = "application/x-www-form-urlencoded" }, .{ .name = "accept", .value = "application/json" } });
     const method = authenticationMethod(server, client);
     if (std.mem.eql(u8, method, "client_secret_basic") and client.client_secret != null) {
-        const pair = try std.fmt.allocPrint(arena, "{s}:{s}", .{ try encodedComponent(arena, client.client_id), try encodedComponent(arena, client.client_secret.?) });
-        try headers.append(arena, .{ .name = "authorization", .value = try std.fmt.allocPrint(arena, "Basic {b64}", .{pair}) });
+        const pair = try arena.print("{s}:{s}", .{ try encodedComponent(arena, client.client_id), try encodedComponent(arena, client.client_secret.?) });
+        try headers.append(arena, .{ .name = "authorization", .value = try arena.print("Basic {b64}", .{pair}) });
     } else {
         try fields.append(arena, .{ "client_id", client.client_id });
         if (std.mem.eql(u8, method, "client_secret_post") and client.client_secret != null) try fields.append(arena, .{ "client_secret", client.client_secret.? });

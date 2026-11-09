@@ -113,9 +113,9 @@ fn merge(arena: Allocator, kept: []const u8, given: []const u8) ![]const u8 {
 }
 
 test "a device's settings take each name given, let go of each given null, and stay an object" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const first = try merge(arena, "{}", "{\"theme\":\"dark\",\"chat_width\":\"wide\"}");
     const second = try merge(arena, first, "{\"theme\":null,\"palette\":\"kelp\"}");
     const read = try std.json.parseFromSliceLeaky(std.json.Value, arena, second, .{});

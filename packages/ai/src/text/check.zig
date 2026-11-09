@@ -161,7 +161,7 @@ fn parameters(call: *Call, model: *const Model, reference: []const u8, given: *c
     };
     for (asked) |each| {
         if (!each.set or model.takes(each.parameter)) continue;
-        try missing.append(call.arena, if (std.mem.eql(u8, each.field, each.parameter)) each.field else try std.fmt.allocPrint(call.arena, "{s} (as {s})", .{ each.field, each.parameter }));
+        try missing.append(call.arena, if (std.mem.eql(u8, each.field, each.parameter)) each.field else try call.arena.print("{s} (as {s})", .{ each.field, each.parameter }));
     }
     if (missing.items.len == 0) return;
     return call.failWith(.invalid_request, "The model {s} does not take {s}: its supported_parameters do not list what the request sets", .{ reference, try std.mem.join(call.arena, ", ", missing.items) });
@@ -275,7 +275,7 @@ fn file(call: *Call, model: *const Model, reference: []const u8, part: vocabular
     };
     const declares = if (typed.octoii()) |extension| extension.media_type != null else false;
     if (files.isInline(typed) or declares) {
-        _ = try files.checkedType(call, typed, try std.fmt.allocPrint(call.arena, "The {s} at input[{d}]", .{ typed.kind(), index }), null);
+        _ = try files.checkedType(call, typed, try call.arena.print("The {s} at input[{d}]", .{ typed.kind(), index }), null);
     }
 }
 
@@ -368,7 +368,7 @@ fn calls(call: *Call, given: *const Request, list: []const Item) Error!void {
         .function => |function| if (function.async == true) try async_names.put(call.arena, function.name, {}),
         .custom => |custom| if (custom.async == true) try async_names.put(call.arena, custom.name, {}),
         .namespace => |namespace| for (namespace.tools) |member| switch (member) {
-            inline else => |each| if (each.async == true) try async_names.put(call.arena, try std.fmt.allocPrint(call.arena, "{s}.{s}", .{ namespace.name, each.name }), {}),
+            inline else => |each| if (each.async == true) try async_names.put(call.arena, try call.arena.print("{s}.{s}", .{ namespace.name, each.name }), {}),
         },
         else => {},
     };
@@ -378,7 +378,7 @@ fn calls(call: *Call, given: *const Request, list: []const Item) Error!void {
     var model_wrote_last = false;
     for (list, 0..) |item, index| {
         const model_wrote = writtenByModel(item);
-        if (model_wrote and !model_wrote_last) try answeredBefore(call, &waiting, try std.fmt.allocPrint(call.arena, "before the model writes again at input[{d}]", .{index}));
+        if (model_wrote and !model_wrote_last) try answeredBefore(call, &waiting, try call.arena.print("before the model writes again at input[{d}]", .{index}));
         if (item == .input_message and item.input_message.role != .user and waiting.count() > 0) {
             return call.failWith(.invalid_request, "The {t} message at input[{d}] stands between a function call and its output: an update stands after the outputs", .{ item.input_message.role, index });
         }
@@ -386,7 +386,7 @@ fn calls(call: *Call, given: *const Request, list: []const Item) Error!void {
             inline .function_call, .custom_tool_call => |made| {
                 if (seen.contains(made.call_id)) return call.failWith(.invalid_request, "The call at input[{d}] repeats the call_id {s} of an earlier call", .{ index, made.call_id });
                 try seen.put(call.arena, made.call_id, {});
-                const name = if (made.namespace) |namespace| try std.fmt.allocPrint(call.arena, "{s}.{s}", .{ namespace, made.name }) else made.name;
+                const name = if (made.namespace) |namespace| try call.arena.print("{s}.{s}", .{ namespace, made.name }) else made.name;
                 if (made.async != true and !async_names.contains(name)) try waiting.put(call.arena, made.call_id, index);
             },
             inline .function_call_output, .custom_tool_call_output => |output| {

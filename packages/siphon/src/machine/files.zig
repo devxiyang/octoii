@@ -78,8 +78,8 @@ fn readFound(machine: Machine, arena: Allocator, path: []const u8, stat: h.beak_
 /// line's text, as an edit finds its text without it.
 fn readText(machine: Machine, arena: Allocator, path: []const u8, size: u64, first: []const u8, bounds: text.Bounds) beak.Error!Read {
     var pager: text.Pager = .{ .arena = arena, .bounds = bounds };
-    var scratch: std.heap.ArenaAllocator = .init(std.heap.page_allocator);
-    defer scratch.deinit();
+    var scratch_arena: std.heap.ArenaAllocator = .init(std.heap.page_allocator);
+    defer scratch_arena.deinit();
     const marked = std.mem.startsWith(u8, first, text.byte_order_mark);
     var range = if (marked) first[text.byte_order_mark.len..] else first;
     var position: u64 = if (marked) text.byte_order_mark.len else 0;
@@ -90,8 +90,8 @@ fn readText(machine: Machine, arena: Allocator, path: []const u8, size: u64, fir
         }
         if (!try pager.take(range)) break;
         position += range.len;
-        _ = scratch.reset(.retain_capacity);
-        range = try readRange(machine, scratch.allocator(), path, position, range_bytes);
+        _ = scratch_arena.reset(.retain_capacity);
+        range = try readRange(machine, scratch_arena.allocator(), path, position, range_bytes);
     }
     if (pager.binary) return .{ .binary = .{ .path = path, .size = size } };
     if (pager.lines.items.len == 0 and bounds.offset > 1 and pager.whole()) return .{ .past_end = .{ .path = path, .count = pager.seen } };

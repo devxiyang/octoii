@@ -47,9 +47,9 @@ fn response(status: vocabulary.response.ResponseStatus) vocabulary.Response {
 }
 
 test "a whole stream comes numbered from 0, its items stamped and its calls' ids made unique" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const first: vocabulary.OutputItem = .{ .function_call = .{ .id = "f1", .call_id = "", .name = "read", .arguments = "{}" } };
     const second: vocabulary.OutputItem = .{ .function_call = .{ .id = "f2", .call_id = "c", .name = "read", .arguments = "{}" } };
     const third: vocabulary.OutputItem = .{ .function_call = .{ .id = "f3", .call_id = "c", .name = "read", .arguments = "{}" } };
@@ -63,7 +63,7 @@ test "a whole stream comes numbered from 0, its items stamped and its calls' ids
         .{ .output_item_done = .{ .item = third, .output_index = 2, .sequence_number = 9 } },
         .{ .completed = .{ .response = .{ .id = "r", .status = .completed, .output = &.{ first, second, third } }, .sequence_number = 9 } },
     } }};
-    const done = try run(a, &answers, hello);
+    const done = try run(arena, &answers, hello);
     try std.testing.expectEqual(@as(usize, 8), done.events.len);
     const output = done.response.output;
     try @import("../testing/fixtures.zig").expectMinted(output[0].function_call.call_id);
@@ -75,9 +75,9 @@ test "a whole stream comes numbered from 0, its items stamped and its calls' ids
 }
 
 test "a stream that stops early ends its open items and fails as transport, carrying what it began" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const message: vocabulary.OutputItem = .{ .output_message = .{ .id = "m1", .content = .{ .parts = &.{} } } };
     const answers = [_]Answer{.{ .events = &.{
         .{ .created = .{ .response = response(.in_progress), .sequence_number = 0 } },
@@ -86,7 +86,7 @@ test "a stream that stops early ends its open items and fails as transport, carr
         .{ .output_text_delta = .{ .item_id = "m1", .output_index = 0, .sequence_number = 3, .content_index = 0, .delta = "par", .logprobs = &.{} } },
         .{ .output_text_delta = .{ .item_id = "m1", .output_index = 0, .sequence_number = 4, .content_index = 0, .delta = "tial", .logprobs = &.{} } },
     } }};
-    const done = try run(a, &answers, hello);
+    const done = try run(arena, &answers, hello);
     try std.testing.expectEqual(vocabulary.response.ResponseStatus.failed, done.response.status);
     try std.testing.expectEqual(vocabulary.FailureKind.transport, done.response.@"error".?.octoii.kind);
     const ended = done.response.output[0].output_message;
@@ -95,36 +95,36 @@ test "a stream that stops early ends its open items and fails as transport, carr
 }
 
 test "an error the provider sends is the failure, whatever follows it" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const answers = [_]Answer{.{ .events = &.{
         .{ .@"error" = .{ .code = "overloaded_error", .message = "busy", .octoii = .{ .kind = .server, .retryable = true, .status = 529 }, .sequence_number = 0 } },
         .{ .completed = .{ .response = response(.completed), .sequence_number = 1 } },
     } }};
-    const done = try run(a, &answers, hello);
+    const done = try run(arena, &answers, hello);
     const failed = done.response.@"error".?;
     try std.testing.expectEqualStrings("overloaded_error", failed.code);
     try std.testing.expectEqual(vocabulary.FailureKind.server, failed.octoii.kind);
 }
 
 test "a provider that fails as it streams ends the response with its failure" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const answers = [_]Answer{.{
         .events = &.{.{ .created = .{ .response = response(.in_progress), .sequence_number = 0 } }},
         .failure = .{ .kind = .rate_limit, .message = "slow down", .retryable = true, .retry_after_ms = 2000 },
     }};
-    const done = try run(a, &answers, hello);
+    const done = try run(arena, &answers, hello);
     try std.testing.expectEqual(@as(?u64, 2000), done.response.@"error".?.octoii.retry_after_ms);
     try std.testing.expectEqualStrings("r", done.response.id);
 }
 
 test "a stream its caller cut off ends incomplete, cancelled, with what came and no error: cut short, not failed" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const begun: vocabulary.OutputItem = .{ .output_message = .{ .id = "m1", .content = .{ .parts = &.{} } } };
     const answers = [_]Answer{.{
         .events = &.{
@@ -135,7 +135,7 @@ test "a stream its caller cut off ends incomplete, cancelled, with what came and
         },
         .failure = .{ .kind = .aborted, .message = "The request was aborted", .retryable = false },
     }};
-    const done = try run(a, &answers, hello);
+    const done = try run(arena, &answers, hello);
     try std.testing.expect(done.events[done.events.len - 1] == .incomplete);
     try std.testing.expectEqual(vocabulary.response.ResponseStatus.incomplete, done.response.status);
     try std.testing.expectEqual(.cancelled, done.response.incomplete_details.?.reason.?);
@@ -145,22 +145,22 @@ test "a stream its caller cut off ends incomplete, cancelled, with what came and
 }
 
 test "a request its model refuses fails before anything is sent" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const unanswered = [_]vocabulary.Item{.{ .function_call = .{ .call_id = "c1", .name = "read", .arguments = "{}" } }};
-    const done = try run(a, &.{}, .{ .model = "fake/m", .input = .{ .parts = &unanswered } });
+    const done = try run(arena, &.{}, .{ .model = "fake/m", .input = .{ .parts = &unanswered } });
     try std.testing.expectEqual(@as(usize, 0), done.requests.len);
     try std.testing.expectEqual(vocabulary.FailureKind.invalid_request, done.response.@"error".?.octoii.kind);
     try std.testing.expect(std.mem.indexOf(u8, done.response.@"error".?.message, "c1") != null);
-    const elsewhere = try run(a, &.{}, .{ .model = "nowhere/m", .input = .{ .text = "hello" } });
+    const elsewhere = try run(arena, &.{}, .{ .model = "nowhere/m", .input = .{ .text = "hello" } });
     try std.testing.expectEqualStrings("No provider serves the model nowhere/m", elsewhere.response.@"error".?.message);
 }
 
 test "a request is prepared: its effort fitted, another model's reasoning left out, a stored file read" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const parts = [_]vocabulary.InputContent{.{ .input_file = .{ .filename = "doc.pdf", .octoii = .{ .ref = "doc" } } }};
     const items = [_]vocabulary.Item{
         .{ .reasoning = .{ .id = "r0", .encrypted_content = "theirs", .octoii = .{ .model = "other/x" } } },
@@ -168,7 +168,7 @@ test "a request is prepared: its effort fitted, another model's reasoning left o
         .{ .input_message = .{ .role = .user, .content = .{ .parts = &parts } } },
     };
     const answers = [_]Answer{.{ .events = &.{.{ .completed = .{ .response = response(.completed), .sequence_number = 0 } }} }};
-    const done = try run(a, &answers, .{ .model = "fake/m", .input = .{ .parts = &items }, .reasoning = .{ .effort = .medium } });
+    const done = try run(arena, &answers, .{ .model = "fake/m", .input = .{ .parts = &items }, .reasoning = .{ .effort = .medium } });
     const sent = done.requests[0];
     try std.testing.expectEqual(vocabulary.items.ReasoningEffort.low, sent.reasoning.?.effort.?);
     const input = sent.input.?.parts;
@@ -180,9 +180,9 @@ test "a request is prepared: its effort fitted, another model's reasoning left o
 }
 
 test "the directory serves a listing's models with their catalogue's facts, the person's joining those it lacks" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const ModelFacts = @import("../catalogue/facts.zig").ModelFacts;
     const calls = struct {
         fn list(_: *driver.Call) @import("../failure.zig").Error![]const ModelFacts {
@@ -196,19 +196,19 @@ test "the directory serves a listing's models with their catalogue's facts, the 
     const person = [_]ModelFacts{ .{ .id = "listed", .name = "Mine" }, .{ .id = "added", .context_length = 8000 } };
     var test_host: testing_host.Host = .{};
     const providers = [_]driver.Provider{.{ .id = "local", .name = "Local", .driver = &local, .models = &person }};
-    const models = try Models.init(a, .{ .providers = &providers, .host = test_host.host(undefined) });
+    const models = try Models.init(arena, .{ .providers = &providers, .host = test_host.host(undefined) });
     defer models.deinit();
     // Before a refresh, a listing provider serves the person's models alone.
-    try std.testing.expectEqual(@as(usize, 2), (try models.list(a, .text)).len);
+    try std.testing.expectEqual(@as(usize, 2), (try models.list(arena, .text)).len);
     try models.refresh();
-    const listed = (try models.find(a, "local/listed")).?.model;
+    const listed = (try models.find(arena, "local/listed")).?.model;
     try std.testing.expectEqualStrings("Listed", listed.name);
     try std.testing.expectEqual(@as(?u64, 32_000), listed.context_length);
-    try std.testing.expectEqual(@as(?u64, 8000), (try models.find(a, "local/added")).?.model.context_length);
-    try std.testing.expectEqualStrings("local/listed", (try models.shadowed(a))[0]);
-    const unlisted = (try models.find(a, "local/elsewhere")).?.model;
+    try std.testing.expectEqual(@as(?u64, 8000), (try models.find(arena, "local/added")).?.model.context_length);
+    try std.testing.expectEqualStrings("local/listed", (try models.shadowed(arena))[0]);
+    const unlisted = (try models.find(arena, "local/elsewhere")).?.model;
     try std.testing.expectEqual(@as(?u64, 200_000), unlisted.context_length);
-    try std.testing.expectEqual(@as(usize, 2), (try models.list(a, .text)).len);
+    try std.testing.expectEqual(@as(usize, 2), (try models.list(arena, .text)).len);
 }
 
 /// Makes a handle of the fake provider's models with `gpa`, then lets it go.

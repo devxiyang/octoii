@@ -76,5 +76,5 @@ fn contextLength(info: ?std.json.Value) ?u64 {
 }
 
 fn urlOf(call: *Call, path: []const u8) Error![]const u8 {
-    return std.fmt.allocPrint(call.arena, "{s}{s}", .{ call.baseUrl(base_url), path });
+    return call.arena.print("{s}{s}", .{ call.baseUrl(base_url), path });
 }

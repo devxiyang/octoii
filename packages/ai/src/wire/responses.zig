@@ -492,7 +492,7 @@ fn kindOfError(wire: WireError, kind_of: KindOfCode) ?Kind {
 fn errorMessage(arena: Allocator, wire: WireError) Allocator.Error!?[]const u8 {
     const message = wire.message orelse return null;
     const param = wire.param orelse return message;
-    return try std.fmt.allocPrint(arena, "{s} ({s})", .{ message, param });
+    return try arena.print("{s} ({s})", .{ message, param });
 }
 
 /// What a body of OpenAI's says of a refusal before the stream: its kind by its code or type, its message naming the
@@ -752,7 +752,7 @@ const AnyCode = union(enum) {
         const given = code orelse return null;
         return switch (given) {
             .name => |name| name,
-            .number => |number| try std.fmt.allocPrint(arena, "{d}", .{number}),
+            .number => |number| try arena.print("{d}", .{number}),
         };
     }
 };

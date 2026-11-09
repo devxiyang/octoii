@@ -62,7 +62,7 @@ pub const Model = struct {
 
     /// The model's reference, `provider/id`.
     pub fn reference(model: Model, arena: Allocator) Allocator.Error![]const u8 {
-        return std.fmt.allocPrint(arena, "{s}/{s}", .{ model.octoii.provider, model.id });
+        return arena.print("{s}/{s}", .{ model.octoii.provider, model.id });
     }
 
     /// Whether the model reasons: whether its `supported_parameters` list `reasoning`, else where it says how it

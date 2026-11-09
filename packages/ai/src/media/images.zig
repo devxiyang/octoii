@@ -118,8 +118,8 @@ fn checkSetting(call: *Call, reference: []const u8, name: []const u8, value: Val
             };
             const within = if (number) |given| (bounds.min == null or given >= bounds.min.?) and (bounds.max == null or given <= bounds.max.?) else false;
             if (within) return;
-            const min = if (bounds.min) |given| try std.fmt.allocPrint(call.arena, "{d}", .{given}) else "any";
-            const max = if (bounds.max) |given| try std.fmt.allocPrint(call.arena, "{d}", .{given}) else "any";
+            const min = if (bounds.min) |given| try call.arena.print("{d}", .{given}) else "any";
+            const max = if (bounds.max) |given| try call.arena.print("{d}", .{given}) else "any";
             return call.failWith(.invalid_request, "The model {s} does not take the {s} {f}: it takes {s} to {s}", .{ reference, name, value, min, max });
         },
     }
@@ -131,7 +131,7 @@ fn withReferencesRead(call: *Call, model: *const Model, request: ImageRequest) E
     const read = try call.arena.alloc(vocabulary.media.ImageReference, given.len);
     const encoded = try call.arena.alloc(?[]const u8, given.len);
     for (given, read, encoded, 0..) |reference, *made, *base64, index| {
-        const what = try std.fmt.allocPrint(call.arena, "The input_references[{d}]", .{index});
+        const what = try call.arena.print("The input_references[{d}]", .{index});
         const file = try references.read(call, .image, .{ .url = reference.image_url.url, .octoii = reference.octoii }, false, what);
         made.* = .{ .image_url = .{ .url = file.url }, .octoii = file.octoii };
         base64.* = references.dataUrlBase64(file.url);

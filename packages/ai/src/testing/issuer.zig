@@ -62,7 +62,7 @@ pub const Issuer = struct {
         const arena = issuer.arena;
         if (std.mem.eql(u8, request.url, sign_in.keys_url)) {
             const modulus = foundation.oauth.testing.hexBytes(arena, issuer_key[0]) catch return error.Transport;
-            return answered(arena, 200, try std.fmt.allocPrint(arena, "{{\"keys\":[{{\"kty\":\"RSA\",\"kid\":\"test-key-1\",\"alg\":\"RS256\",\"use\":\"sig\",\"n\":\"{s}\",\"e\":\"AQAB\"}}]}}", .{try oauth.base64Url(arena, modulus)}));
+            return answered(arena, 200, try arena.print("{{\"keys\":[{{\"kty\":\"RSA\",\"kid\":\"test-key-1\",\"alg\":\"RS256\",\"use\":\"sig\",\"n\":\"{s}\",\"e\":\"AQAB\"}}]}}", .{try oauth.base64Url(arena, modulus)}));
         }
         if (std.mem.eql(u8, request.url, sign_in.token_url)) {
             const form = try oauth.fields(arena, request.body orelse "");
@@ -80,7 +80,7 @@ pub const Issuer = struct {
     fn tokensFor(issuer: *Issuer, form: []const oauth.Field, tokens: @FieldType(Answer, "tokens")) ![]const u8 {
         const arena = issuer.arena;
         if (tokens.bare) return "{\"access_token\":\"access-new\",\"expires_in\":3600}";
-        const refresh = if (tokens.rotated) try std.fmt.allocPrint(arena, "{s}-rotated", .{oauth.valueOf(form, "refresh_token") orelse ""}) else "refresh-new";
+        const refresh = if (tokens.rotated) try arena.print("{s}-rotated", .{oauth.valueOf(form, "refresh_token") orelse ""}) else "refresh-new";
         const id_token: ?[]const u8 = if (tokens.id_token) |claims| try issuer.signed(claims, oauth.valueOf(form, "client_id") orelse "") else null;
         return foundation.json.encode(arena, .{
             .access_token = "access-new",

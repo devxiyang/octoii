@@ -35,7 +35,7 @@ const add_tool: @import("tools.zig").Tool = .{
 fn add(_: ?*anyopaque, run: *const tools.Tool.Run) anyerror!tools.Tool.Output {
     const Numbers = struct { a: f64, b: f64 };
     const numbers = try foundation.json.decode(Numbers, run.arena, run.arguments);
-    return .{ .text = try std.fmt.allocPrint(run.arena, "{d}", .{numbers.a + numbers.b}) };
+    return .{ .text = try run.arena.print("{d}", .{numbers.a + numbers.b}) };
 }
 
 /// A tool whose calls wait for each other: each arrives, then waits till `expected` have, and lingers as its arguments
@@ -99,9 +99,9 @@ fn pumpUntilTurnsEnded(siphon: *Siphon, arena: Allocator, tid: []const u8, count
 }
 
 test "a call is run by its tool, its result appended, and the model asked again with the result and the tools" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{ try streamed(arena, &.{call("c1", "add", "{\"a\":1,\"b\":2}")}), try message(arena, "3") });
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
     var clock: testing.Clock = .{ .now_ms = 1_000 };
@@ -123,9 +123,9 @@ test "a call is run by its tool, its result appended, and the model asked again 
 }
 
 test "one long turn refused as too long is cut within it: the input that began it kept, then its latest call" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{
         try streamed(arena, &.{call("c1", "add", "{\"a\":1,\"b\":2}")}),
         try streamed(arena, &.{call("c2", "add", "{\"a\":3,\"b\":4}")}),
@@ -171,13 +171,13 @@ const double_tool: @import("tools.zig").Tool = .{
 
 fn double(_: ?*anyopaque, run: *const tools.Tool.Run) anyerror!tools.Tool.Output {
     const Number = struct { x: f64 };
-    return .{ .text = try std.fmt.allocPrint(run.arena, "{d}", .{(try foundation.json.decode(Number, run.arena, run.arguments)).x * 2}) };
+    return .{ .text = try run.arena.print("{d}", .{(try foundation.json.decode(Number, run.arena, run.arguments)).x * 2}) };
 }
 
 test "a tool added within a window is declared from the next window: what a window declares never changes within it" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{ try message(arena, "hi"), try message(arena, "again") });
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
     var clock: testing.Clock = .{ .now_ms = 1_000 };
@@ -199,9 +199,9 @@ test "a tool added within a window is declared from the next window: what a wind
 }
 
 test "a call of no tool, or of arguments that do not fit, is answered so, and the turn goes on" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{
         try streamed(arena, &.{ call("c1", "nope", "{}"), call("c2", "add", "{\"a\":\"one\"}") }),
         try message(arena, "sorry"),
@@ -224,9 +224,9 @@ test "a call of no tool, or of arguments that do not fit, is answered so, and th
 }
 
 test "a tool's output is told as its text, then each note on a line of its own in brackets" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     try std.testing.expectEqualStrings("as it is", try tools.Tool.told(arena, .{ .text = "as it is" }));
     try std.testing.expectEqualStrings("a\nb\n[lines 1-2; more from offset 3]", try tools.Tool.told(arena, .{ .text = "a\nb\n", .notes = &.{"lines 1-2; more from offset 3"} }));
     try std.testing.expectEqualStrings("hi\n[exit 3]", try tools.Tool.told(arena, .{ .text = "hi", .notes = &.{"exit 3"} }));
@@ -234,9 +234,9 @@ test "a tool's output is told as its text, then each note on a line of its own i
 }
 
 test "the calls of one reply run at once, their results appended in the order the model made them" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     // The first lingers past the second, so the second ends first.
     var fake: ai.testing.Fake = .init(arena, &.{ try streamed(arena, &.{ call("c1", "meet", "{\"linger_ms\":200}"), call("c2", "meet", "{}") }), try message(arena, "met") });
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
@@ -255,9 +255,9 @@ test "the calls of one reply run at once, their results appended in the order th
 }
 
 test "what the person sends while a call runs steers the turn: taken in after the call's result, the model asked on both" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{ try streamed(arena, &.{call("c1", "meet", "{\"linger_ms\":300}")}), try message(arena, "met, and the rest") });
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
     var clock: testing.Clock = .{ .now_ms = 1_000 };
@@ -278,9 +278,9 @@ test "what the person sends while a call runs steers the turn: taken in after th
 }
 
 test "the effort the person sets is how a window is asked; one changed after its first reply is told where it stands" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{ try message(arena, "one done"), try message(arena, "two done") });
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
     var clock: testing.Clock = .{ .now_ms = 1_000 };
@@ -304,9 +304,9 @@ test "the effort the person sets is how a window is asked; one changed after its
 }
 
 test "a thread begun with no title is given the one its model writes on what the person asked; one given first is kept" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     // The turn's request and the title's go at once, so either may take either answer.
     var fake: ai.testing.Fake = .init(arena, &.{ try message(arena, "\"Fix the build.\""), try message(arena, "\"Fix the build.\"") });
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
@@ -337,9 +337,9 @@ test "a thread begun with no title is given the one its model writes on what the
 }
 
 test "a model that searches the web itself is given its provider's search; one changed to that does not, none" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var searching = model;
     searching.id = "s";
     searching.octoii.hosted_tools = &.{.web_search};
@@ -365,9 +365,9 @@ test "a model that searches the web itself is given its provider's search; one c
 }
 
 test "a task delegated is done by a sub-thread of the thread's, its last words the call's answer; a sub-thread delegates no further" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{
         try streamed(arena, &.{call("c1", "delegate", "{\"task\":\"Check that the docs build.\",\"title\":\"Docs\"}")}),
         try message(arena, "The docs build."),
@@ -398,9 +398,9 @@ test "a task delegated is done by a sub-thread of the thread's, its last words t
 }
 
 test "a thread stopped while its sub-thread works stops the sub-thread with it" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{
         try streamed(arena, &.{call("c1", "delegate", "{\"task\":\"Deploy it.\",\"title\":\"Deploy\"}")}),
         try streamed(arena, &.{call("c2", "deploy", "{}")}),
@@ -422,9 +422,9 @@ test "a thread stopped while its sub-thread works stops the sub-thread with it" 
 }
 
 test "a task delegated in the background is answered at once, and what came of it told the thread as its sub-thread finishes; the sub-thread goes with its thread" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{
         try streamed(arena, &.{call("c1", "delegate", "{\"task\":\"Check that the docs build.\",\"title\":\"Docs\",\"background\":true}")}),
         // The thread's reply after the call and the sub-thread's reply are asked at once, in either order: they are one.
@@ -450,7 +450,7 @@ test "a task delegated in the background is answered at once, and what came of i
     try std.testing.expectEqualStrings(try threads.actorOf(arena, child), notice.actor);
     const parts = notice.message.content.parts;
     try std.testing.expectEqual(@as(usize, 2), parts.len);
-    try std.testing.expect(std.mem.startsWith(u8, parts[0].input_text.text, try std.fmt.allocPrint(arena, "[the sub-thread {s}, which you gave a task in the background, finished", .{child})));
+    try std.testing.expect(std.mem.startsWith(u8, parts[0].input_text.text, try arena.print("[the sub-thread {s}, which you gave a task in the background, finished", .{child})));
     try std.testing.expectEqualStrings("Noted.", parts[1].input_text.text);
     // The sub-thread's task is the thread's.
     try expectEntries(siphon, arena, child, &.{ "system", "input", "reply", "turn-end" });
@@ -464,9 +464,9 @@ test "a task delegated in the background is answered at once, and what came of i
 }
 
 test "a sub-thread of the thread's is given more to do by its id, keeping what it did; a thread no sub-thread of its is refused" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const first = [_]ai.testing.fake.Answer{
         try streamed(arena, &.{call("c1", "delegate", "{\"task\":\"Check that the docs build.\",\"title\":\"Docs\"}")}),
         try message(arena, "The docs build."),
@@ -484,8 +484,8 @@ test "a sub-thread of the thread's is given more to do by its id, keeping what i
     // The model names the sub-thread it was told of, and the thread itself, which is none of its sub-threads.
     fake.answers = try std.mem.concat(arena, ai.testing.fake.Answer, &.{ &first, &.{
         try streamed(arena, &.{
-            call("c2", "delegate", try std.fmt.allocPrint(arena, "{{\"thread\":\"{s}\",\"task\":\"Also check the links.\"}}", .{child})),
-            call("c3", "delegate", try std.fmt.allocPrint(arena, "{{\"thread\":\"{s}\",\"task\":\"Check it all.\"}}", .{tid})),
+            call("c2", "delegate", try arena.print("{{\"thread\":\"{s}\",\"task\":\"Also check the links.\"}}", .{child})),
+            call("c3", "delegate", try arena.print("{{\"thread\":\"{s}\",\"task\":\"Check it all.\"}}", .{tid})),
         }),
         try message(arena, "The links hold."),
         try message(arena, "Both hold."),
@@ -505,9 +505,9 @@ test "a sub-thread of the thread's is given more to do by its id, keeping what i
 }
 
 test "a stop reaches every call that runs, answers each stopped, and the turn ends stopped" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{try streamed(arena, &.{ call("c1", "deploy", "{}"), call("c2", "deploy", "{}") })});
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
     var clock: testing.Clock = .{ .now_ms = 1_000 };
@@ -524,9 +524,9 @@ test "a stop reaches every call that runs, answers each stopped, and the turn en
 }
 
 test "a thread's state shows each request its fibers wait on, as it was made, by the turn and the call it is of" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{try streamed(arena, &.{call("c1", "deploy", "{}")})});
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
     var clock: testing.Clock = .{ .now_ms = 1_000 };
@@ -569,9 +569,9 @@ test "a thread's state shows each request its fibers wait on, as it was made, by
 }
 
 test "a call that may have acted, cut off as the host ends, is answered interrupted and never run again" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     const place = try std.fs.path.join(arena, &.{ ".zig-cache", "tmp", &tmp.sub_path, "volume" });

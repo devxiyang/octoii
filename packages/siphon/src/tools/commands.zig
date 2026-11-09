@@ -154,9 +154,9 @@ const arities = [_]Arity{
 };
 
 test "a line runs each of its simple commands, each granted always by the words that name what it does" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const both = try read(arena, "npm install left-pad && git push origin main 2>&1 | tail -5");
     try std.testing.expectEqual(@as(usize, 3), both.resources.len);
     try std.testing.expectEqualStrings("npm install left-pad", both.resources[0]);
@@ -173,9 +173,9 @@ test "a line runs each of its simple commands, each granted always by the words 
 }
 
 test "a line no reading knows whole, or one that writes a file by a redirection, says nothing a grant could cover" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const lines = [_][]const u8{
         "npm install $(cat list)",              "f() { rm -rf /; }; f",         "$tool --help",           "if then fi (",
         "echo x > ~/.bashrc",                   "make && git log >> notes.txt", "(echo x) > /etc/passwd", "{ echo x; } > out",
@@ -190,9 +190,9 @@ test "a line no reading knows whole, or one that writes a file by a redirection,
 }
 
 test "a line reads alone where each of its commands is a known reader with no variable set and no file written" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const reading = [_][]const u8{ "ls -la src", "cat README.md | head -20", "rg -n TODO src", "git status --short && git diff HEAD~1", "find . -name '*.zig' -type f", "wc -l build.zig 2>/dev/null" };
     for (reading) |line| try std.testing.expect((try read(arena, line)).reads_alone);
     const acting = [_][]const u8{

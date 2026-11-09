@@ -46,9 +46,9 @@ pub fn transcribe(call: *Call, model: *const Model, request: *const transcriptio
     const recording = try recordingBody(call, request.input_audio);
     const response = try http.send(call, .{
         .method = .POST,
-        .url = try std.fmt.allocPrint(call.arena, "{s}/listen?{s}", .{ call.baseUrl(deepgram.base_url), try oauth.formEncoded(call.arena, fields) }),
+        .url = try call.arena.print("{s}/listen?{s}", .{ call.baseUrl(deepgram.base_url), try oauth.formEncoded(call.arena, fields) }),
         .headers = &.{
-            .{ .name = "authorization", .value = try std.fmt.allocPrint(call.arena, "Token {s}", .{key}) },
+            .{ .name = "authorization", .value = try call.arena.print("Token {s}", .{key}) },
             .{ .name = "accept", .value = "application/json" },
             .{ .name = "content-type", .value = recording.content_type },
         },
@@ -104,11 +104,11 @@ fn eventsOf(arena: Allocator, answer: Listen, request: *const transcriptions.Tra
     var events: std.ArrayList(Event) = .empty;
     try events.append(arena, .{ .delta = .{ .delta = text } });
     if (request.diarize == true) for (utterances, 0..) |utterance, index| try events.append(arena, .{ .segment = .{
-        .id = utterance.id orelse try std.fmt.allocPrint(arena, "{d}", .{index}),
+        .id = utterance.id orelse try arena.print("{d}", .{index}),
         .start = utterance.start,
         .end = utterance.end,
         .text = utterance.transcript,
-        .speaker = try std.fmt.allocPrint(arena, "{d}", .{utterance.speaker orelse 0}),
+        .speaker = try arena.print("{d}", .{utterance.speaker orelse 0}),
     } });
     var done: transcriptions.TranscriptTextDoneEvent = .{ .text = text, .usage = .{ .seconds = answer.metadata.duration } };
     if (request.response_format == .verbose_json) {

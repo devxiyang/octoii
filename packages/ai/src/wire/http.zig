@@ -67,9 +67,9 @@ pub fn failureOf(call: *Call, response: http.Response, details: ?DetailsOf) Erro
     return .{
         .kind = kind,
         .message = own.message orelse if (body.len == 0)
-            try std.fmt.allocPrint(call.arena, "The provider answered {d}", .{response.status})
+            try call.arena.print("The provider answered {d}", .{response.status})
         else
-            try std.fmt.allocPrint(call.arena, "The provider answered {d}: {s}", .{ response.status, body }),
+            try call.arena.print("The provider answered {d}: {s}", .{ response.status, body }),
         .retryable = own.retryable orelse shouldRetry(response.headers) orelse failure_.retryableKind(kind),
         .retry_after_ms = said orelse if (kind == .rate_limit) rateLimitResetMs(response.headers) else null,
         .status = response.status,

@@ -358,26 +358,26 @@ fn decodeVariant(comptime T: type, allocator: Allocator, value: std.json.Value, 
 }
 
 test "a value encodes one way: declared order, absent optionals left out, no whitespace, shortest numbers" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const Tool = struct { name: []const u8, description: ?[]const u8 = null, strict: ?bool = null, parameters: Raw, temperature: f64 };
-    const parameters = try Raw.of(a, "{ \"type\" : \"object\",\n \"required\": [\"city\"] }");
+    const parameters = try Raw.of(arena, "{ \"type\" : \"object\",\n \"required\": [\"city\"] }");
     const tool: Tool = .{ .name = "weather", .parameters = parameters, .temperature = 0.2 };
-    const once = try encode(a, tool);
+    const once = try encode(arena, tool);
     try std.testing.expectEqualStrings("{\"name\":\"weather\",\"parameters\":{\"type\":\"object\",\"required\":[\"city\"]},\"temperature\":0.2}", once);
-    try std.testing.expectEqualStrings(once, try encode(a, try decode(Tool, a, once)));
+    try std.testing.expectEqualStrings(once, try encode(arena, try decode(Tool, arena, once)));
 }
 
 test "a decoding passes over fields it does not know, and keeps raw JSON as it came" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const Item = struct { type: []const u8, metadata: ?Raw = null };
-    const item = try decode(Item, a, "{\"type\":\"message\",\"later\":1,\"metadata\":{\"b\":[1, 2.5, \"x\"],\"a\":null}}");
+    const item = try decode(Item, arena, "{\"type\":\"message\",\"later\":1,\"metadata\":{\"b\":[1, 2.5, \"x\"],\"a\":null}}");
     try std.testing.expectEqualStrings("message", item.type);
     try std.testing.expectEqualStrings("{\"b\":[1,2.5,\"x\"],\"a\":null}", item.metadata.?.text);
-    try std.testing.expectError(error.UnexpectedToken, decode(Item, a, "{\"type\":1}"));
+    try std.testing.expectError(error.UnexpectedToken, decode(Item, arena, "{\"type\":1}"));
 }
 
 const Shape = union(enum) {
@@ -403,59 +403,59 @@ const Shape = union(enum) {
 };
 
 test "a union's variant is told by its kind, and an object's by its member" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const shapes = try decode([]const Shape, a, "[{\"type\":\"circle\",\"radius\":1},{\"type\":\"box\",\"side\":2,\"later\":0},{\"text\":\"x\"},\"y\",[\"z\"],3.5]");
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const shapes = try decode([]const Shape, arena, "[{\"type\":\"circle\",\"radius\":1},{\"type\":\"box\",\"side\":2,\"later\":0},{\"text\":\"x\"},\"y\",[\"z\"],3.5]");
     try std.testing.expectEqual(@as(f64, 1), shapes[0].circle.radius);
     try std.testing.expectEqual(.box, shapes[1].square.type);
     try std.testing.expectEqualStrings("x", shapes[2].label.text);
     try std.testing.expectEqualStrings("y", shapes[3].name);
     try std.testing.expectEqualStrings("z", shapes[4].names[0]);
     try std.testing.expectEqual(@as(f64, 3.5), shapes[5].size);
-    const once = try encode(a, shapes);
+    const once = try encode(arena, shapes);
     try std.testing.expectEqualStrings("[{\"type\":\"circle\",\"radius\":1},{\"type\":\"box\",\"side\":2},{\"type\":\"label\",\"text\":\"x\"},\"y\",[\"z\"],3.5]", once);
-    try std.testing.expectEqualStrings(once, try encode(a, try decode([]const Shape, a, once)));
+    try std.testing.expectEqualStrings(once, try encode(arena, try decode([]const Shape, arena, once)));
 }
 
 test "a union refuses a value no variant takes: an unknown name, a variant not valid, a member left out" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    try std.testing.expectError(error.UnexpectedToken, decode(Shape, a, "{\"type\":\"triangle\",\"radius\":1}"));
-    try std.testing.expectError(error.MissingField, decode(Shape, a, "{\"type\":\"square\",\"side\":0}"));
-    try std.testing.expectError(error.MissingField, decode(Shape, a, "{\"radius\":1}"));
-    try std.testing.expectError(error.UnexpectedToken, decode(Shape, a, "true"));
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    try std.testing.expectError(error.UnexpectedToken, decode(Shape, arena, "{\"type\":\"triangle\",\"radius\":1}"));
+    try std.testing.expectError(error.MissingField, decode(Shape, arena, "{\"type\":\"square\",\"side\":0}"));
+    try std.testing.expectError(error.MissingField, decode(Shape, arena, "{\"radius\":1}"));
+    try std.testing.expectError(error.UnexpectedToken, decode(Shape, arena, "true"));
 }
 
 test "JSON values are equal whatever the order of their members and the form of their numbers" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const left = try std.json.parseFromSliceLeaky(std.json.Value, a, "{\"a\":[1,true,null],\"b\":{\"c\":\"x\"}}", .{});
-    const right = try std.json.parseFromSliceLeaky(std.json.Value, a, "{\"b\":{\"c\":\"x\"},\"a\":[1.0,true,null]}", .{});
-    const other = try std.json.parseFromSliceLeaky(std.json.Value, a, "{\"b\":{\"c\":\"x\"},\"a\":[2,true,null]}", .{});
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const left = try std.json.parseFromSliceLeaky(std.json.Value, arena, "{\"a\":[1,true,null],\"b\":{\"c\":\"x\"}}", .{});
+    const right = try std.json.parseFromSliceLeaky(std.json.Value, arena, "{\"b\":{\"c\":\"x\"},\"a\":[1.0,true,null]}", .{});
+    const other = try std.json.parseFromSliceLeaky(std.json.Value, arena, "{\"b\":{\"c\":\"x\"},\"a\":[2,true,null]}", .{});
     try std.testing.expect(equal(left, right));
     try std.testing.expect(!equal(left, other));
 }
 
 test "parts merge into one object, a later part's member in place of an earlier one's" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var extra: std.json.ObjectMap = .empty;
-    try extra.put(a, "geo", .{ .string = "us" });
-    try extra.put(a, "model", .{ .string = "override" });
+    try extra.put(arena, "geo", .{ .string = "us" });
+    try extra.put(arena, "model", .{ .string = "override" });
     const Base = struct { model: []const u8, effort: ?[]const u8 = null, stream: bool = false };
     const made = merged(.{ Base{ .model = "m" }, .{ .stream = true }, extra });
-    try std.testing.expectEqualStrings("{\"stream\":true,\"geo\":\"us\",\"model\":\"override\"}", try encode(a, made));
-    try std.testing.expectEqualStrings("{\"model\":\"m\",\"stream\":true}", try encode(a, merged(.{ Base{ .model = "m" }, .{ .stream = true }, @as(?std.json.ObjectMap, null) })));
+    try std.testing.expectEqualStrings("{\"stream\":true,\"geo\":\"us\",\"model\":\"override\"}", try encode(arena, made));
+    try std.testing.expectEqualStrings("{\"model\":\"m\",\"stream\":true}", try encode(arena, merged(.{ Base{ .model = "m" }, .{ .stream = true }, @as(?std.json.ObjectMap, null) })));
 }
 
 test "a nullable member tells null from absent, both ways" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const Setting = struct { silence_ms: u32 };
     const Input = struct {
         model: []const u8,
@@ -464,15 +464,15 @@ test "a nullable member tells null from absent, both ways" {
         pub const jsonParseFromValue = KeepingNulls(@This()).jsonParseFromValue;
         pub const jsonParse = KeepingNulls(@This()).jsonParse;
     };
-    const off = try decode(Input, a, "{\"model\":\"m\",\"turn\":null,\"later\":1}");
+    const off = try decode(Input, arena, "{\"model\":\"m\",\"turn\":null,\"later\":1}");
     try std.testing.expectEqual(.null, std.meta.activeTag(off.turn.?));
-    const left = try decode(Input, a, "{\"model\":\"m\"}");
+    const left = try decode(Input, arena, "{\"model\":\"m\"}");
     try std.testing.expectEqual(null, left.turn);
-    const given = try decode(Input, a, "{\"model\":\"m\",\"turn\":{\"silence_ms\":300}}");
+    const given = try decode(Input, arena, "{\"model\":\"m\",\"turn\":{\"silence_ms\":300}}");
     try std.testing.expectEqual(@as(u32, 300), given.turn.?.given().?.silence_ms);
-    try std.testing.expectEqualStrings("{\"model\":\"m\",\"turn\":null}", try encode(a, off));
-    try std.testing.expectEqualStrings("{\"model\":\"m\"}", try encode(a, left));
-    try std.testing.expectError(error.MissingField, decode(Input, a, "{\"turn\":null}"));
+    try std.testing.expectEqualStrings("{\"model\":\"m\",\"turn\":null}", try encode(arena, off));
+    try std.testing.expectEqualStrings("{\"model\":\"m\"}", try encode(arena, left));
+    try std.testing.expectError(error.MissingField, decode(Input, arena, "{\"turn\":null}"));
 }
 
 /// Encodes a value of strings, an absent optional and numbers with `allocator`, then frees it.
@@ -493,9 +493,9 @@ test "a decoding takes whatever bytes it is given: a value whole, or refused" {
 fn fuzzDecode(_: void, smith: *std.testing.Smith) anyerror!void {
     var buffer: [4096]u8 = undefined;
     const bytes = buffer[0..smith.slice(&buffer)];
-    var arena: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena.deinit();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
     const Entry = struct { id: []const u8, type: []const u8, outcome: ?enum { replied, failed, stopped } = null, numbers: ?[]const f64 = null };
-    _ = decode(Entry, arena.allocator(), bytes) catch {};
-    _ = decode(std.json.Value, arena.allocator(), bytes) catch {};
+    _ = decode(Entry, arena_allocator.allocator(), bytes) catch {};
+    _ = decode(std.json.Value, arena_allocator.allocator(), bytes) catch {};
 }

@@ -56,7 +56,7 @@ pub fn page(arena: Allocator, items: anytype, start: usize, size: ?usize, field:
     const end = @min(from + (size orelse items.len), items.len);
     var result: ObjectMap = .empty;
     try result.put(arena, field, try foundation.json.toValue(arena, items[from..end]));
-    if (end < items.len) try result.put(arena, "nextCursor", .{ .string = try std.fmt.allocPrint(arena, "{d}", .{end}) });
+    if (end < items.len) try result.put(arena, "nextCursor", .{ .string = try arena.print("{d}", .{end}) });
     return .{ .object = result };
 }
 

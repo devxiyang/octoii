@@ -5,6 +5,7 @@
     .fingerprint = 0x2756f316fabf4d68,
     .minimum_zig_version = "0.17.1",
     .dependencies = .{
+        .lint = .{ .path = "../lint" },
         .foundation = .{ .path = "../foundation" },
     },
     .paths = .{ "build.zig", "build.zig.zon", "src", "THIRD_PARTY_NOTICES" },

@@ -54,8 +54,8 @@ fn responseOf(arena: Allocator, text: []const u8) ![]const u8 {
 
 /// A response of `text`, saying its request used `usage`, where given.
 fn responseUsing(arena: Allocator, text: []const u8, usage: ?[]const u8) ![]const u8 {
-    const used = if (usage) |given| try std.fmt.allocPrint(arena, ",\"usage\":{s}", .{given}) else "";
-    return std.fmt.allocPrint(arena, "{{\"id\":\"r1\",\"status\":\"completed\",\"output\":[{{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{{\"type\":\"output_text\",\"text\":\"{s}\"}}]}}]{s}}}", .{ text, used });
+    const used = if (usage) |given| try arena.print(",\"usage\":{s}", .{given}) else "";
+    return arena.print("{{\"id\":\"r1\",\"status\":\"completed\",\"output\":[{{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{{\"type\":\"output_text\",\"text\":\"{s}\"}}]}}]{s}}}", .{ text, used });
 }
 
 const said = testing.said;
@@ -70,9 +70,9 @@ test "an input is delivered once for its operation, taken into the log, and answ
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var model: FakeModel = .{};
     try siphon.runtime.handle(models.model_request, model.handler());
     const tid = try threads.create(siphon.runtime, arena, .{ .title = "Test", .model = "fake/model" }, "create");
@@ -96,9 +96,9 @@ test "the inputs waiting as a turn starts are taken into one segment of the log,
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var model: FakeModel = .{};
     try siphon.runtime.handle(models.model_request, model.handler());
     const tid = try threads.create(siphon.runtime, arena, .{}, "create");
@@ -120,9 +120,9 @@ test "a thread is made once for its operation's id, and an id names one operatio
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const tid = try threads.create(siphon.runtime, arena, .{}, "op-a");
     try std.testing.expectEqualStrings(tid, try threads.create(siphon.runtime, arena, .{}, "op-a"));
     // The id of one operation sent for another method, or for another thread, is refused.
@@ -138,9 +138,9 @@ test "a thread's model, title, mode and how the person keeps it are changed as t
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const tid = try threads.create(siphon.runtime, arena, .{ .title = "Test", .model = "fake/model", .workspace = "/w" }, "create");
     const thread = try threads.pathOf(arena, tid);
     try threads.configure(siphon.runtime, arena, tid, .{ .title = "Named" });
@@ -168,9 +168,9 @@ test "an input withdrawn while it waits is never taken; one taken can no longer 
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var model: FakeModel = .{};
     try siphon.runtime.handle(models.model_request, model.handler());
     const tid = try threads.create(siphon.runtime, arena, .{}, "create");
@@ -187,9 +187,9 @@ test "a thread's state holds when its latest turn began and ended: none before i
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var model: FakeModel = .{};
     try siphon.runtime.handle(models.model_request, model.handler());
     const tid = try threads.create(siphon.runtime, arena, .{ .title = "Test" }, "create");
@@ -222,9 +222,9 @@ test "a thread's state holds what its model requests used, each charged to its t
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var model: FakeModel = .{ .usage =
         \\{"input_tokens":100,"input_tokens_details":{"cached_tokens":40},"output_tokens":20,"output_tokens_details":{"reasoning_tokens":5},"total_tokens":120,"cost":0.0002}
     };
@@ -243,9 +243,9 @@ test "a thread deleted while its model answers is gone, its request cut off, and
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var model: FakeModel = .{ .behavior = .slow };
     try siphon.runtime.handle(models.model_request, model.handler());
     const tid = try threads.create(siphon.runtime, arena, .{}, "create");
@@ -261,9 +261,9 @@ test "a stop ends the turn at once, keeping what had come of its reply as cut" {
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var model: FakeModel = .{ .behavior = .slow };
     try siphon.runtime.handle(models.model_request, model.handler());
     const tid = try threads.create(siphon.runtime, arena, .{}, "create");
@@ -282,9 +282,9 @@ test "a turn whose model fails ends failed, and holds nothing back: the next inp
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var model: FakeModel = .{ .behavior = .fail };
     try siphon.runtime.handle(models.model_request, model.handler());
     const tid = try threads.create(siphon.runtime, arena, .{}, "create");
@@ -300,9 +300,9 @@ test "a model's request cut off as the volume opens again is asked again, as it 
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const place = try std.fs.path.join(arena, &.{ ".zig-cache", "tmp", &tmp.sub_path, "volume" });
     var tid: []const u8 = undefined;
     {

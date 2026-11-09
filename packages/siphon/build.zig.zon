@@ -5,6 +5,7 @@
     .fingerprint = 0x81d5f7cc81829204,
     .minimum_zig_version = "0.17.1",
     .dependencies = .{
+        .lint = .{ .path = "../lint" },
         .foundation = .{ .path = "../foundation" },
         .ai = .{ .path = "../ai" },
         .mcp = .{ .path = "../mcp" },

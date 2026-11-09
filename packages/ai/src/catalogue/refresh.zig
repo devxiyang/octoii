@@ -117,26 +117,26 @@ const MemoryStore = struct {
 };
 
 test "a catalogue comes from the store first, then from the address asked with the kept tags, and fails to nothing" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const document = "{\"version\":1,\"models\":[{\"id\":\"m\",\"name\":\"M\",\"architecture\":{\"input_modalities\":[\"text\"],\"output_modalities\":[\"text\"]},\"octoii\":{\"provider\":\"p\",\"kinds\":[\"text\"]}},{\"id\":\"broken\"}]}";
-    const exchanges = try foundation.json.decode([]const foundation.replay.Exchange, a, try std.fmt.allocPrint(a,
+    const exchanges = try foundation.json.decode([]const foundation.replay.Exchange, arena, try arena.print(
         \\[{{"request":{{"method":"GET","url":"https://cdn.example/catalogue-v1.json"}},
         \\  "response":{{"status":200,"headers":{{"etag":"\"v2\""}},"chunks":[{f}]}}}},
         \\ {{"request":{{"method":"GET","url":"https://cdn.example/catalogue-v1.json","headers":{{"if-none-match":"\"v2\""}}}},
         \\  "response":{{"status":304}}}}]
     , .{std.json.fmt(document, .{})}));
-    var replay: foundation.replay.Replay = .init(a, exchanges);
-    var memory: MemoryStore = .{ .arena = a };
+    var replay: foundation.replay.Replay = .init(arena, exchanges);
+    var memory: MemoryStore = .{ .arena = arena };
     var refresh: Refresh = .{ .url = "https://cdn.example/catalogue-v1.json", .store = memory.store() };
-    const first = (try refresh.run(a, replay.http())).?;
+    const first = (try refresh.run(arena, replay.http())).?;
     try std.testing.expectEqual(@as(usize, 1), first.len);
     try std.testing.expect(memory.text != null);
-    try std.testing.expectEqual(null, try refresh.run(a, replay.http()));
+    try std.testing.expectEqual(null, try refresh.run(arena, replay.http()));
     try std.testing.expectEqual(null, replay.mismatch);
     // A new start reads the kept document, and an address that fails keeps it.
     var again: Refresh = .{ .url = "https://cdn.example/catalogue-v1.json", .store = memory.store() };
-    var nowhere: foundation.replay.Replay = .init(a, &.{});
-    try std.testing.expectEqualStrings("m", (try again.run(a, nowhere.http())).?[0].id);
+    var nowhere: foundation.replay.Replay = .init(arena, &.{});
+    try std.testing.expectEqualStrings("m", (try again.run(arena, nowhere.http())).?[0].id);
 }

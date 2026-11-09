@@ -106,7 +106,7 @@ fn inputLine(comptime id: []const u8) []const u8 {
 }
 
 fn resultLine(arena: Allocator, id: []const u8, output: []const u8) ![]const u8 {
-    return std.fmt.allocPrint(arena, "{{\"id\":\"{s}\",\"type\":\"result\",\"status\":\"ok\",\"call_output\":{{\"type\":\"function_call_output\",\"call_id\":\"c\",\"output\":\"{s}\"}}}}", .{ id, output });
+    return arena.print("{{\"id\":\"{s}\",\"type\":\"result\",\"status\":\"ok\",\"call_output\":{{\"type\":\"function_call_output\",\"call_id\":\"c\",\"output\":\"{s}\"}}}}", .{ id, output });
 }
 
 fn replyLine(comptime id: []const u8, comptime context_tokens: []const u8) []const u8 {
@@ -114,9 +114,9 @@ fn replyLine(comptime id: []const u8, comptime context_tokens: []const u8) []con
 }
 
 test "a window is cut before the earliest step its kept tokens reach, else before the latest, with something to recap" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const long = try arena.alloc(u8, kept_tokens * 4);
     @memset(long, 'x');
     const turns = [_][]const u8{ inputLine("1"), try resultLine(arena, "2", long), inputLine("3"), inputLine("4") };
@@ -141,9 +141,9 @@ test "a window is cut before the earliest step its kept tokens reach, else befor
 }
 
 test "a window is weighed by what its own replies say, never by those it carried from before its compaction" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const lines = [_][]const u8{
         inputLine("1"),
         replyLine("2", "1000000"),

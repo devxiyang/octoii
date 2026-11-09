@@ -35,7 +35,7 @@ next_id: i64 = 1,
 state: State = .connecting,
 /// What the client settled on with the server, in `lasting`.
 settled: ?Settled = null,
-lasting: std.heap.ArenaAllocator,
+lasting_arena: std.heap.ArenaAllocator,
 /// The tools listed last, by name, for their headers and output schemas, in `known_arena`.
 known: std.StringHashMapUnmanaged(Known) = .empty,
 known_arena: std.heap.ArenaAllocator,
@@ -124,14 +124,16 @@ pub fn connect(gpa: Allocator, arena: Allocator, options: Options, transport: Tr
         transport.close();
         return err;
     };
-    client.* = .{ .gpa = gpa, .options = options, .transport = transport, .lasting = .init(gpa), .known_arena = .init(gpa), .roots = options.roots orelse &.{} };
+    errdefer gpa.destroy(client);
+    client.* = .{ .gpa = gpa, .options = options, .transport = transport, .lasting_arena = .init(gpa), .known_arena = .init(gpa), .roots = options.roots orelse &.{} };
+    errdefer client.release();
     var slot: Slot = .{ .arena = arena };
-    requests.settle(client, &slot) catch |err| {
-        client.deinit();
-        return switch (err) {
-            error.OutOfMemory => error.OutOfMemory,
-            error.Failed => .{ .failed = slot.failure.? },
-        };
+    requests.settle(client, &slot) catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        error.Failed => {
+            client.deinit();
+            return .{ .failed = slot.failure.? };
+        },
     };
     client.lock.lockUncancelable(options.host.io);
     defer client.lock.unlock(options.host.io);
@@ -141,14 +143,19 @@ pub fn connect(gpa: Allocator, arena: Allocator, options: Options, transport: Tr
 
 /// Closes the transport, if it is open, and lets the client go; nothing may be asked of it from then on.
 pub fn deinit(client: *Client) void {
+    client.release();
+    client.gpa.destroy(client);
+}
+
+/// Lets go of what the client holds, its transport closed, the client itself kept.
+fn release(client: *Client) void {
     client.transport.close();
     for (client.events.items) |event| client.gpa.free(event);
     client.events.deinit(client.gpa);
     client.pending.deinit(client.gpa);
     client.known.deinit(client.gpa);
     client.known_arena.deinit();
-    client.lasting.deinit();
-    client.gpa.destroy(client);
+    client.lasting_arena.deinit();
 }
 
 pub fn era(client: *Client) ?protocol.Era {

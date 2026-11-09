@@ -16,15 +16,15 @@ const h = beak.h;
 const server_path = @import("test_options").example_stdio_server;
 
 test "a server's tools are told in the catalog and called from a script, the server run on the machine with its variables" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     try tmp.dir.createDirPath(std.testing.io, "work");
     const root = try tmp.dir.realPathFileAlloc(std.testing.io, ".", arena);
     const program = try std.Io.Dir.cwd().realPathFileAlloc(std.testing.io, server_path, arena);
-    const configuration = try std.fmt.allocPrint(arena,
+    const configuration = try arena.print(
         \\{{"mcpServers":{{
         \\  "example":{{"command":{f},"args":["both"],"env":{{"OCTOII_GIVEN":"1"}}}},
         \\  "remote":{{"url":"https://example.invalid/mcp"}}
@@ -65,9 +65,9 @@ test "a server's tools are told in the catalog and called from a script, the ser
 }
 
 test "a project's servers run once the person trusts them, asked as its thread first gathers what its model is told" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     try tmp.dir.createDirPath(std.testing.io, "repo/.git");
@@ -76,8 +76,8 @@ test "a project's servers run once the person trusts them, asked as its thread f
     const program = try std.Io.Dir.cwd().realPathFileAlloc(std.testing.io, server_path, arena);
     // The person's server and the project's of the same name, told apart by the variable each is given.
     const configuration = "{{\"mcpServers\":{{\"example\":{{\"command\":{f},\"args\":[\"both\"],\"env\":{{\"{s}\":\"1\"}}}}}}}}";
-    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "mcp.json", .data = try std.fmt.allocPrint(arena, configuration, .{ std.json.fmt(program, .{}), "OCTOII_PERSON" }) });
-    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "repo/.mcp.json", .data = try std.fmt.allocPrint(arena, configuration, .{ std.json.fmt(program, .{}), "OCTOII_PROJECT" }) });
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "mcp.json", .data = try arena.print(configuration, .{ std.json.fmt(program, .{}), "OCTOII_PERSON" }) });
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "repo/.mcp.json", .data = try arena.print(configuration, .{ std.json.fmt(program, .{}), "OCTOII_PROJECT" }) });
     const machine = try testing.openLocalMachine();
     defer _ = h.beak_close(machine);
 
@@ -134,16 +134,16 @@ test "a project's servers run once the person trusts them, asked as its thread f
 }
 
 test "a client is shown the servers a folder's threads would use, nothing started for it; the person decides unasked, and again" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     try tmp.dir.createDirPath(std.testing.io, "repo/.git");
     try tmp.dir.createDirPath(std.testing.io, "repo/work");
     const root = try tmp.dir.realPathFileAlloc(std.testing.io, ".", arena);
     const program = try std.Io.Dir.cwd().realPathFileAlloc(std.testing.io, server_path, arena);
-    const configuration = try std.fmt.allocPrint(arena, "{{\"mcpServers\":{{\"example\":{{\"command\":{f},\"args\":[\"both\"]}}}}}}", .{std.json.fmt(program, .{})});
+    const configuration = try arena.print("{{\"mcpServers\":{{\"example\":{{\"command\":{f},\"args\":[\"both\"]}}}}}}", .{std.json.fmt(program, .{})});
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "mcp.json", .data = configuration });
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "repo/.mcp.json", .data = configuration });
     const machine = try testing.openLocalMachine();

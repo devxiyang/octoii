@@ -24,8 +24,8 @@ const Setup = struct {
     key: []const u8,
     authorization: []const u8,
 
-    fn options(setup: Setup, a: Allocator, connector: foundation.websocket.Connector) !fixtures.Options {
-        return .{ .driver = setup.driver, .key = setup.key, .models = if (setup.models) |models| try models(a) else &.{}, .connector = connector };
+    fn options(setup: Setup, arena: Allocator, connector: foundation.websocket.Connector) !fixtures.Options {
+        return .{ .driver = setup.driver, .key = setup.key, .models = if (setup.models) |models| try models(arena) else &.{}, .connector = connector };
     }
 };
 
@@ -43,21 +43,21 @@ const Fixture = struct {
     exchanges: []const foundation.replay.Exchange = &.{},
 };
 
-fn fixtureOf(a: Allocator, provider: []const u8, name: []const u8) !Fixture {
-    const path = try std.fmt.allocPrint(a, "test/fixtures/{s}/{s}.json", .{ provider, name });
-    return foundation.json.decode(Fixture, a, try std.Io.Dir.cwd().readFileAlloc(std.testing.io, path, a, .limited(16 << 20)));
+fn fixtureOf(arena: Allocator, provider: []const u8, name: []const u8) !Fixture {
+    const path = try arena.print("test/fixtures/{s}/{s}.json", .{ provider, name });
+    return foundation.json.decode(Fixture, arena, try std.Io.Dir.cwd().readFileAlloc(std.testing.io, path, arena, .limited(16 << 20)));
 }
 
 /// `Models` whose sockets replay the fixture `name` of `setup`'s provider, and the replay.
 const Replayed = struct { fixture: Fixture, models: *Models, replay: *SocketReplay };
 
-fn replayed(a: Allocator, setup: Setup, name: []const u8) !Replayed {
-    const fixture = try fixtureOf(a, setup.driver.id, name);
-    const replay = try a.create(SocketReplay);
-    replay.* = .init(a, fixture.sockets);
-    const http = try a.create(foundation.replay.Replay);
-    http.* = .init(a, &.{});
-    const made = try fixtures.over(a, http.http(), try setup.options(a, replay.connector()));
+fn replayed(arena: Allocator, setup: Setup, name: []const u8) !Replayed {
+    const fixture = try fixtureOf(arena, setup.driver.id, name);
+    const replay = try arena.create(SocketReplay);
+    replay.* = .init(arena, fixture.sockets);
+    const http = try arena.create(foundation.replay.Replay);
+    http.* = .init(arena, &.{});
+    const made = try fixtures.over(arena, http.http(), try setup.options(arena, replay.connector()));
     replay.clock_ms = &made.host.clock_ms;
     return .{ .fixture = fixture, .models = made.models, .replay = replay };
 }
@@ -67,88 +67,88 @@ const Played = struct { events: []const ServerEvent, failure: ?Failure };
 
 /// Opens the fixture's session, reads what it has, sends each of its events and reads what answers it, closes it,
 /// and reads every event until it ends, or the session fails to open.
-fn played(a: Allocator, given: Replayed) !Played {
+fn played(arena: Allocator, given: Replayed) !Played {
     const connected = if (given.fixture.request.object.contains("call_id"))
-        try given.models.realtimeSideband(a, try foundation.json.decodeValue(realtime.SidebandParams, a, given.fixture.request))
+        try given.models.realtimeSideband(arena, try foundation.json.decodeValue(realtime.SidebandParams, arena, given.fixture.request))
     else
-        try given.models.realtimeConnect(a, try foundation.json.decodeValue(realtime.Session, a, given.fixture.request));
+        try given.models.realtimeConnect(arena, try foundation.json.decodeValue(realtime.Session, arena, given.fixture.request));
     const session = switch (connected) {
         .session => |open| open,
         .failed => |failure| return .{ .events = &.{}, .failure = failure },
     };
     defer session.deinit();
     var events: std.ArrayList(ServerEvent) = .empty;
-    try drain(a, session, &events);
+    try drain(arena, session, &events);
     for (given.fixture.events) |event| {
         session.send(event);
-        try drain(a, session, &events);
+        try drain(arena, session, &events);
     }
     session.close();
-    while (session.next()) |event| try events.append(a, try copied(a, event));
+    while (session.next()) |event| try events.append(arena, try copied(arena, event));
     if (given.replay.mismatch) |why| {
         std.debug.print("{s}\n", .{why});
         return error.TestUnexpectedMessage;
     }
-    return .{ .events = events.items, .failure = if (session.failure()) |failure| try copiedFailure(a, failure) else null };
+    return .{ .events = events.items, .failure = if (session.failure()) |failure| try copiedFailure(arena, failure) else null };
 }
 
 /// Reads every event the session has now.
-fn drain(a: Allocator, session: *RealtimeSession, events: *std.ArrayList(ServerEvent)) !void {
+fn drain(arena: Allocator, session: *RealtimeSession, events: *std.ArrayList(ServerEvent)) !void {
     while (true) switch (session.poll(0)) {
-        .event => |event| try events.append(a, try copied(a, event)),
+        .event => |event| try events.append(arena, try copied(arena, event)),
         .quiet, .ended => return,
     };
 }
 
 /// `event`, which lives until the session's next read, copied into `a`.
-fn copied(a: Allocator, event: ServerEvent) !ServerEvent {
-    return foundation.json.decode(ServerEvent, a, try foundation.json.encode(a, event));
+fn copied(arena: Allocator, event: ServerEvent) !ServerEvent {
+    return foundation.json.decode(ServerEvent, arena, try foundation.json.encode(arena, event));
 }
 
-fn copiedFailure(a: Allocator, failure: Failure) !Failure {
+fn copiedFailure(arena: Allocator, failure: Failure) !Failure {
     var made = failure;
-    made.message = try a.dupe(u8, failure.message);
-    if (failure.code) |code| made.code = try a.dupe(u8, code);
+    made.message = try arena.dupe(u8, failure.message);
+    if (failure.code) |code| made.code = try arena.dupe(u8, code);
     return made;
 }
 
 /// What breaks a session's contract: a first event but `session.created`; an item's delta, partial text or segment
 /// after its end; an end but one `completed`, carrying Octoii's account of its usage, or one `failed`; and, for a
 /// session closed by `close()`, an item committed that never ended.
-fn sessionProblems(a: Allocator, events: []const ServerEvent, closed_by_client: bool) ![]const []const u8 {
+fn sessionProblems(arena: Allocator, events: []const ServerEvent, closed_by_client: bool) ![]const []const u8 {
     var problems: std.ArrayList([]const u8) = .empty;
-    if (events.len == 0 or events[0] != .session_created) try problems.append(a, "the session does not begin with session.created");
+    if (events.len == 0 or events[0] != .session_created) try problems.append(arena, "the session does not begin with session.created");
     var ended: std.StringHashMapUnmanaged(void) = .empty;
     var committed: std.StringHashMapUnmanaged(void) = .empty;
     for (events, 0..) |event, index| switch (event) {
-        .committed => |of| try committed.put(a, of.item_id, {}),
-        .delta, .segment, .partial => if (ended.contains(event.itemId().?)) try problems.append(a, try std.fmt.allocPrint(a, "event {d} comes after its item {s} ended", .{ index, event.itemId().? })),
+        .committed => |of| try committed.put(arena, of.item_id, {}),
+        .delta, .segment, .partial => if (ended.contains(event.itemId().?)) try problems.append(arena, try arena.print("event {d} comes after its item {s} ended", .{ index, event.itemId().? })),
         .completed, .failed => {
             const item = event.itemId().?;
-            if (ended.contains(item)) try problems.append(a, try std.fmt.allocPrint(a, "the item {s} ends twice, at event {d}", .{ item, index }));
-            try ended.put(a, item, {});
+            if (ended.contains(item)) try problems.append(arena, try arena.print("the item {s} ends twice, at event {d}", .{ item, index }));
+            try ended.put(arena, item, {});
             if (event == .completed and (event.completed.octoii == null or event.completed.octoii.?.usage == null)) {
-                try problems.append(a, try std.fmt.allocPrint(a, "the item {s} completes without Octoii's account of its usage", .{item}));
+                try problems.append(arena, try arena.print("the item {s} completes without Octoii's account of its usage", .{item}));
             }
         },
         else => {},
     };
     if (closed_by_client) {
         var it = committed.keyIterator();
-        while (it.next()) |item| if (!ended.contains(item.*)) try problems.append(a, try std.fmt.allocPrint(a, "the item {s} was committed and never ended", .{item.*}));
+        while (it.next()) |item| if (!ended.contains(item.*)) try problems.append(arena, try arena.print("the item {s} was committed and never ended", .{item.*}));
     }
     return problems.items;
 }
 
-fn completions(a: Allocator, events: []const ServerEvent) ![]const realtime.TranscriptionCompleted {
+fn completions(arena: Allocator, events: []const ServerEvent) ![]const realtime.TranscriptionCompleted {
     var found: std.ArrayList(realtime.TranscriptionCompleted) = .empty;
-    for (events) |event| if (event == .completed) try found.append(a, event.completed);
+    for (events) |event| if (event == .completed) try found.append(arena, event.completed);
     return found.items;
 }
 
-fn transcripts(a: Allocator, events: []const ServerEvent) ![]const []const u8 {
+fn transcripts(arena: Allocator, events: []const ServerEvent) ![]const []const u8 {
     var found: std.ArrayList([]const u8) = .empty;
-    for (try completions(a, events)) |item| try found.append(a, item.transcript);
+    for (try completions(arena, events)) |item| try found.append(arena, item.transcript);
     return found.items;
 }
 
@@ -164,17 +164,17 @@ fn firstOf(events: []const ServerEvent, tag: std.meta.Tag(ServerEvent)) ?ServerE
 }
 
 test "every recorded realtime session says what it is built from, opens as recorded with its key, and holds to the session contract" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     for ([_]Setup{ openai, deepgram, xai }) |setup| {
-        for (try fixtures.mediaNames(a, setup.driver.id, "realtime-transcription")) |name| {
+        for (try fixtures.mediaNames(arena, setup.driver.id, "realtime-transcription")) |name| {
             errdefer std.debug.print("{s}/{s}\n", .{ setup.driver.id, name });
-            const given = try replayed(a, setup, name);
-            const session = try played(a, given);
+            const given = try replayed(arena, setup, name);
+            const session = try played(arena, given);
             try std.testing.expect(given.fixture.source.len > 0);
             if (session.events.len > 0) {
-                const problems = try sessionProblems(a, session.events, session.failure == null);
+                const problems = try sessionProblems(arena, session.events, session.failure == null);
                 for (problems) |problem| std.debug.print("session contract: {s}\n", .{problem});
                 try std.testing.expectEqual(@as(usize, 0), problems.len);
             }
@@ -185,15 +185,15 @@ test "every recorded realtime session says what it is built from, opens as recor
 }
 
 test "OpenAI opens a session by its model's id, gives the session by its reference, and prices each item at the model's prices" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const session = try played(a, try replayed(a, openai, "realtime-transcription"));
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const session = try played(arena, try replayed(arena, openai, "realtime-transcription"));
     try std.testing.expectEqual(null, session.failure);
     try std.testing.expect(session.events[0] == .session_created and session.events[1] == .session_updated);
     try std.testing.expect(std.mem.indexOf(u8, session.events[1].session_updated.session.text, "\"model\":\"openai/gpt-live-transcribe\"") != null);
-    try expectStrings(&.{ "Hello, how are you?", "About AC-42." }, try transcripts(a, session.events));
-    const first = (try completions(a, session.events))[0].octoii.?.usage.?;
+    try expectStrings(&.{ "Hello, how are you?", "About AC-42." }, try transcripts(arena, session.events));
+    const first = (try completions(arena, session.events))[0].octoii.?.usage.?;
     try std.testing.expectEqual(@as(?f64, 0.2), first.seconds);
     try std.testing.expectApproxEqAbs(0.2 * 0.017 / 60.0, first.cost.?, 1e-12);
     // The audio left as it closed is committed, and the session ends once that item completes.
@@ -202,39 +202,39 @@ test "OpenAI opens a session by its model's id, gives the session by its referen
 }
 
 test "OpenAI's refusal of a session's settings fails it to open, classified by its type" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const failure = (try played(a, try replayed(a, openai, "realtime-refused"))).failure.?;
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const failure = (try played(arena, try replayed(arena, openai, "realtime-refused"))).failure.?;
     try std.testing.expectEqual(.invalid_request, failure.kind);
     try std.testing.expectEqualStrings("invalid_value", failure.code.?);
 }
 
 test "OpenAI connects as a call's sideband, which sends no audio" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const given = try replayed(a, openai, "realtime-sideband");
-    const session = (try given.models.realtimeSideband(a, try foundation.json.decodeValue(realtime.SidebandParams, a, given.fixture.request))).session;
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const given = try replayed(arena, openai, "realtime-sideband");
+    const session = (try given.models.realtimeSideband(arena, try foundation.json.decodeValue(realtime.SidebandParams, arena, given.fixture.request))).session;
     defer session.deinit();
     var events: std.ArrayList(ServerEvent) = .empty;
-    try drain(a, session, &events);
+    try drain(arena, session, &events);
     session.send(.{ .append = .{ .audio = "AAAA" } });
     session.close();
-    while (session.next()) |event| try events.append(a, try copied(a, event));
+    while (session.next()) |event| try events.append(arena, try copied(arena, event));
     try std.testing.expectEqual(.invalid_request, firstOf(events.items, .@"error").?.@"error".@"error".octoii.kind);
-    try expectStrings(&.{"Call me back."}, try transcripts(a, events.items));
+    try expectStrings(&.{"Call me back."}, try transcripts(arena, events.items));
 }
 
 test "OpenAI makes a session for a client by WebRTC: the answer and its call's id" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const fixture = try fixtureOf(a, "openai", "realtime-call");
-    const http = try a.create(foundation.replay.Replay);
-    http.* = .init(a, fixture.exchanges);
-    const models = try fixtures.modelsOver(a, http.http(), .{ .driver = openai.driver, .key = openai.key, .models = try host_models.openai(a) });
-    const made = (try models.realtimeCreateCall(a, try foundation.json.decodeValue(realtime.CallCreateParams, a, fixture.request))).made;
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const fixture = try fixtureOf(arena, "openai", "realtime-call");
+    const http = try arena.create(foundation.replay.Replay);
+    http.* = .init(arena, fixture.exchanges);
+    const models = try fixtures.modelsOver(arena, http.http(), .{ .driver = openai.driver, .key = openai.key, .models = try host_models.openai(arena) });
+    const made = (try models.realtimeCreateCall(arena, try foundation.json.decodeValue(realtime.CallCreateParams, arena, fixture.request))).made;
     try std.testing.expectEqualStrings("rtc_u1_9c6574da8b8a41a18da9308f4ad974ce", made.call_id);
     try std.testing.expect(std.mem.startsWith(u8, made.sdp, "v=0\r\n"));
     try std.testing.expectEqualStrings("Bearer sk-test", foundation.http.find(http.sent.items[0].headers, "authorization").?);
@@ -244,48 +244,48 @@ test "OpenAI makes a session for a client by WebRTC: the answer and its call's i
 /// `Models` over `setup`'s provider whose one socket a test plays by hand.
 const ByHand = struct { models: *Models, socket: *Scripted };
 
-fn byHand(a: Allocator, setup: Setup) !ByHand {
-    const socket = try a.create(Scripted);
-    const http = try a.create(foundation.replay.Replay);
-    http.* = .init(a, &.{});
-    const made = try fixtures.over(a, http.http(), try setup.options(a, undefined));
-    socket.* = .init(a, &made.host.clock_ms);
+fn byHand(arena: Allocator, setup: Setup) !ByHand {
+    const socket = try arena.create(Scripted);
+    const http = try arena.create(foundation.replay.Replay);
+    http.* = .init(arena, &.{});
+    const made = try fixtures.over(arena, http.http(), try setup.options(arena, undefined));
+    socket.* = .init(arena, &made.host.clock_ms);
     made.models.host.connector = socket.connector();
     return .{ .models = made.models, .socket = socket };
 }
 
-fn sessionOf(a: Allocator, json: []const u8) !realtime.Session {
-    return foundation.json.decode(realtime.Session, a, json);
+fn sessionOf(arena: Allocator, json: []const u8) !realtime.Session {
+    return foundation.json.decode(realtime.Session, arena, json);
 }
 
 test "OpenAI answers a session.update that names another model with an error event, and sends it not" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const given = try byHand(a, openai);
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const given = try byHand(arena, openai);
     try given.socket.give("{\"type\":\"session.created\",\"event_id\":\"e1\",\"session\":{\"type\":\"transcription\"}}");
     try given.socket.give("{\"type\":\"session.updated\",\"event_id\":\"e2\",\"session\":{\"type\":\"transcription\"}}");
-    const session = (try given.models.realtimeConnect(a, try sessionOf(a, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"openai/gpt-live-transcribe\"},\"turn_detection\":null}}}"))).session;
+    const session = (try given.models.realtimeConnect(arena, try sessionOf(arena, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"openai/gpt-live-transcribe\"},\"turn_detection\":null}}}"))).session;
     defer session.deinit();
-    session.send(.{ .session_update = .{ .session = try sessionOf(a, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"openai/gpt-transcribe\"}}}}") } });
+    session.send(.{ .session_update = .{ .session = try sessionOf(arena, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"openai/gpt-transcribe\"}}}}") } });
     session.close();
     var events: std.ArrayList(ServerEvent) = .empty;
-    while (session.next()) |event| try events.append(a, try copied(a, event));
+    while (session.next()) |event| try events.append(arena, try copied(arena, event));
     try std.testing.expectEqual(@as(usize, 1), given.socket.sent.items.len);
     try std.testing.expectEqual(.invalid_request, events.items[events.items.len - 1].@"error".@"error".octoii.kind);
 }
 
 test "Deepgram's results become items: partial text, settled text, speakers, speech heard, and each item's seconds at its stream's prices" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const session = try played(a, try replayed(a, deepgram, "realtime-transcription"));
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const session = try played(arena, try replayed(arena, deepgram, "realtime-transcription"));
     try std.testing.expectEqual(null, session.failure);
     const partial = firstOf(session.events, .partial).?.partial;
     try std.testing.expectEqualStrings("take met", partial.text);
     try std.testing.expectEqualStrings("item_1", partial.item_id);
     var segments: std.ArrayList(realtime.TranscriptionSegment) = .empty;
-    for (session.events) |event| if (event == .segment) try segments.append(a, event.segment);
+    for (session.events) |event| if (event == .segment) try segments.append(arena, event.segment);
     try std.testing.expectEqual(@as(usize, 2), segments.items.len);
     try std.testing.expectEqualStrings("Take metformin daily.", segments.items[0].text);
     try std.testing.expectEqualStrings("0", segments.items[0].speaker);
@@ -297,26 +297,26 @@ test "Deepgram's results become items: partial text, settled text, speakers, spe
     const stopped = firstOf(session.events, .speech_stopped).?.speech_stopped;
     try std.testing.expectEqual(@as(u64, 300), stopped.audio_end_ms);
     try std.testing.expectEqualStrings("item_2", stopped.item_id);
-    const items = try completions(a, session.events);
-    try expectStrings(&.{ "Take metformin daily.", "And atorvastatin?" }, try transcripts(a, session.events));
+    const items = try completions(arena, session.events);
+    try expectStrings(&.{ "Take metformin daily.", "And atorvastatin?" }, try transcripts(arena, session.events));
     try std.testing.expectEqual(@as(f64, 0.2), items[0].usage.duration.seconds);
     try std.testing.expectEqual(@as(f64, 0.1), items[1].usage.duration.seconds);
     try std.testing.expectApproxEqAbs(0.1 * 0.0077 / 60.0, items[1].octoii.?.usage.?.cost.?, 1e-12);
 }
 
 test "Deepgram's session fails as transport when its connection ends unasked" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    try std.testing.expectEqual(.transport, (try played(a, try replayed(a, deepgram, "realtime-closed"))).failure.?.kind);
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    try std.testing.expectEqual(.transport, (try played(arena, try replayed(arena, deepgram, "realtime-closed"))).failure.?.kind);
 }
 
 test "Deepgram's silent connection is kept open with KeepAlive" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const given = try byHand(a, deepgram);
-    const session = (try given.models.realtimeConnect(a, try sessionOf(a, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"deepgram/nova-3\"}}}}"))).session;
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const given = try byHand(arena, deepgram);
+    const session = (try given.models.realtimeConnect(arena, try sessionOf(arena, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"deepgram/nova-3\"}}}}"))).session;
     defer session.deinit();
     try std.testing.expectEqual(.session_created, std.meta.activeTag(session.poll(0).event));
     try std.testing.expectEqual(.quiet, std.meta.activeTag(session.poll(session_.keep_alive_ms)));
@@ -324,94 +324,94 @@ test "Deepgram's silent connection is kept open with KeepAlive" {
 }
 
 test "Deepgram answers a session.update that changes nothing as updated, and one that changes a setting with an error event" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const given = try byHand(a, deepgram);
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const given = try byHand(arena, deepgram);
     const settings = "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"deepgram/nova-3\",\"language\":\"en\"}}}}";
-    const session = (try given.models.realtimeConnect(a, try sessionOf(a, settings))).session;
+    const session = (try given.models.realtimeConnect(arena, try sessionOf(arena, settings))).session;
     defer session.deinit();
-    session.send(.{ .session_update = .{ .session = try sessionOf(a, settings) } });
-    session.send(.{ .session_update = .{ .session = try sessionOf(a, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"deepgram/nova-3\",\"language\":\"fr\"}}}}") } });
+    session.send(.{ .session_update = .{ .session = try sessionOf(arena, settings) } });
+    session.send(.{ .session_update = .{ .session = try sessionOf(arena, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"deepgram/nova-3\",\"language\":\"fr\"}}}}") } });
     given.socket.end();
     var tags: std.ArrayList(std.meta.Tag(ServerEvent)) = .empty;
-    while (session.next()) |event| try tags.append(a, event);
+    while (session.next()) |event| try tags.append(arena, event);
     try std.testing.expectEqualSlices(std.meta.Tag(ServerEvent), &.{ .session_created, .session_updated, .@"error" }, tags.items);
     try std.testing.expectEqual(.invalid_request, session.failure().?.kind);
 }
 
 test "Deepgram's session fails before connecting for a setting its stream does not take" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const given = try byHand(a, deepgram);
-    const failed = (try given.models.realtimeConnect(a, try sessionOf(a, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"deepgram/nova-3\",\"prompt\":\"A pharmacy call.\"}}}}"))).failed;
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const given = try byHand(arena, deepgram);
+    const failed = (try given.models.realtimeConnect(arena, try sessionOf(arena, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"deepgram/nova-3\",\"prompt\":\"A pharmacy call.\"}}}}"))).failed;
     try std.testing.expectEqual(.invalid_request, failed.kind);
     try std.testing.expectEqual(null, given.socket.url);
 }
 
 test "xAI opens once its stream is ready, settles what follows the utterance's settled text, and ends an item at a commit and at its end" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const session = try played(a, try replayed(a, xai, "realtime-transcription"));
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const session = try played(arena, try replayed(arena, xai, "realtime-transcription"));
     try std.testing.expectEqual(null, session.failure);
     var deltas: std.ArrayList([]const u8) = .empty;
-    for (session.events) |event| if (event == .delta) try deltas.append(a, event.delta.delta.?);
+    for (session.events) |event| if (event == .delta) try deltas.append(arena, event.delta.delta.?);
     try expectStrings(&.{ "I will buy two", " of those, please.", "Thanks." }, deltas.items);
-    const items = try completions(a, session.events);
-    try expectStrings(&.{ "I will buy two of those, please.", "Thanks." }, try transcripts(a, session.events));
+    const items = try completions(arena, session.events);
+    try expectStrings(&.{ "I will buy two of those, please.", "Thanks." }, try transcripts(arena, session.events));
     try std.testing.expectEqual(@as(f64, 0.2), items[0].usage.duration.seconds);
     try std.testing.expectEqual(@as(f64, 0.1), items[1].usage.duration.seconds);
     try std.testing.expectApproxEqAbs(0.2 * 0.2 / 3600.0, items[0].octoii.?.usage.?.cost.?, 1e-12);
 }
 
 test "xAI's session fails as the error it sent before it closed" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const failure = (try played(a, try replayed(a, xai, "realtime-failed"))).failure.?;
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const failure = (try played(arena, try replayed(arena, xai, "realtime-failed"))).failure.?;
     try std.testing.expectEqual(.server, failure.kind);
     try std.testing.expectEqualStrings("The transcription pipeline failed", failure.message);
 }
 
 test "xAI's session fails before connecting for several languages, as it takes one" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const given = try byHand(a, xai);
-    const failed = (try given.models.realtimeConnect(a, try sessionOf(a, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"xai/grok-voice-transcribe-2.0\",\"languages\":[\"en\",\"fr\"]}}}}"))).failed;
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const given = try byHand(arena, xai);
+    const failed = (try given.models.realtimeConnect(arena, try sessionOf(arena, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"xai/grok-voice-transcribe-2.0\",\"languages\":[\"en\",\"fr\"]}}}}"))).failed;
     try std.testing.expectEqual(.invalid_request, failed.kind);
     try std.testing.expectEqual(null, given.socket.url);
 }
 
 test "a session fails before anything is sent for a model of another kind" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const given = try byHand(a, deepgram);
-    const failed = (try given.models.realtimeConnect(a, try sessionOf(a, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"deepgram/nova-3-pharma\"}}}}"))).failed;
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const given = try byHand(arena, deepgram);
+    const failed = (try given.models.realtimeConnect(arena, try sessionOf(arena, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"deepgram/nova-3-pharma\"}}}}"))).failed;
     try std.testing.expect(std.mem.indexOf(u8, failed.message, "does not serve realtime-transcription") != null);
     try std.testing.expectEqual(null, given.socket.url);
 }
 
 test "a session fails as timeout where its provider takes no settings in time, its socket closed" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const given = try byHand(a, openai);
-    const failed = (try given.models.realtimeConnect(a, try sessionOf(a, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"openai/gpt-live-transcribe\"}}}}"))).failed;
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const given = try byHand(arena, openai);
+    const failed = (try given.models.realtimeConnect(arena, try sessionOf(arena, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"openai/gpt-live-transcribe\"}}}}"))).failed;
     try std.testing.expectEqual(.timeout, failed.kind);
     try std.testing.expect(given.socket.closed);
 }
 
 test "a session ends as timeout where the items committed do not complete in time after its close" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const given = try byHand(a, openai);
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const given = try byHand(arena, openai);
     try given.socket.give("{\"type\":\"session.updated\",\"event_id\":\"e1\",\"session\":{\"type\":\"transcription\"}}");
-    const session = (try given.models.realtimeConnect(a, try sessionOf(a, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"openai/gpt-live-transcribe\"}}}}"))).session;
+    const session = (try given.models.realtimeConnect(arena, try sessionOf(arena, "{\"type\":\"transcription\",\"audio\":{\"input\":{\"transcription\":{\"model\":\"openai/gpt-live-transcribe\"}}}}"))).session;
     defer session.deinit();
     session.send(.{ .append = .{ .audio = "AAAA" } });
     session.close();

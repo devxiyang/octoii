@@ -10,13 +10,13 @@ const h = beak.h;
 
 /// A skill's file, saying its name and what it is for.
 fn skillFile(name: []const u8, description: []const u8, arena: std.mem.Allocator) ![]const u8 {
-    return std.fmt.allocPrint(arena, "---\nname: {s}\ndescription: {s}\n---\n# {s}\n", .{ name, description, name });
+    return arena.print("---\nname: {s}\ndescription: {s}\n---\n# {s}\n", .{ name, description, name });
 }
 
 test "the model is told of the skills it may use: its own and the project's, the nearest of a name for the rest" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     const io = std.testing.io;

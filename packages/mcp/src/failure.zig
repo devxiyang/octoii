@@ -38,10 +38,10 @@ pub const Failure = union(enum) {
         return switch (failure) {
             .refused => |refused| refused.message,
             .protocol, .connection_lost, .session_ended, .invalid_answer => |text| text,
-            .timeout => |timeout| std.fmt.allocPrint(arena, "The MCP request {s} got no answer within {d} ms", .{ timeout.method, timeout.timeout_ms }),
-            .input_required => |input| std.fmt.allocPrint(arena, "The MCP server asks for input to {s}", .{input.method}),
-            .unauthorized => |refusal| std.fmt.allocPrint(arena, "The MCP server answered {d}: {s}", .{ refusal.status, if (refusal.status == 401) "sign-in required" else "access denied" }),
-            .http => |answer| std.fmt.allocPrint(arena, "The MCP server answered HTTP {d}{s}{s}", .{ answer.status, if (answer.body.len == 0) "" else ": ", answer.body[0..@min(answer.body.len, 200)] }),
+            .timeout => |timeout| arena.print("The MCP request {s} got no answer within {d} ms", .{ timeout.method, timeout.timeout_ms }),
+            .input_required => |input| arena.print("The MCP server asks for input to {s}", .{input.method}),
+            .unauthorized => |refusal| arena.print("The MCP server answered {d}: {s}", .{ refusal.status, if (refusal.status == 401) "sign-in required" else "access denied" }),
+            .http => |answer| arena.print("The MCP server answered HTTP {d}{s}{s}", .{ answer.status, if (answer.body.len == 0) "" else ": ", answer.body[0..@min(answer.body.len, 200)] }),
             .oauth => |refusal| refusal.message,
             .canceled => "The MCP request was canceled",
         };
@@ -89,12 +89,12 @@ pub const Slot = struct {
 
     /// Fails a sign-in's step with `kind`, its message formatted.
     pub fn refused(slot: *Slot, kind: OAuthKind, comptime text: []const u8, arguments: anytype) Error {
-        return slot.fail(.{ .oauth = .{ .kind = kind, .message = try std.fmt.allocPrint(slot.arena, text, arguments) } });
+        return slot.fail(.{ .oauth = .{ .kind = kind, .message = try slot.arena.print(text, arguments) } });
     }
 
     /// Fails with a protocol violation, its message formatted.
     pub fn violated(slot: *Slot, comptime text: []const u8, arguments: anytype) Error {
-        return slot.fail(.{ .protocol = try std.fmt.allocPrint(slot.arena, text, arguments) });
+        return slot.fail(.{ .protocol = try slot.arena.print(text, arguments) });
     }
 };
 

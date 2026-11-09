@@ -96,9 +96,9 @@ pub fn take(cdp: *Cdp, bytes: []const u8) void {
 
 /// Hands on one message: an answer to what waits for it, an event to the listener.
 fn handle(cdp: *Cdp, message: []const u8) void {
-    var arena_state: std.heap.ArenaAllocator = .init(cdp.allocator);
-    defer arena_state.deinit();
-    const parsed = std.json.parseFromSliceLeaky(std.json.Value, arena_state.allocator(), message, .{}) catch return log.warn("the browser wrote what is no message", .{});
+    var arena_allocator: std.heap.ArenaAllocator = .init(cdp.allocator);
+    defer arena_allocator.deinit();
+    const parsed = std.json.parseFromSliceLeaky(std.json.Value, arena_allocator.allocator(), message, .{}) catch return log.warn("the browser wrote what is no message", .{});
     if (parsed != .object) return;
     const object = parsed.object;
     if (object.get("id")) |id| {
@@ -143,8 +143,8 @@ test "messages are taken whole across what is read, answers handed to what waits
         failures: usize = 0,
         fn event(context: *anyopaque, session: ?[]const u8, method: []const u8, _: std.json.Value) void {
             const heard: *@This() = @ptrCast(@alignCast(context));
-            const told = std.fmt.allocPrint(std.testing.allocator, "{s} {s}", .{ session orelse "-", method }) catch return;
-            heard.events.append(std.testing.allocator, told) catch std.testing.allocator.free(told);
+            heard.events.ensureUnusedCapacity(std.testing.allocator, 1) catch return;
+            heard.events.appendAssumeCapacity(std.testing.allocator.print("{s} {s}", .{ session orelse "-", method }) catch return);
         }
         fn answered(context: *anyopaque, key: u64, answer: Answer) void {
             const heard: *@This() = @ptrCast(@alignCast(context));

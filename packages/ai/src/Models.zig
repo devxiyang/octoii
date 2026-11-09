@@ -34,7 +34,7 @@ lock: std.Io.RwLock = .init,
 /// The providers, in the host's order; they and what they hold outlive every request made while they are set.
 providers: []const driver.Provider,
 /// The bundled catalogue, which lives as long as the handle.
-base: std.heap.ArenaAllocator,
+base_arena: std.heap.ArenaAllocator,
 /// The catalogue's models: the bundled ones, or those a refresh fetched, in `catalogue_arena`.
 catalogue: []const Model,
 catalogue_arena: ?std.heap.ArenaAllocator = null,
@@ -78,10 +78,11 @@ pub fn init(gpa: Allocator, options: Options) error{ OutOfMemory, DuplicateProvi
     try checkProviders(options.providers);
     const models = try gpa.create(Models);
     errdefer gpa.destroy(models);
-    models.* = .{ .gpa = gpa, .host = options.host, .providers = options.providers, .base = .init(gpa), .catalogue = &.{}, .directory = .{ .arena = .init(gpa) } };
-    errdefer models.base.deinit();
+    models.* = .{ .gpa = gpa, .host = options.host, .providers = options.providers, .base_arena = .init(gpa), .catalogue = &.{}, .directory = .{ .arena = .init(gpa) } };
+    errdefer models.base_arena.deinit();
     if (models.host.http == null) {
         const default_http = try gpa.create(foundation.StdHttp);
+        errdefer gpa.destroy(default_http);
         default_http.* = .init(gpa, options.host.io);
         models.default_http = default_http;
         models.host.http = default_http.http();
@@ -96,6 +97,7 @@ pub fn init(gpa: Allocator, options: Options) error{ OutOfMemory, DuplicateProvi
     }
     if (models.host.connector == null) {
         const default_websocket = try gpa.create(foundation.StdWebSocket);
+        errdefer gpa.destroy(default_websocket);
         default_websocket.* = .init(gpa, options.host.io);
         models.default_websocket = default_websocket;
         models.host.connector = default_websocket.connector();
@@ -104,7 +106,7 @@ pub fn init(gpa: Allocator, options: Options) error{ OutOfMemory, DuplicateProvi
         default_websocket.deinit();
         gpa.destroy(default_websocket);
     };
-    models.catalogue = try bundled(models.base.allocator());
+    models.catalogue = try bundled(models.base_arena.allocator());
     if (options.catalogue) |source| models.catalogue_source = .{ .url = source.url, .store = source.store };
     models.directory = try models.built();
     return models;
@@ -115,7 +117,7 @@ pub fn deinit(models: *Models) void {
     for (models.listings.values()) |*listing| listing.arena.deinit();
     models.listings.deinit(models.gpa);
     if (models.catalogue_arena) |*arena| arena.deinit();
-    models.base.deinit();
+    models.base_arena.deinit();
     if (models.default_http) |default_http| {
         default_http.deinit();
         models.gpa.destroy(default_http);
@@ -170,16 +172,16 @@ pub fn refresh(models: *Models) error{OutOfMemory}!void {
     errdefer for (fresh.items) |*each| each.listing.arena.deinit();
     for (providers) |*serving| {
         const listing = serving.driver.list orelse continue;
-        var arena: std.heap.ArenaAllocator = .init(models.gpa);
-        var call = models.hostCall(arena.allocator(), serving);
+        var arena_allocator: std.heap.ArenaAllocator = .init(models.gpa);
+        var call = models.hostCall(arena_allocator.allocator(), serving);
         const listed = listing(&call) catch |err| switch (err) {
             error.OutOfMemory => return error.OutOfMemory,
             error.Failed => {
-                arena.deinit();
+                arena_allocator.deinit();
                 continue;
             },
         };
-        try fresh.append(models.gpa, .{ .id = serving.id, .listing = .{ .arena = arena, .models = listed } });
+        try fresh.append(models.gpa, .{ .id = serving.id, .listing = .{ .arena = arena_allocator, .models = listed } });
     }
     var fetched_arena: std.heap.ArenaAllocator = .init(models.gpa);
     var fetched: ?[]const Model = null;
@@ -233,7 +235,7 @@ fn serve(models: *Models, directory: *Directory, serving: *const driver.Provider
     };
     for (serving.models) |given| {
         if (ids.contains(given.id)) {
-            try directory.shadowed.append(arena, try std.fmt.allocPrint(arena, "{s}/{s}", .{ serving.id, given.id }));
+            try directory.shadowed.append(arena, try arena.print("{s}/{s}", .{ serving.id, given.id }));
             continue;
         }
         try add(directory, serving, given.id, .{ .person = given, .catalogue = models.entry(serving.driver, given.id) });
@@ -242,7 +244,7 @@ fn serve(models: *Models, directory: *Directory, serving: *const driver.Provider
 
 fn add(directory: *Directory, serving: *const driver.Provider, id: []const u8, given: facts_.Given) Allocator.Error!void {
     const arena = directory.arena.allocator();
-    const reference = try std.fmt.allocPrint(arena, "{s}/{s}", .{ serving.id, id });
+    const reference = try arena.print("{s}/{s}", .{ serving.id, id });
     const slot = try directory.served.getOrPut(arena, reference);
     if (slot.found_existing) return;
     slot.value_ptr.* = .{ .provider = serving, .model = try facts_.modelOf(arena, serving.id, id, try serving.driver.kinds(arena), given) };
@@ -488,7 +490,7 @@ pub fn finishSignIn(models: *Models, arena: Allocator, id: []const u8, sign_in: 
 
 /// How the provider `id` stands: as its driver says, else connected where the host keeps a credential for it.
 pub fn status(models: *Models, arena: Allocator, id: []const u8) Allocator.Error!driver.Status {
-    const serving = models.provider(id) orelse return .{ .connected = false, .problem = try std.fmt.allocPrint(arena, "The host has no provider {s}", .{id}) };
+    const serving = models.provider(id) orelse return .{ .connected = false, .problem = try arena.print("The host has no provider {s}", .{id}) };
     var call = models.hostCall(arena, serving);
     if (serving.driver.status) |asked| return asked(&call) catch |err| switch (err) {
         error.OutOfMemory => error.OutOfMemory,
@@ -496,5 +498,5 @@ pub fn status(models: *Models, arena: Allocator, id: []const u8) Allocator.Error
     };
     const credential = models.host.credentials.read(arena, id) catch null;
     if (credential) |held| if (held.usable()) return .{ .connected = true };
-    return .{ .connected = false, .problem = try std.fmt.allocPrint(arena, "No credential is kept for {s}", .{serving.name}) };
+    return .{ .connected = false, .problem = try arena.print("No credential is kept for {s}", .{serving.name}) };
 }

@@ -32,7 +32,7 @@ const Servers = struct {
     fn send(context: *anyopaque, request: http.Request) http.SendError!http.Response {
         const servers: *Servers = @ptrCast(@alignCast(context));
         const arena = servers.arena;
-        try servers.asked.append(arena, if (request.body) |body| try std.fmt.allocPrint(arena, "{s} {s}", .{ request.url, body }) else try arena.dupe(u8, request.url));
+        try servers.asked.append(arena, if (request.body) |body| try arena.print("{s} {s}", .{ request.url, body }) else try arena.dupe(u8, request.url));
         for (servers.answers) |answer| {
             if (!std.mem.eql(u8, answer.url, request.url)) continue;
             if (answer.body) |body| if (request.body == null or !std.mem.eql(u8, body, request.body.?)) continue;
@@ -75,11 +75,11 @@ fn providerOf(driver: *const seam.Driver, base_url: ?[]const u8) seam.Provider {
 /// The facts of a text model of a server on this machine, as its driver lists them, as JSON.
 fn localFacts(arena: Allocator, id: []const u8, name: []const u8, context_length: u64, images: bool) ![]const u8 {
     const inputs = if (images) "[\"text\",\"image\"]" else "[\"text\"]";
-    return std.fmt.allocPrint(arena, "{{\"id\":\"{s}\",\"name\":\"{s}\",\"context_length\":{d},\"architecture\":{{\"input_modalities\":{s},\"output_modalities\":[\"text\"]}},\"pricing\":{{\"prompt\":\"0\",\"completion\":\"0\"}},\"octoii\":{{\"kinds\":[\"text\"]}}}}", .{ id, name, context_length, inputs });
+    return arena.print("{{\"id\":\"{s}\",\"name\":\"{s}\",\"context_length\":{d},\"architecture\":{{\"input_modalities\":{s},\"output_modalities\":[\"text\"]}},\"pricing\":{{\"prompt\":\"0\",\"completion\":\"0\"}},\"octoii\":{{\"kinds\":[\"text\"]}}}}", .{ id, name, context_length, inputs });
 }
 
 fn expectFacts(arena: Allocator, expected: []const []const u8, actual: []const ModelFacts) !void {
-    try fixtures.expectJson(arena, try std.fmt.allocPrint(arena, "[{s}]", .{try std.mem.join(arena, ",", expected)}), try foundation.json.encode(arena, actual));
+    try fixtures.expectJson(arena, try arena.print("[{s}]", .{try std.mem.join(arena, ",", expected)}), try foundation.json.encode(arena, actual));
 }
 
 const ollama_url = "http://127.0.0.1:11434";
@@ -88,8 +88,8 @@ const ollama_url = "http://127.0.0.1:11434";
 fn shown(arena: Allocator, model: []const u8, capabilities: []const u8, architecture: []const u8, context_length: u64) !Answer {
     return .{
         .url = ollama_url ++ "/api/show",
-        .body = try std.fmt.allocPrint(arena, "{{\"model\":\"{s}\"}}", .{model}),
-        .answer = try std.fmt.allocPrint(arena,
+        .body = try arena.print("{{\"model\":\"{s}\"}}", .{model}),
+        .answer = try arena.print(
             \\{{"capabilities":{s},"details":{{"format":"gguf","family":"{s}","parameter_size":"8.0B","quantization_level":"Q4_K_M"}},
             \\ "model_info":{{"general.architecture":"{s}","{s}.context_length":{d},"{s}.block_count":42}}}}
         , .{ capabilities, architecture, architecture, architecture, context_length, architecture }),
@@ -111,77 +111,77 @@ fn ollamaAnswers(arena: Allocator) ![]const Answer {
 }
 
 test "Ollama lists the models that complete, their window their architecture's, images read where they say vision" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     try std.testing.expectEqual(null, ollama.driver.catalogue);
-    var servers: Servers = .{ .arena = a, .answers = try ollamaAnswers(a) };
-    try expectFacts(a, &.{
-        try localFacts(a, "gemma4:latest", "gemma4:latest", 131072, true),
-        try localFacts(a, "qwen3.6-27b", "qwen3.6-27b", 262144, false),
-    }, try listed(a, providerOf(&ollama.driver, null), &servers));
+    var servers: Servers = .{ .arena = arena, .answers = try ollamaAnswers(arena) };
+    try expectFacts(arena, &.{
+        try localFacts(arena, "gemma4:latest", "gemma4:latest", 131072, true),
+        try localFacts(arena, "qwen3.6-27b", "qwen3.6-27b", 262144, false),
+    }, try listed(arena, providerOf(&ollama.driver, null), &servers));
     // A model whose details cannot be read is left out.
-    var busy_answers = try a.dupe(Answer, try ollamaAnswers(a));
+    var busy_answers = try arena.dupe(Answer, try ollamaAnswers(arena));
     busy_answers[1].status = 500;
     busy_answers[1].answer = "{\"error\":\"model is busy\"}";
-    var busy: Servers = .{ .arena = a, .answers = busy_answers };
-    const left = try listed(a, providerOf(&ollama.driver, null), &busy);
+    var busy: Servers = .{ .arena = arena, .answers = busy_answers };
+    const left = try listed(arena, providerOf(&ollama.driver, null), &busy);
     try std.testing.expectEqual(@as(usize, 1), left.len);
     try std.testing.expectEqualStrings("qwen3.6-27b", left[0].id);
 }
 
 test "Ollama lists no models at a server that is absent, failing or not Ollama, and asks its provider's address" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const servers = [_][]const Answer{
         &.{},
         &.{.{ .url = ollama_url ++ "/api/tags", .status = 404, .answer = "404 page not found" }},
         &.{.{ .url = ollama_url ++ "/api/tags", .answer = "{\"data\":[]}" }},
     };
     for (servers) |answers| {
-        var each: Servers = .{ .arena = a, .answers = answers };
-        try std.testing.expectEqual(@as(usize, 0), (try listed(a, providerOf(&ollama.driver, null), &each)).len);
+        var each: Servers = .{ .arena = arena, .answers = answers };
+        try std.testing.expectEqual(@as(usize, 0), (try listed(arena, providerOf(&ollama.driver, null), &each)).len);
     }
-    var elsewhere: Servers = .{ .arena = a, .answers = &.{} };
-    _ = try listed(a, providerOf(&ollama.driver, "http://192.168.1.20:11434"), &elsewhere);
+    var elsewhere: Servers = .{ .arena = arena, .answers = &.{} };
+    _ = try listed(arena, providerOf(&ollama.driver, "http://192.168.1.20:11434"), &elsewhere);
     try std.testing.expectEqual(@as(usize, 1), elsewhere.asked.items.len);
     try std.testing.expectEqualStrings("http://192.168.1.20:11434/api/tags", elsewhere.asked.items[0]);
 }
 
 test "Ollama's provider is connected where its server answers, and gives the models it lists once listed" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    var servers: Servers = .{ .arena = a, .answers = try ollamaAnswers(a) };
-    const models = try modelsOver(a, providerOf(&ollama.driver, null), &servers);
-    try std.testing.expect((try models.status(a, "ollama")).connected);
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var servers: Servers = .{ .arena = arena, .answers = try ollamaAnswers(arena) };
+    const models = try modelsOver(arena, providerOf(&ollama.driver, null), &servers);
+    try std.testing.expect((try models.status(arena, "ollama")).connected);
     try models.refresh();
-    const ids = try models.list(a, null);
+    const ids = try models.list(arena, null);
     try std.testing.expectEqual(@as(usize, 2), ids.len);
     try std.testing.expectEqualStrings("gemma4:latest", ids[0].id);
-    const qwen = (try models.find(a, "ollama/qwen3.6-27b")).?.model;
+    const qwen = (try models.find(arena, "ollama/qwen3.6-27b")).?.model;
     try std.testing.expectEqual(@import("../catalogue/model.zig").Source.listing, qwen.octoii.sources.?.map.get("context_length").?);
-    var absent: Servers = .{ .arena = a, .answers = &.{} };
-    const none = try (try modelsOver(a, providerOf(&ollama.driver, null), &absent)).status(a, "ollama");
+    var absent: Servers = .{ .arena = arena, .answers = &.{} };
+    const none = try (try modelsOver(arena, providerOf(&ollama.driver, null), &absent)).status(arena, "ollama");
     try std.testing.expect(!none.connected);
     try std.testing.expectEqualStrings("No server answers with its models at " ++ ollama_url ++ "/api/tags", none.problem.?);
 }
 
 test "Ollama sends a listed model's text request to its Chat Completions server, needing no credential" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const fixture = try fixtures.load(a, "chat-completions", "text");
-    const exchanges = try a.dupe(foundation.replay.Exchange, fixture.exchanges);
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const fixture = try fixtures.load(arena, "chat-completions", "text");
+    const exchanges = try arena.dupe(foundation.replay.Exchange, fixture.exchanges);
     for (exchanges) |*exchange| exchange.request.url = ollama_url ++ "/v1/chat/completions";
-    var replay: foundation.replay.Replay = .init(a, exchanges);
-    var servers: Servers = .{ .arena = a, .answers = try ollamaAnswers(a), .rest = replay.http() };
-    const models = try modelsOver(a, providerOf(&ollama.driver, null), &servers);
+    var replay: foundation.replay.Replay = .init(arena, exchanges);
+    var servers: Servers = .{ .arena = arena, .answers = try ollamaAnswers(arena), .rest = replay.http() };
+    const models = try modelsOver(arena, providerOf(&ollama.driver, null), &servers);
     try models.refresh();
     var request = fixture.request;
     request.model = "ollama/qwen3.6-27b";
-    const response = try models.create(a, request);
+    const response = try models.create(arena, request);
     if (replay.mismatch) |why| std.debug.print("{s}\n", .{why});
     try std.testing.expectEqual(vocabulary.response.ResponseStatus.completed, response.status);
     try std.testing.expectEqual(@as(usize, 0), replay.unused().len);
@@ -202,27 +202,27 @@ const lmstudio_listing: Answer = .{ .url = lmstudio_url ++ "/api/v1/models", .an
 };
 
 test "LM Studio lists its llm models, a loaded one's window its instance's, images read where they say vision" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     try std.testing.expectEqual(null, lmstudio.driver.catalogue);
-    var servers: Servers = .{ .arena = a, .answers = &.{lmstudio_listing} };
-    try expectFacts(a, &.{
-        try localFacts(a, "google/gemma-4-26b-a4b", "Gemma 4 26B A4B", 4096, true),
-        try localFacts(a, "qwen/qwen3.6-27b", "Qwen3.6 27B", 131072, false),
-    }, try listed(a, providerOf(&lmstudio.driver, null), &servers));
+    var servers: Servers = .{ .arena = arena, .answers = &.{lmstudio_listing} };
+    try expectFacts(arena, &.{
+        try localFacts(arena, "google/gemma-4-26b-a4b", "Gemma 4 26B A4B", 4096, true),
+        try localFacts(arena, "qwen/qwen3.6-27b", "Qwen3.6 27B", 131072, false),
+    }, try listed(arena, providerOf(&lmstudio.driver, null), &servers));
 }
 
 test "LM Studio lists no models at a server that is absent or not LM Studio, says so, and asks its provider's address" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    var absent: Servers = .{ .arena = a, .answers = &.{} };
-    try std.testing.expectEqual(@as(usize, 0), (try listed(a, providerOf(&lmstudio.driver, null), &absent)).len);
-    var other: Servers = .{ .arena = a, .answers = &.{.{ .url = lmstudio_url ++ "/api/v1/models", .answer = "{\"data\":[]}" }} };
-    try std.testing.expectEqual(@as(usize, 0), (try listed(a, providerOf(&lmstudio.driver, null), &other)).len);
-    try std.testing.expect(!(try (try modelsOver(a, providerOf(&lmstudio.driver, null), &absent)).status(a, "lmstudio")).connected);
-    var elsewhere: Servers = .{ .arena = a, .answers = &.{} };
-    _ = try listed(a, providerOf(&lmstudio.driver, "http://10.0.0.5:1234"), &elsewhere);
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var absent: Servers = .{ .arena = arena, .answers = &.{} };
+    try std.testing.expectEqual(@as(usize, 0), (try listed(arena, providerOf(&lmstudio.driver, null), &absent)).len);
+    var other: Servers = .{ .arena = arena, .answers = &.{.{ .url = lmstudio_url ++ "/api/v1/models", .answer = "{\"data\":[]}" }} };
+    try std.testing.expectEqual(@as(usize, 0), (try listed(arena, providerOf(&lmstudio.driver, null), &other)).len);
+    try std.testing.expect(!(try (try modelsOver(arena, providerOf(&lmstudio.driver, null), &absent)).status(arena, "lmstudio")).connected);
+    var elsewhere: Servers = .{ .arena = arena, .answers = &.{} };
+    _ = try listed(arena, providerOf(&lmstudio.driver, "http://10.0.0.5:1234"), &elsewhere);
     try std.testing.expectEqualStrings("http://10.0.0.5:1234/api/v1/models", elsewhere.asked.items[0]);
 }

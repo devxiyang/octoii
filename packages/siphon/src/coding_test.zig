@@ -39,9 +39,9 @@ fn expectRefused(expected: []const u8, output: tools.Tool.Output) !void {
 }
 
 test "the coding tools work on the machine's files, a path taken in every spelling, what they give told as it is" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     try tmp.dir.createDirPath(std.testing.io, "work");
@@ -66,13 +66,13 @@ test "the coding tools work on the machine's files, a path taken in every spelli
     try std.testing.expectEqual(@as(usize, 0), edited.notes.len);
 
     // A path is taken in every spelling of the one place it names, and outside the workspace as well.
-    const absolute = try std.fmt.allocPrint(arena, "{{\"path\":\"{s}/src/notes.txt\"}}", .{workspace});
+    const absolute = try arena.print("{{\"path\":\"{s}/src/notes.txt\"}}", .{workspace});
     for ([_][]const u8{ absolute, "{\"path\":\"./src//notes.txt\"}", "{\"path\":\"src/../src/notes.txt/\"}" }) |arguments| {
         try expectTold("one\nthree\n", try runTool(siphon, arena, thread, "read", arguments), arena);
     }
     try expectTold("beside\n", try runTool(siphon, arena, thread, "read", "{\"path\":\"../lib/x.txt\"}"), arena);
     try expectTold("beside\n", try runTool(siphon, arena, thread, "read", "{\"path\":\"~/lib/x.txt\"}"), arena);
-    try expectTold(try std.fmt.allocPrint(arena, "{s}/lib/x.txt\n", .{root}), try runTool(siphon, arena, thread, "glob", "{\"pattern\":\"*.txt\",\"path\":\"../lib\"}"), arena);
+    try expectTold(try arena.print("{s}/lib/x.txt\n", .{root}), try runTool(siphon, arena, thread, "glob", "{\"pattern\":\"*.txt\",\"path\":\"../lib\"}"), arena);
     try expectTold("src/notes.txt\n", try runTool(siphon, arena, thread, "glob", "{\"pattern\":\"**/*.txt\"}"), arena);
     try expectTold("src/notes.txt:2: three\n", try runTool(siphon, arena, thread, "grep", "{\"pattern\":\"thr\"}"), arena);
     try expectTold("notes.txt\n", try runTool(siphon, arena, thread, "read", "{\"path\":\"src\"}"), arena);
@@ -92,7 +92,7 @@ test "the coding tools work on the machine's files, a path taken in every spelli
     try expectTold("notes.txt\n[exit 0]", try runTool(siphon, arena, thread, "shell", "{\"command\":\"ls src\"}"), arena);
     // A long output keeps its head and newest tail, the line between saying where its log keeps all of it.
     const long = try runTool(siphon, arena, thread, "shell", "{\"command\":\"seq 1 20000\"}");
-    const marker = try std.fmt.allocPrint(arena, "bytes left out; all of it in {s}/", .{outputs});
+    const marker = try arena.print("bytes left out; all of it in {s}/", .{outputs});
     const at = std.mem.indexOf(u8, long.text, marker).?;
     const log_path = long.text[at + marker.len - outputs.len - 1 .. std.mem.indexOfScalarPos(u8, long.text, at, ']').?];
     const logged = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, log_path, arena, .unlimited);
@@ -110,9 +110,9 @@ test "the coding tools work on the machine's files, a path taken in every spelli
 }
 
 test "a file is written and edited as it held its text, a name found by its canonical form, and a long file paged" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     const io = std.testing.io;
@@ -149,9 +149,9 @@ test "a file is written and edited as it held its text, a name found by its cano
 }
 
 test "glob and grep give every match a page at a time, the ignore files from outside the tree taken too" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     const io = std.testing.io;
@@ -160,7 +160,7 @@ test "glob and grep give every match a page at a time, the ignore files from out
     try tmp.dir.writeFile(io, .{ .sub_path = "ignore", .data = "*.tmp\n" });
     try tmp.dir.writeFile(io, .{ .sub_path = "work/.git/info/exclude", .data = "*.local\n" });
     for ([_][]const u8{ "work/a.tmp", "work/b.local", "work/keep.c" }) |name| try tmp.dir.writeFile(io, .{ .sub_path = name, .data = "x\n" });
-    for (0..205) |index| try tmp.dir.writeFile(io, .{ .sub_path = try std.fmt.allocPrint(arena, "work/many/f{d:0>3}.txt", .{index}), .data = "x\n" });
+    for (0..205) |index| try tmp.dir.writeFile(io, .{ .sub_path = try arena.print("work/many/f{d:0>3}.txt", .{index}), .data = "x\n" });
     var hits: std.Io.Writer.Allocating = .init(arena);
     for (1..301) |number| try hits.writer.print("hit {d}\n", .{number});
     try tmp.dir.writeFile(io, .{ .sub_path = "work/hits.txt", .data = hits.written() });
@@ -189,9 +189,9 @@ test "glob and grep give every match a page at a time, the ignore files from out
 }
 
 test "a turn's model, told of its workspace and the instructions it follows, writes a file through the write tool" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     try tmp.dir.createDirPath(std.testing.io, "work");
@@ -226,14 +226,14 @@ test "a turn's model, told of its workspace and the instructions it follows, wri
     const told = fake.requests.items[0].input.?.parts[0].input_message.content.parts;
     try std.testing.expect(std.mem.indexOf(u8, told[2].input_text.text, workspace) != null);
     const instructions = told[1].input_text.text;
-    try std.testing.expect(std.mem.startsWith(u8, instructions, try std.fmt.allocPrint(arena, "<instructions path=\"{s}\">\nAnswer briefly.\n</instructions>", .{own})));
-    try std.testing.expect(std.mem.endsWith(u8, instructions, try std.fmt.allocPrint(arena, "<instructions path=\"{s}/AGENTS.md\">\nIndent with tabs.\n</instructions>", .{workspace})));
+    try std.testing.expect(std.mem.startsWith(u8, instructions, try arena.print("<instructions path=\"{s}\">\nAnswer briefly.\n</instructions>", .{own})));
+    try std.testing.expect(std.mem.endsWith(u8, instructions, try arena.print("<instructions path=\"{s}/AGENTS.md\">\nIndent with tabs.\n</instructions>", .{workspace})));
 }
 
 test "a stop ends a command the shell runs, its group killed, and its call is answered stopped" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     const workspace = try tmp.dir.realPathFileAlloc(std.testing.io, ".", arena);
@@ -267,9 +267,9 @@ test "a stop ends a command the shell runs, its group killed, and its call is an
 }
 
 test "what a command prints is told on its call's stream as it comes, and the stream let go once its call ended" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     const workspace = try tmp.dir.realPathFileAlloc(std.testing.io, ".", arena);
@@ -311,9 +311,9 @@ test "what a command prints is told on its call's stream as it comes, and the st
 }
 
 test "an image read is handed the model as the file it is, fitted to what every model reads, kept by its content" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "small.png", .data = &small_png });
@@ -336,9 +336,9 @@ test "an image read is handed the model as the file it is, fitted to what every 
 }
 
 test "an image a call handed the model is its result's by reference, and told in words to a model that reads no images" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "shot.png", .data = &small_png });
@@ -362,8 +362,8 @@ test "an image a call handed the model is its result's by reference, and told in
     const siphon = try Siphon.open(std.testing.allocator, .{ .io = std.testing.io, .clock = clock.clock(), .machine = machine }, .{ .providers = &providers });
     defer siphon.close();
     for ([_][]const u8{ "seeing/eyes", "blind/words" }, 0..) |model, place| {
-        const tid = try threads.create(siphon.runtime, arena, .{ .title = "Test", .model = model, .mode = .@"full-access", .workspace = workspace }, try std.fmt.allocPrint(arena, "create-{d}", .{place}));
-        _ = try threads.deliver(siphon.runtime, arena, tid, .{ .message = .{ .role = .user, .content = .{ .text = "look" } } }, try std.fmt.allocPrint(arena, "op-{d}", .{place}));
+        const tid = try threads.create(siphon.runtime, arena, .{ .title = "Test", .model = model, .mode = .@"full-access", .workspace = workspace }, try arena.print("create-{d}", .{place}));
+        _ = try threads.deliver(siphon.runtime, arena, tid, .{ .message = .{ .role = .user, .content = .{ .text = "look" } } }, try arena.print("op-{d}", .{place}));
         try std.testing.expectEqual(threads.Status.replied, (try testing.pumpUntilSettled(siphon, arena, tid)).status);
         // The log holds the image by its reference, never its bytes.
         const lines = try log.lines(siphon.runtime.volume, &arena, try threads.pathOf(arena, tid));
@@ -399,9 +399,9 @@ const Long = struct {
 };
 
 test "an output past what the model is told is cut after its last line that fits, the whole of it kept for the model" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{ .iterate = true });
     defer tmp.cleanup();
     try tmp.dir.createDirPath(std.testing.io, "outputs");
@@ -435,7 +435,7 @@ test "an output past what the model is told is cut after its last line that fits
     const file = (try kept.next(std.testing.io)).?;
     try std.testing.expect(std.mem.endsWith(u8, file.name, ".txt"));
     const whole = try std.fs.path.join(arena, &.{ outputs, file.name });
-    try std.testing.expect(std.mem.endsWith(u8, output, try std.fmt.allocPrint(arena, "; all of it in {s}]", .{whole})));
+    try std.testing.expect(std.mem.endsWith(u8, output, try arena.print("; all of it in {s}]", .{whole})));
     const kept_text = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, whole, arena, .unlimited);
     try std.testing.expect(std.mem.endsWith(u8, kept_text, "line 10000\n"));
 }

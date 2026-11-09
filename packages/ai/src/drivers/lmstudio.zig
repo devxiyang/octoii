@@ -62,5 +62,5 @@ fn listingOf(call: *Call) Error!?Listing {
 }
 
 fn modelsUrl(call: *Call) Error![]const u8 {
-    return std.fmt.allocPrint(call.arena, "{s}/api/v1/models", .{call.baseUrl(base_url)});
+    return call.arena.print("{s}/api/v1/models", .{call.baseUrl(base_url)});
 }

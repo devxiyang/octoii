@@ -128,11 +128,11 @@ fn withItemIds(arena: Allocator, request: vocabulary.ResponsesRequest) Allocator
     const items = try arena.dupe(Item, list);
     for (items, 0..) |*item, index| switch (item.*) {
         .function_call => |*call| {
-            if (call.id == null) call.id = try std.fmt.allocPrint(arena, "fc_{s}", .{call.call_id});
+            if (call.id == null) call.id = try arena.print("fc_{s}", .{call.call_id});
             if (call.status == null) call.status = .completed;
         },
         .output_message => |*message| {
-            if (message.id == null) message.id = try std.fmt.allocPrint(arena, "msg_{d}", .{index});
+            if (message.id == null) message.id = try arena.print("msg_{d}", .{index});
             if (message.status == null) message.status = .completed;
         },
         else => {},
@@ -147,9 +147,9 @@ fn text(call: *seam.Call, model: *const Model, request: *const vocabulary.Respon
     const key = try call.apiKey();
     const response = try http.send(call, .{
         .method = .POST,
-        .url = try std.fmt.allocPrint(call.arena, "{s}/responses", .{call.baseUrl(base_url)}),
+        .url = try call.arena.print("{s}/responses", .{call.baseUrl(base_url)}),
         .headers = &.{
-            .{ .name = "authorization", .value = try std.fmt.allocPrint(call.arena, "Bearer {s}", .{key}) },
+            .{ .name = "authorization", .value = try call.arena.print("Bearer {s}", .{key}) },
             .{ .name = "accept", .value = "text/event-stream" },
             .{ .name = "content-type", .value = "application/json" },
         },
@@ -179,9 +179,9 @@ pub fn wireErrorMessage(arena: Allocator, wire: WireError) Allocator.Error!?[]co
     const raw = std.mem.trim(u8, metadata.raw orelse return wire.message, " \t\r\n");
     if (raw.len == 0) return wire.message;
     const words = try routedWords(arena, raw);
-    const routed = if (metadata.provider_name) |provider| try std.fmt.allocPrint(arena, "{s}: {s}", .{ provider, words }) else words;
+    const routed = if (metadata.provider_name) |provider| try arena.print("{s}: {s}", .{ provider, words }) else words;
     const own = wire.message orelse return routed;
-    return try std.fmt.allocPrint(arena, "{s} ({s})", .{ own, routed });
+    return try arena.print("{s} ({s})", .{ own, routed });
 }
 
 /// The words of a routed provider's failure: the message of its error where it parses as one, else its text; at most
@@ -193,7 +193,7 @@ fn routedWords(arena: Allocator, raw: []const u8) Allocator.Error![]const u8 {
     var count: usize = 0;
     var at: usize = 0;
     while (at < words.len) : (count += 1) {
-        if (count == routed_words_max) return std.fmt.allocPrint(arena, "{s}\u{2026}", .{words[0..at]});
+        if (count == routed_words_max) return arena.print("{s}\u{2026}", .{words[0..at]});
         at += std.unicode.utf8ByteSequenceLength(words[at]) catch 1;
     }
     return words;
@@ -277,22 +277,22 @@ fn endedTooLong(arena: Allocator, response: vocabulary.Response, sequence: u64, 
 }
 
 test "a provider's words go after OpenRouter's message, as their text where they are no JSON, cut at their limit" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const parse = struct {
-        fn of(arena: Allocator, given: []const u8) !WireError {
-            return foundation.json.decode(WireError, arena, given);
+        fn of(call_arena: Allocator, given: []const u8) !WireError {
+            return foundation.json.decode(WireError, call_arena, given);
         }
     }.of;
-    try std.testing.expectEqualStrings("Provider returned error (upstream timed out)", (try wireErrorMessage(a, try parse(a,
+    try std.testing.expectEqualStrings("Provider returned error (upstream timed out)", (try wireErrorMessage(arena, try parse(arena,
         \\{"message":"Provider returned error","metadata":{"raw":"  upstream timed out \n"}}
     ))).?);
     const page: [1050]u8 = @splat('x');
-    const long = try std.fmt.allocPrint(a, "{{\"message\":\"Provider returned error\",\"metadata\":{{\"raw\":\"{s}\",\"provider_name\":\"Meta\"}}}}", .{&page});
-    const cut = try std.fmt.allocPrint(a, "Provider returned error (Meta: {s}\u{2026})", .{page[0..1000]});
-    try std.testing.expectEqualStrings(cut, (try wireErrorMessage(a, try parse(a, long))).?);
-    try std.testing.expectEqualStrings("Provider returned error", (try wireErrorMessage(a, try parse(a,
+    const long = try arena.print("{{\"message\":\"Provider returned error\",\"metadata\":{{\"raw\":\"{s}\",\"provider_name\":\"Meta\"}}}}", .{&page});
+    const cut = try arena.print("Provider returned error (Meta: {s}\u{2026})", .{page[0..1000]});
+    try std.testing.expectEqualStrings(cut, (try wireErrorMessage(arena, try parse(arena, long))).?);
+    try std.testing.expectEqualStrings("Provider returned error", (try wireErrorMessage(arena, try parse(arena,
         \\{"message":"Provider returned error","metadata":{"raw":null,"provider_name":"Meta"}}
     ))).?);
 }

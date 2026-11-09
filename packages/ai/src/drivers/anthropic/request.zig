@@ -134,7 +134,7 @@ fn textFilesFetched(call: *Call, given: vocabulary.TextOr(vocabulary.InputConten
         const encoder = std.base64.standard.Encoder;
         const data = try call.arena.alloc(u8, encoder.calcSize(got.data.len));
         part.* = .{ .input_file = .{
-            .file_data = try std.fmt.allocPrint(call.arena, "data:{s};base64,{s}", .{ got.media_type, encoder.encode(data, got.data) }),
+            .file_data = try call.arena.print("data:{s};base64,{s}", .{ got.media_type, encoder.encode(data, got.data) }),
             .filename = part.input_file.filename orelse files.name(file),
         } };
     }
@@ -339,11 +339,11 @@ fn anthropicTool(call: *Call, tool: vocabulary.Tool, deferred: ?vocabulary.reque
 /// Why a web search cannot go to Anthropic: an engine other than the provider's own, or settings it has no field
 /// for; null where it can.
 fn othersSet(call: *Call, engine: ?vocabulary.tools.WebSearchEngine, others: anytype) Allocator.Error!?[]const u8 {
-    if (engine) |given| if (given != .auto and given != .native) return try std.fmt.allocPrint(call.arena, "a web search by the engine {t}: it searches with its own", .{given});
+    if (engine) |given| if (given != .auto and given != .native) return try call.arena.print("a web search by the engine {t}: it searches with its own", .{given});
     var set: std.ArrayList([]const u8) = .empty;
     inline for (@typeInfo(@TypeOf(others)).@"struct".field_names) |name| if (@field(others, name) != null) try set.append(call.arena, name);
     if (set.items.len == 0) return null;
-    return try std.fmt.allocPrint(call.arena, "the web search settings {s}", .{try std.mem.join(call.arena, ", ", set.items)});
+    return try call.arena.print("the web search settings {s}", .{try std.mem.join(call.arena, ", ", set.items)});
 }
 
 fn webSearch(allowed: ?[]const []const u8, blocked: []const []const u8, max_uses: ?u32, location: ?vocabulary.tools.WebSearchUserLocation) wire.Tool {

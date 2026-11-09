@@ -323,7 +323,7 @@ fn told(arena: Allocator, state: Asked.State, done: []const u8) !Tool.Output {
 
 /// A page's line: its id, its title and its address, and whether it is still loading.
 fn lineOf(arena: Allocator, page: Asked.Shown) ![]const u8 {
-    return std.fmt.allocPrint(arena, "page {s}: {f} {s}{s}", .{ page.id, std.json.fmt(page.title, .{}), page.url, if (page.loading) " (loading)" else "" });
+    return arena.print("page {s}: {f} {s}{s}", .{ page.id, std.json.fmt(page.title, .{}), page.url, if (page.loading) " (loading)" else "" });
 }
 
 fn noteDialog(notes: *Tool.Notes, page: Asked.Shown) !void {
@@ -566,10 +566,10 @@ fn waiting(browsing: *Browsing) !Tool.Output {
     const given = try foundation.json.decode(WaitArguments, arena, browsing.run.arguments);
     if (given.text == null and given.gone == null and given.url == null) {
         try browsing.pause(given.ms orelse return refusal("Give what to wait for: `text`, `gone`, `url`, or `ms`."));
-        return .{ .text = try std.fmt.allocPrint(arena, "Waited {d} ms.", .{given.ms.?}) };
+        return .{ .text = try arena.print("Waited {d} ms.", .{given.ms.?}) };
     }
     const page = try browsing.shown(given.page);
-    const expression = try std.fmt.allocPrint(arena, "(() => {{ const shown = document.body ? document.body.innerText : \"\"; return [{f} === null || shown.includes({f}), {f} === null || !shown.includes({f})]; }})()", .{
+    const expression = try arena.print("(() => {{ const shown = document.body ? document.body.innerText : \"\"; return [{f} === null || shown.includes({f}), {f} === null || !shown.includes({f})]; }})()", .{
         std.json.fmt(given.text, .{}), std.json.fmt(given.text, .{}), std.json.fmt(given.gone, .{}), std.json.fmt(given.gone, .{}),
     });
     const io = browsing.run.runtime.host.io;
@@ -583,16 +583,16 @@ fn waiting(browsing: *Browsing) !Tool.Output {
             holds = both == .array and both.array.items.len == 2 and both.array.items[0] == .bool and both.array.items[0].bool and both.array.items[1] == .bool and both.array.items[1].bool;
         }
         const waited = started.durationTo(std.Io.Clock.awake.now(io)).toMilliseconds();
-        if (holds) return told(arena, .{ .page = now }, try std.fmt.allocPrint(arena, "Waited {d} ms.", .{waited}));
-        if (waited >= given.timeout_ms) return refusal(try std.fmt.allocPrint(arena, "Not so after {d} ms: {s}", .{ waited, try lineOf(arena, now) }));
+        if (holds) return told(arena, .{ .page = now }, try arena.print("Waited {d} ms.", .{waited}));
+        if (waited >= given.timeout_ms) return refusal(try arena.print("Not so after {d} ms: {s}", .{ waited, try lineOf(arena, now) }));
         try browsing.pause(poll_ms);
     }
 }
 
 test "an address is taken in every spelling of one meaning" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     try std.testing.expectEqualStrings("https://example.com/a", try addressOf(arena, "https://example.com/a"));
     try std.testing.expectEqualStrings("https://example.com/docs", try addressOf(arena, " example.com/docs "));
     try std.testing.expectEqualStrings("http://localhost:5173/", try addressOf(arena, "localhost:5173/"));

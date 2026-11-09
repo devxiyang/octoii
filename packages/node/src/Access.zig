@@ -328,9 +328,9 @@ fn testAccess(tmp: *std.testing.TmpDir, arena: Allocator, clock: *TestClock) !Ac
 test "a link pairs one client, once, while it lasts, with a session granting what the link granted" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var clock: TestClock = .{ .now_ms = 1_700_000_000_000 };
     const access = try testAccess(&tmp, arena, &clock);
     const link = try access.makeLink(arena, "phone", &.{.@"threads.read"});
@@ -350,9 +350,9 @@ test "a link pairs one client, once, while it lasts, with a session granting wha
 test "a credential names its session only by its own secret, an id of its own shape, and while the session lasts" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var clock: TestClock = .{ .now_ms = 1_700_000_000_000 };
     const access = try testAccess(&tmp, arena, &clock);
     const made = try access.issue(arena, .bearer, "script", Protocol.all_scopes);
@@ -369,9 +369,9 @@ test "a credential names its session only by its own secret, an id of its own sh
 test "the access lists its sessions and links newest first, without their secrets, and revokes each by its id" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var clock: TestClock = .{ .now_ms = 1_700_000_000_000 };
     const access = try testAccess(&tmp, arena, &clock);
     const first = try access.issue(arena, .bearer, "first", Protocol.all_scopes);
@@ -395,9 +395,9 @@ test "the access lists its sessions and links newest first, without their secret
 test "a link pairs a device by its key: its session found by the key alone, and by no credential" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var clock: TestClock = .{ .now_ms = 1_700_000_000_000 };
     const access = try testAccess(&tmp, arena, &clock);
     const key = "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst";

@@ -31,7 +31,7 @@ pub const Failure = struct {
 
     /// A failure of `kind` whose message is formatted in `arena`.
     pub fn format(arena: Allocator, kind: Kind, comptime text: []const u8, arguments: anytype) Allocator.Error!Failure {
-        return .init(kind, try std.fmt.allocPrint(arena, text, arguments));
+        return .init(kind, try arena.print(text, arguments));
     }
 
     /// The failure as an error's `octoii` carries it.

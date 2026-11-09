@@ -71,9 +71,9 @@ pub const Terminal = struct {
             },
             h.BEAK_EVENT_TITLE => {
                 // A title that cannot be kept leaves the one before.
-                const title = terminals.allocator.dupe(u8, beak.slice(told.bytes)) catch return;
-                terminals.allocator.free(terminal.title);
-                terminal.title = title;
+                const before = terminal.title;
+                terminal.title = terminals.allocator.dupe(u8, beak.slice(told.bytes)) catch return;
+                terminals.allocator.free(before);
                 terminals.changed(terminal.thread);
             },
             h.BEAK_EVENT_EXIT => terminals.close(terminal),

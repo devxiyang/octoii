@@ -52,9 +52,9 @@ fn text(call: *seam.Call, model: *const Model, request: *const Request) Error!se
     const key = try call.apiKey();
     const response = try http.send(call, .{
         .method = .POST,
-        .url = try std.fmt.allocPrint(call.arena, "{s}/responses", .{call.baseUrl(base_url)}),
+        .url = try call.arena.print("{s}/responses", .{call.baseUrl(base_url)}),
         .headers = &.{
-            .{ .name = "authorization", .value = try std.fmt.allocPrint(call.arena, "Bearer {s}", .{key}) },
+            .{ .name = "authorization", .value = try call.arena.print("Bearer {s}", .{key}) },
             .{ .name = "accept", .value = "text/event-stream" },
             .{ .name = "content-type", .value = "application/json" },
         },

@@ -123,7 +123,7 @@ fn read(_: ?*anyopaque, run: *const Tool.Run) anyerror!Tool.Output {
 
 /// A call refused, with what it was refused for, as a failure is told.
 fn refused(arena: Allocator, comptime format: []const u8, arguments: anytype) !Tool.Output {
-    return .{ .outcome = .refused, .text = try std.fmt.allocPrint(arena, format, arguments) };
+    return .{ .outcome = .refused, .text = try arena.print(format, arguments) };
 }
 
 /// A call refused for what the namespace failed with, as Beak tells it.
@@ -210,8 +210,8 @@ fn write(_: ?*anyopaque, run: *const Tool.Run) anyerror!Tool.Output {
         .written => |change| change,
         .directory => return refused(run.arena, "is-a-directory", .{}),
     };
-    if (change.created) return .{ .text = try std.fmt.allocPrint(run.arena, "created {s} +{d}", .{ shown, change.additions }) };
-    return .{ .text = try std.fmt.allocPrint(run.arena, "wrote {s} +{d} -{d}", .{ shown, change.additions, change.deletions }) };
+    if (change.created) return .{ .text = try run.arena.print("created {s} +{d}", .{ shown, change.additions }) };
+    return .{ .text = try run.arena.print("wrote {s} +{d} -{d}", .{ shown, change.additions, change.deletions }) };
 }
 
 /// What `edit` is called with.
@@ -413,8 +413,8 @@ fn shell(_: ?*anyopaque, run: *const Tool.Run) anyerror!Tool.Output {
     if (try beak.failed(run.arena, h.beak_command_spawn(&spawn, &command))) |thrown| return .{ .outcome = .refused, .text = thrown };
     defer _ = h.beak_close(command);
     // What it prints is told as it comes, for those who follow the thread; the model reads all of it once it ends.
-    var telling: Telling = .{ .run = run, .scratch = .init(run.arena) };
-    defer telling.scratch.deinit();
+    var telling: Telling = .{ .run = run, .scratch_arena = .init(run.arena) };
+    defer telling.scratch_arena.deinit();
     const ended = try Machine.waitForEnd(run.runtime.host.io, run.arena, run.waits, command, given.timeout_seconds * std.time.ms_per_s, &telling);
     const allocator = beak.outputs(&run.arena);
     var output: h.beak_bytes = undefined;
@@ -433,16 +433,16 @@ fn shell(_: ?*anyopaque, run: *const Tool.Run) anyerror!Tool.Output {
 const Telling = struct {
     run: *const Tool.Run,
     held: std.ArrayList(u8) = .empty,
-    scratch: std.heap.ArenaAllocator,
+    scratch_arena: std.heap.ArenaAllocator,
 
     pub fn take(telling: *Telling, bytes: []const u8) !void {
         try telling.held.appendSlice(telling.run.arena, bytes);
         const held = telling.held.items;
         const whole = wholeLength(held);
         if (whole == 0) return;
-        _ = telling.scratch.reset(.retain_capacity);
-        const scratch = telling.scratch.allocator();
-        try telling.run.tell(scratch, try std.fmt.allocPrint(scratch, "{f}", .{std.unicode.fmtUtf8(held[0..whole])}));
+        _ = telling.scratch_arena.reset(.retain_capacity);
+        const scratch_arena = telling.scratch_arena.allocator();
+        try telling.run.tell(scratch_arena, try scratch_arena.print("{f}", .{std.unicode.fmtUtf8(held[0..whole])}));
         std.mem.copyForwards(u8, held[0 .. held.len - whole], held[whole..]);
         telling.held.shrinkRetainingCapacity(held.len - whole);
     }

@@ -39,7 +39,7 @@ pub fn wireRequest(call: *Call, model: *const Model, request: images.ImageReques
     const given = request.input_references orelse &.{};
     const references = try call.arena.alloc(Reference, given.len);
     for (given, references, 0..) |reference, *each, index| {
-        try media.checkImageType(call, reference.image_url.url, reference.octoii, try std.fmt.allocPrint(call.arena, "The input_references[{d}]", .{index}));
+        try media.checkImageType(call, reference.image_url.url, reference.octoii, try call.arena.print("The input_references[{d}]", .{index}));
         each.* = .{ .url = reference.image_url.url orelse "" };
     }
     const body: Body = .{

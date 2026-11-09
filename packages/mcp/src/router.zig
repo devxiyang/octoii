@@ -82,15 +82,18 @@ pub const Router = struct {
     /// Takes a message from the server: to its request's mailbox where it has one, else apart; one that is no message
     /// is dropped, as a server must not send one.
     pub fn arrive(router: *Router, text: []const u8) Allocator.Error!void {
-        var scratch: std.heap.ArenaAllocator = .init(router.gpa);
-        defer scratch.deinit();
-        const message = jsonrpc.parseOne(scratch.allocator(), text) catch return;
+        var scratch_arena: std.heap.ArenaAllocator = .init(router.gpa);
+        defer scratch_arena.deinit();
+        const message = jsonrpc.parseOne(scratch_arena.allocator(), text) catch return;
         router.lock.lockUncancelable(router.host.io);
         defer router.lock.unlock(router.host.io);
         if (router.closed) return;
         defer router.arrived.broadcast(router.host.io);
         if (transport_.relatedId(message)) |id| {
-            for (router.mailboxes.items) |mailbox| if (mailbox.id.eql(id)) return mailbox.messages.append(router.gpa, try router.gpa.dupe(u8, text));
+            for (router.mailboxes.items) |mailbox| if (mailbox.id.eql(id)) {
+                try mailbox.messages.ensureUnusedCapacity(router.gpa, 1);
+                return mailbox.messages.appendAssumeCapacity(try router.gpa.dupe(u8, text));
+            };
             if (message != .notification) return;
         }
         if (router.unrelated.items.len == unrelated_max) {
@@ -99,7 +102,8 @@ pub const Router = struct {
                 break;
             };
         }
-        try router.unrelated.append(router.gpa, .{ .text = try router.gpa.dupe(u8, text), .is_request = message == .request });
+        try router.unrelated.ensureUnusedCapacity(router.gpa, 1);
+        router.unrelated.appendAssumeCapacity(.{ .text = try router.gpa.dupe(u8, text), .is_request = message == .request });
     }
 
     /// Closes the channel; `reason`, where the server went away, says why to whoever waits.

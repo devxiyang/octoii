@@ -134,7 +134,7 @@ pub const Jwt = struct {
 pub const testing = struct {
     /// The JWT of `header` and `claims`, JSON text, signed with RS256 by the key of `modulus` and `private_exponent`.
     pub fn signedToken(arena: Allocator, header: []const u8, claims: []const u8, modulus: []const u8, private_exponent: []const u8) ![]const u8 {
-        const signed = try std.fmt.allocPrint(arena, "{s}.{s}", .{ try base64Url(arena, header), try base64Url(arena, claims) });
+        const signed = try arena.print("{s}.{s}", .{ try base64Url(arena, header), try base64Url(arena, claims) });
         const Modulus = std.crypto.ff.Modulus(4096);
         const n = try Modulus.fromBytes(modulus, .big);
         var digest: [32]u8 = undefined;
@@ -151,7 +151,7 @@ pub const testing = struct {
         const signature = try n.powWithEncodedExponent(try Modulus.Fe.fromBytes(n, encoded, .big), private_exponent, .big);
         const bytes = try arena.alloc(u8, modulus.len);
         try signature.toBytes(bytes, .big);
-        return std.fmt.allocPrint(arena, "{s}.{s}", .{ signed, try base64Url(arena, bytes) });
+        return arena.print("{s}.{s}", .{ signed, try base64Url(arena, bytes) });
     }
 
     /// The bytes of hexadecimal `text`, in `arena`.
@@ -162,34 +162,34 @@ pub const testing = struct {
 };
 
 test "base64url, a PKCE challenge, and a form read back as it was written" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    try std.testing.expectEqualStrings("-_8", try base64Url(a, &.{ 0xfb, 0xff }));
-    try std.testing.expectEqualSlices(u8, &.{ 0xfb, 0xff }, (try fromBase64Url(a, "-_8=")).?);
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    try std.testing.expectEqualStrings("-_8", try base64Url(arena, &.{ 0xfb, 0xff }));
+    try std.testing.expectEqualSlices(u8, &.{ 0xfb, 0xff }, (try fromBase64Url(arena, "-_8=")).?);
     // RFC 7636's example.
     const secret = [32]u8{ 116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173, 187, 186, 22, 212, 37, 77, 105, 214, 191, 240, 91, 88, 5, 88, 83, 132, 141, 121 };
-    const pkce: Pkce = try .of(a, &secret);
+    const pkce: Pkce = try .of(arena, &secret);
     try std.testing.expectEqualStrings("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk", pkce.verifier);
     try std.testing.expectEqualStrings("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", pkce.challenge);
-    const form = try formEncoded(a, &.{ .{ "scope", "openid email" }, .{ "redirect_uri", "http://127.0.0.1:1455/auth/callback" } });
+    const form = try formEncoded(arena, &.{ .{ "scope", "openid email" }, .{ "redirect_uri", "http://127.0.0.1:1455/auth/callback" } });
     try std.testing.expectEqualStrings("scope=openid+email&redirect_uri=http%3A%2F%2F127.0.0.1%3A1455%2Fauth%2Fcallback", form);
-    const read = try fields(a, form);
+    const read = try fields(arena, form);
     try std.testing.expectEqualStrings("http://127.0.0.1:1455/auth/callback", valueOf(read, "redirect_uri").?);
     try std.testing.expectEqualStrings("code=c&state=s", queryOf("http://127.0.0.1:1455/auth/callback?code=c&state=s#x").?);
 }
 
 test "a JWT's RS256 signature holds for the key that signed it alone" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const n = try testing.hexBytes(a, "d4983c9943ae93c5c09d2817c858c3f132b687c22b40e900851a4965c45da74669650d1ad02d281d76234f9105a1337270d1c3c71892b1cb16bcaa0c7bc31841f70e15e9d225fcbcffb9600226f993c593e1d308ebd53674a18353d0e64394611de65b9f44405838132da3f69655b23b309235a60ed4a6c4244ff1260da7eeb5");
-    const d = try testing.hexBytes(a, "7b1f2bc14b7c58a2a7799cd5a1371f4b9a26321b96b741fa061c023408f48042fc1904ece971ad90da717acc2f697b8524a7a76dafe28d4b6400a1af172216f255cf12dc0b6ec13a2592133dcb058d2033ff0c5da68a2f83fa32cad2f506dbe817c27e8a864d3372c3a865a43200ede58a9f43fc6f94f385c51d5b243f727d65");
-    const token = try testing.signedToken(a, "{\"alg\":\"RS256\"}", "{\"sub\":\"me\"}", n, d);
-    const jwt = (try Jwt.parse(a, token)).?;
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const n = try testing.hexBytes(arena, "d4983c9943ae93c5c09d2817c858c3f132b687c22b40e900851a4965c45da74669650d1ad02d281d76234f9105a1337270d1c3c71892b1cb16bcaa0c7bc31841f70e15e9d225fcbcffb9600226f993c593e1d308ebd53674a18353d0e64394611de65b9f44405838132da3f69655b23b309235a60ed4a6c4244ff1260da7eeb5");
+    const d = try testing.hexBytes(arena, "7b1f2bc14b7c58a2a7799cd5a1371f4b9a26321b96b741fa061c023408f48042fc1904ece971ad90da717acc2f697b8524a7a76dafe28d4b6400a1af172216f255cf12dc0b6ec13a2592133dcb058d2033ff0c5da68a2f83fa32cad2f506dbe817c27e8a864d3372c3a865a43200ede58a9f43fc6f94f385c51d5b243f727d65");
+    const token = try testing.signedToken(arena, "{\"alg\":\"RS256\"}", "{\"sub\":\"me\"}", n, d);
+    const jwt = (try Jwt.parse(arena, token)).?;
     try std.testing.expectEqualStrings("{\"sub\":\"me\"}", jwt.claims);
     try std.testing.expect(jwt.signedBy(n, &.{ 1, 0, 1 }));
-    const other = try testing.hexBytes(a, "c4bf4da38e9322592a043178c5c4953e1f23d59ba6ef6bdb899c0b6c7e1798409b0dcf8f0f53fc95c60cc993c448a48418a069877c4656cca1de4fe1f74e37d8d3148b0f5bccff4a6dff17e1b56fd27578cdd9332a3e93cd0a14533ef62fe78b010241a1b1559675853da47cb40d53b2cfd63e0034ae135c793d06c6b8e8f7e7");
+    const other = try testing.hexBytes(arena, "c4bf4da38e9322592a043178c5c4953e1f23d59ba6ef6bdb899c0b6c7e1798409b0dcf8f0f53fc95c60cc993c448a48418a069877c4656cca1de4fe1f74e37d8d3148b0f5bccff4a6dff17e1b56fd27578cdd9332a3e93cd0a14533ef62fe78b010241a1b1559675853da47cb40d53b2cfd63e0034ae135c793d06c6b8e8f7e7");
     try std.testing.expect(!jwt.signedBy(other, &.{ 1, 0, 1 }));
-    try std.testing.expectEqual(null, try Jwt.parse(a, "not.a"));
+    try std.testing.expectEqual(null, try Jwt.parse(arena, "not.a"));
 }

@@ -86,9 +86,9 @@ const form =
 
 test "a thread's model goes to a page, reads it, and acts on it by the refs it read, as a person does" {
     const chromium = testing.chromium() orelse return error.SkipZigTest;
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     const root = try tmp.dir.realPathFileAlloc(std.testing.io, ".", arena);
@@ -101,7 +101,7 @@ test "a thread's model goes to a page, reads it, and acts on it by the refs it r
     const thread = try threads.create(siphon.runtime, arena, .{ .workspace = root }, "create");
 
     // With no page open, going somewhere opens one, told once it loaded.
-    const went = try call(siphon, arena, thread, "browser_navigate", try std.fmt.allocPrint(arena, "{{\"url\":{f}}}", .{std.json.fmt(form, .{})}));
+    const went = try call(siphon, arena, thread, "browser_navigate", try arena.print("{{\"url\":{f}}}", .{std.json.fmt(form, .{})}));
     try std.testing.expect(went.done);
     try expectHolds(went.text, "\"Form\" data:text/html");
 
@@ -114,17 +114,17 @@ test "a thread's model goes to a page, reads it, and acts on it by the refs it r
     const choice = try refOf(read.text, "\"Choice\"");
 
     // Typed into and clicked, it shows what it was to; its console's message told by the next snapshot.
-    try std.testing.expect((try call(siphon, arena, thread, "browser_act", try std.fmt.allocPrint(arena, "{{\"action\":\"type\",\"ref\":\"{s}\",\"text\":\"Ada\"}}", .{name}))).done);
-    try std.testing.expect((try call(siphon, arena, thread, "browser_act", try std.fmt.allocPrint(arena, "{{\"action\":\"click\",\"ref\":\"{s}\"}}", .{send}))).done);
+    try std.testing.expect((try call(siphon, arena, thread, "browser_act", try arena.print("{{\"action\":\"type\",\"ref\":\"{s}\",\"text\":\"Ada\"}}", .{name}))).done);
+    try std.testing.expect((try call(siphon, arena, thread, "browser_act", try arena.print("{{\"action\":\"click\",\"ref\":\"{s}\"}}", .{send}))).done);
     try expectHolds((try call(siphon, arena, thread, "browser_wait", "{\"text\":\"Thanks Ada\"}")).text, "Waited");
     const again = try call(siphon, arena, thread, "browser_snapshot", "{}");
-    try expectHolds(again.text, try std.fmt.allocPrint(arena, "textbox \"Name\" [ref={s}]: \"Ada\"\n- combobox", .{name}));
+    try expectHolds(again.text, try arena.print("textbox \"Name\" [ref={s}]: \"Ada\"\n- combobox", .{name}));
     try expectHolds(again.text, "console log: sent 1");
 
     // Chosen in, typed over and pressed on, its script reads what was done.
-    try std.testing.expect((try call(siphon, arena, thread, "browser_act", try std.fmt.allocPrint(arena, "{{\"action\":\"select\",\"ref\":\"{s}\",\"values\":[\"Two\"]}}", .{choice}))).done);
+    try std.testing.expect((try call(siphon, arena, thread, "browser_act", try arena.print("{{\"action\":\"select\",\"ref\":\"{s}\",\"values\":[\"Two\"]}}", .{choice}))).done);
     try std.testing.expectEqualStrings("\"2\"", (try call(siphon, arena, thread, "browser_evaluate", "{\"expression\":\"document.getElementById('s').value\"}")).text);
-    try std.testing.expect((try call(siphon, arena, thread, "browser_act", try std.fmt.allocPrint(arena, "{{\"action\":\"type\",\"ref\":\"{s}\",\"text\":\"Grace\",\"clear\":true}}", .{name}))).done);
+    try std.testing.expect((try call(siphon, arena, thread, "browser_act", try arena.print("{{\"action\":\"type\",\"ref\":\"{s}\",\"text\":\"Grace\",\"clear\":true}}", .{name}))).done);
     try std.testing.expect((try call(siphon, arena, thread, "browser_act", "{\"action\":\"press\",\"key\":\"Backspace\"}")).done);
     try std.testing.expectEqualStrings("\"Grac\"", (try call(siphon, arena, thread, "browser_evaluate", "{\"expression\":\"document.getElementById('n').value\"}")).text);
     const thrown = try call(siphon, arena, thread, "browser_evaluate", "{\"expression\":\"(() => { throw new Error('boom') })()\"}");
@@ -132,14 +132,14 @@ test "a thread's model goes to a page, reads it, and acts on it by the refs it r
     try expectHolds(thrown.text, "boom");
 
     // A click that opens a dialog is told the dialog holds the page; answered, the page goes on.
-    const asked = try call(siphon, arena, thread, "browser_act", try std.fmt.allocPrint(arena, "{{\"action\":\"click\",\"ref\":\"{s}\"}}", .{ask}));
+    const asked = try call(siphon, arena, thread, "browser_act", try arena.print("{{\"action\":\"click\",\"ref\":\"{s}\"}}", .{ask}));
     try expectHolds(asked.text, "a dialog holds the page: confirm \"Sure?\"");
     try std.testing.expect((try call(siphon, arena, thread, "browser_act", "{\"action\":\"dialog\",\"accept\":true}")).done);
     try std.testing.expectEqualStrings("\"yes\"", (try call(siphon, arena, thread, "browser_evaluate", "{\"expression\":\"document.title\"}")).text);
 
     // Gone elsewhere, the refs read before are refused; gone back, it is where it was.
     try expectHolds((try call(siphon, arena, thread, "browser_navigate", "{\"url\":\"data:text/html,<title>Second</title><h1>Second</h1>\"}")).text, "\"Second\"");
-    const stale = try call(siphon, arena, thread, "browser_act", try std.fmt.allocPrint(arena, "{{\"action\":\"click\",\"ref\":\"{s}\"}}", .{send}));
+    const stale = try call(siphon, arena, thread, "browser_act", try arena.print("{{\"action\":\"click\",\"ref\":\"{s}\"}}", .{send}));
     try std.testing.expect(!stale.done);
     try expectHolds(stale.text, "take a snapshot");
     try expectHolds((try call(siphon, arena, thread, "browser_navigate", "{\"go\":\"back\"}")).text, "data:text/html,<title>Form</title>");

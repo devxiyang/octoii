@@ -64,7 +64,7 @@ pub const feed_room_bytes = 1 << 20;
 
 clients: *Clients,
 allocator: Allocator,
-/// Who the host's transport authenticated the client to be, held as the connection's own; none, it holds no session.
+/// Who the host's transport authenticated the client to be, arena as the connection's own; none, it holds no session.
 principal: ?Access.Principal,
 /// Set once `hello` was answered: the client may ask the methods its session's scopes open.
 greeted: bool = false,
@@ -105,8 +105,8 @@ pub fn create(clients: *Clients, principal: ?Access.Principal) Allocator.Error!*
     errdefer allocator.destroy(connection);
     const buffer = try allocator.alloc([]u8, outbox_max);
     errdefer allocator.free(buffer);
-    const held = if (principal) |given| try ownPrincipal(allocator, given) else null;
-    connection.* = .{ .clients = clients, .allocator = allocator, .principal = held, .following = .{ .allocator = allocator }, .outbox = .init(buffer), .outbox_buffer = buffer };
+    const arena = if (principal) |given| try ownPrincipal(allocator, given) else null;
+    connection.* = .{ .clients = clients, .allocator = allocator, .principal = arena, .following = .{ .allocator = allocator }, .outbox = .init(buffer), .outbox_buffer = buffer };
     return connection;
 }
 
@@ -190,7 +190,7 @@ fn Job(comptime Work: type) type {
         /// What the work gives as it is done: its answer, or its failure.
         const Outcome = @typeInfo(@TypeOf(Work.run)).@"fn".return_type.?;
 
-        arena_state: std.heap.ArenaAllocator,
+        arena_allocator: std.heap.ArenaAllocator,
         connection: *Connection,
         id: []const u8,
         work: Work,
@@ -199,12 +199,12 @@ fn Job(comptime Work: type) type {
 
         /// The job, holding the connection and counted among its jobs till it is freed.
         fn make(connection: *Connection, id: []const u8, given: Work.Given) !*Self {
-            var arena_state: std.heap.ArenaAllocator = .init(connection.allocator);
-            errdefer arena_state.deinit();
-            const held = arena_state.allocator();
-            const job = try held.create(Self);
-            job.* = .{ .arena_state = undefined, .connection = connection, .id = try held.dupe(u8, id), .work = try Work.of(held, connection.clients, try owned(held, given)) };
-            job.arena_state = arena_state;
+            var arena_allocator: std.heap.ArenaAllocator = .init(connection.allocator);
+            errdefer arena_allocator.deinit();
+            const arena = arena_allocator.allocator();
+            const job = try arena.create(Self);
+            job.* = .{ .arena_allocator = undefined, .connection = connection, .id = try arena.dupe(u8, id), .work = try Work.of(arena, connection.clients, try owned(arena, given)) };
+            job.arena_allocator = arena_allocator;
             connection.jobs += 1;
             _ = connection.holders.fetchAdd(1, .acq_rel);
             return job;
@@ -212,12 +212,12 @@ fn Job(comptime Work: type) type {
 
         fn run(context: *anyopaque, waits: *Waits) void {
             const job: *Self = @ptrCast(@alignCast(context));
-            job.outcome = job.work.run(job.arena_state.allocator(), waits);
+            job.outcome = job.work.run(job.arena_allocator.allocator(), waits);
         }
 
         fn finish(context: *anyopaque) void {
             const job: *Self = @ptrCast(@alignCast(context));
-            const arena = job.arena_state.allocator();
+            const arena = job.arena_allocator.allocator();
             if (@hasDecl(Work, "answer")) {
                 job.work.answer(arena, job.connection, job.id, job.outcome);
             } else job.connection.answerWith(arena, job.id, job.outcome);
@@ -234,8 +234,8 @@ fn Job(comptime Work: type) type {
             if (@hasDecl(Work, "deinit")) job.work.deinit();
             const connection = job.connection;
             connection.jobs -= 1;
-            var arena_state = job.arena_state;
-            arena_state.deinit();
+            var arena_allocator = job.arena_allocator;
+            arena_allocator.deinit();
             connection.release();
         }
     };
@@ -314,9 +314,9 @@ pub fn take(connection: *Connection, batch: [][]u8, min: usize) (std.Io.QueueClo
 
 /// Takes one message the client sent: its answer, or why it was refused, put in the outbox.
 pub fn receive(connection: *Connection, message: []const u8) void {
-    var arena_state: std.heap.ArenaAllocator = .init(connection.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(connection.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const given = std.json.parseFromSliceLeaky(Envelope, arena, message, strict) catch return connection.refuseMalformed(arena, message);
     connection.respond(arena, given) catch |err| return connection.refuseFailed(arena, given.id, err);
 }
@@ -441,9 +441,9 @@ pub fn hasRoom(connection: *Connection) bool {
 /// stream, where it follows the thread and was sent what streamed of it before.
 pub fn offer(connection: *Connection, tid: []const u8, key: []const u8, offset: u64, event: []const u8) void {
     if (!connection.following.streamsSent(tid)) return;
-    var arena_state: std.heap.ArenaAllocator = .init(connection.allocator);
-    defer arena_state.deinit();
-    connection.send(Following.streamEvent(arena_state.allocator(), tid, key, offset, event) catch return);
+    var arena_allocator: std.heap.ArenaAllocator = .init(connection.allocator);
+    defer arena_allocator.deinit();
+    connection.send(Following.streamEvent(arena_allocator.allocator(), tid, key, offset, event) catch return);
 }
 
 fn respond(connection: *Connection, arena: Allocator, given: Envelope) !void {
@@ -453,7 +453,7 @@ fn respond(connection: *Connection, arena: Allocator, given: Envelope) !void {
     for (methods) |each| if (std.mem.eql(u8, each.name, given.method)) {
         const scope = each.scope.?;
         if (!connection.principal.?.allows(scope)) {
-            const told = try std.fmt.allocPrint(arena, "The session grants no {s}, which {s} asks.", .{ @tagName(scope), each.name });
+            const told = try arena.print("The session grants no {s}, which {s} asks.", .{ @tagName(scope), each.name });
             return connection.refuse(arena, given.id, "forbidden", told);
         }
         return each.run(connection, arena, given.id, params);
@@ -868,12 +868,12 @@ pub fn refuse(connection: *Connection, arena: Allocator, id: ?[]const u8, code: 
 /// Puts a copy of `message` in the outbox.
 pub fn send(connection: *Connection, message: []const u8) void {
     if (connection.closed) return;
-    connection.put(connection.allocator.dupe(u8, message) catch return connection.close());
+    connection.putOwned(connection.allocator.dupe(u8, message) catch return connection.close());
 }
 
 /// Puts `message` in the outbox, the taker's from then on; a client whose outbox would pass its hard bound, or is full,
 /// is let go.
-fn put(connection: *Connection, message: []u8) void {
+fn putOwned(connection: *Connection, message: []u8) void {
     if (connection.closed) return connection.allocator.free(message);
     // Counted before it is put, so the taker never takes away more than was added.
     const queued = connection.queued.fetchAdd(message.len, .seq_cst) + message.len;

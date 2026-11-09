@@ -179,14 +179,14 @@ fn listed(call: *Call, reference: []const u8, field: []const u8, value: f64, giv
     if (given) |values| for (values) |each| if (each == value) return;
     var text: std.ArrayList(u8) = .empty;
     for (given orelse &.{}, 0..) |each, index| try text.print(call.arena, "{s}{d}", .{ if (index == 0) "" else ", ", each });
-    const takes = if (given == null) "lists none" else try std.fmt.allocPrint(call.arena, "lists {s}", .{text.items});
+    const takes = if (given == null) "lists none" else try call.arena.print("lists {s}", .{text.items});
     return call.failWith(.invalid_request, "The model {s} does not take the {s} {d}: its {s} {s}", .{ reference, field, value, list_name, takes });
 }
 
 fn listedText(call: *Call, reference: []const u8, field: []const u8, value: ?[]const u8, given: ?[]const []const u8, list_name: []const u8) Error!void {
     const asked = value orelse return;
     if (given) |values| for (values) |each| if (std.mem.eql(u8, each, asked)) return;
-    const takes = if (given) |values| try std.fmt.allocPrint(call.arena, "lists {s}", .{try std.mem.join(call.arena, ", ", values)}) else "lists none";
+    const takes = if (given) |values| try call.arena.print("lists {s}", .{try std.mem.join(call.arena, ", ", values)}) else "lists none";
     return call.failWith(.invalid_request, "The model {s} does not take the {s} \"{s}\": its {s} {s}", .{ reference, field, asked, list_name, takes });
 }
 
@@ -194,7 +194,7 @@ fn listing(arena: Allocator, given: ?[]const model_.FrameImage) Allocator.Error!
     const values = given orelse return "lists none";
     var names: std.ArrayList([]const u8) = .empty;
     for (values) |each| try names.append(arena, @tagName(each));
-    return std.fmt.allocPrint(arena, "lists {s}", .{try std.mem.join(arena, ", ", names.items)});
+    return arena.print("lists {s}", .{try std.mem.join(arena, ", ", names.items)});
 }
 
 /// `request` with its frames and references read: stored ones into data URLs, inline ones typed.
@@ -203,7 +203,7 @@ fn withReferencesRead(call: *Call, request: VideoRequest) Error!VideoRequest {
     if (request.frame_images) |frames| {
         const read = try call.arena.alloc(videos.FrameImage, frames.len);
         for (frames, read, 0..) |frame, *made, index| {
-            const file = try references.read(call, .image, .{ .url = frame.image_url.url, .octoii = frame.octoii }, false, try std.fmt.allocPrint(call.arena, "The frame_images[{d}]", .{index}));
+            const file = try references.read(call, .image, .{ .url = frame.image_url.url, .octoii = frame.octoii }, false, try call.arena.print("The frame_images[{d}]", .{index}));
             made.* = .{ .image_url = .{ .url = file.url }, .octoii = file.octoii, .frame_type = frame.frame_type };
         }
         prepared.frame_images = read;
@@ -211,7 +211,7 @@ fn withReferencesRead(call: *Call, request: VideoRequest) Error!VideoRequest {
     if (request.input_references) |given| {
         const read = try call.arena.alloc(videos.InputReference, given.len);
         for (given, read, 0..) |reference, *made, index| {
-            const what = try std.fmt.allocPrint(call.arena, "The input_references[{d}]", .{index});
+            const what = try call.arena.print("The input_references[{d}]", .{index});
             made.* = switch (reference) {
                 .image => |image| image: {
                     const file = try references.read(call, .image, .{ .url = image.image_url.url, .octoii = image.octoii }, false, what);

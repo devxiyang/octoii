@@ -42,14 +42,12 @@ fn send(context: *anyopaque, request: transport.Request) transport.SendError!tra
     const gpa = std_http.client.allocator;
     const io = std_http.client.io;
     const exchange = try gpa.create(Exchange);
+    errdefer gpa.destroy(exchange);
     exchange.arena = .init(gpa);
+    errdefer exchange.arena.deinit();
     exchange.io = io;
     exchange.idle_ms = if (request.wait) |wait| wait.idle_ms else null;
     exchange.failed = error.Transport;
-    errdefer {
-        exchange.arena.deinit();
-        gpa.destroy(exchange);
-    }
     const arena = exchange.arena.allocator();
     const uri = std.Uri.parse(request.url) catch return error.Transport;
     exchange.request = std_http.client.request(request.method, uri, .{

@@ -196,7 +196,7 @@ fn inlined(stored: *Stored, part: vocabulary.InputContent) Error!vocabulary.Inpu
     const media_type = try files.checkedType(call, typed, what, .{ .bytes = bytes });
     var octoii = withoutRef(extension);
     octoii.media_type = media_type;
-    const url = try std.fmt.allocPrint(call.arena, "data:{s};base64,{s}", .{ media_type, try base64(call.arena, bytes) });
+    const url = try call.arena.print("data:{s};base64,{s}", .{ media_type, try base64(call.arena, bytes) });
     return switch (part) {
         .input_image => |image| .{ .input_image = .{ .detail = image.detail, .image_url = url, .octoii = octoii } },
         .input_file => |file| .{ .input_file = .{ .file_data = url, .filename = file.filename, .octoii = octoii } },

@@ -5,9 +5,9 @@ const json = foundation.json;
 const vocabulary = @import("root.zig");
 
 test "a request decodes typed, passing over what it does not know, and encodes one way" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const given =
         \\{"model":"anthropic/claude-opus-5-5","stream":true,"instructions":"Be brief.","input":[
         \\ {"role":"user","content":"hi"},
@@ -23,7 +23,7 @@ test "a request decodes typed, passing over what it does not know, and encodes o
         \\ "tool_choice":"auto","reasoning":{"effort":"high"},"temperature":1,"stop":["END"],
         \\ "provider":{"sort":{"by":"price"},"preferred_max_latency":2},"plugins":[{"id":"web","max_results":3}]}
     ;
-    const request = try json.decode(vocabulary.ResponsesRequest, a, given);
+    const request = try json.decode(vocabulary.ResponsesRequest, arena, given);
     const input = request.input.?.parts;
     try std.testing.expectEqualStrings("hi", input[0].input_message.content.text);
     try std.testing.expectEqualStrings("anthropic/claude-opus-5-5", input[1].output_message.octoii.?.model.?);
@@ -48,16 +48,16 @@ test "a request decodes typed, passing over what it does not know, and encodes o
         \\"tool_choice":"auto","reasoning":{"effort":"high"},"temperature":1,"stop":["END"],
         \\"provider":{"preferred_max_latency":2,"sort":{"by":"price"}},"plugins":[{"id":"web","max_results":3}]}
     ;
-    const once = try json.encode(a, request);
-    try std.testing.expectEqualStrings(try std.mem.replaceOwned(u8, a, canonical, "\n", ""), once);
-    try std.testing.expectEqualStrings(once, try json.encode(a, try json.decode(vocabulary.ResponsesRequest, a, once)));
+    const once = try json.encode(arena, request);
+    try std.testing.expectEqualStrings(try std.mem.replaceOwned(u8, arena, canonical, "\n", ""), once);
+    try std.testing.expectEqualStrings(once, try json.encode(arena, try json.decode(vocabulary.ResponsesRequest, arena, once)));
 }
 
 /// Expects `bytes` to be refused as a `T`.
 fn expectRefused(comptime T: type, bytes: []const u8) !void {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    if (json.decode(T, arena_state.allocator(), bytes)) |_| return error.TestExpectedRefusal else |_| {}
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    if (json.decode(T, arena_allocator.allocator(), bytes)) |_| return error.TestExpectedRefusal else |_| {}
 }
 
 test "an item refuses a type it does not know, content its role does not take, and a file without a source" {
@@ -70,9 +70,9 @@ test "an item refuses a type it does not know, content its role does not take, a
 }
 
 test "a stream's events decode, its last carrying the whole response, and its output goes on as items" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const stream =
         \\[{"type":"response.output_text.delta","item_id":"m1","output_index":0,"content_index":0,"delta":"he","logprobs":[],"sequence_number":3},
         \\{"type":"error","code":"overloaded_error","message":"busy","param":null,"sequence_number":4,
@@ -84,7 +84,7 @@ test "a stream's events decode, its last carrying the whole response, and its ou
         \\ "usage":{"input_tokens":10,"input_tokens_details":{"cached_tokens":4},"output_tokens":3,
         \\ "output_tokens_details":{"reasoning_tokens":0},"total_tokens":13},"octoii":{"model":"openai/gpt-5","context_tokens":10}}}]
     ;
-    const events = try json.decode([]const vocabulary.ResponseStreamEvent, a, stream);
+    const events = try json.decode([]const vocabulary.ResponseStreamEvent, arena, stream);
     try std.testing.expectEqualStrings("he", events[0].output_text_delta.delta);
     try std.testing.expectEqual(.server, events[1].@"error".octoii.kind);
     try std.testing.expectEqual(@as(?u64, 2000), events[1].@"error".octoii.retry_after_ms);
@@ -92,8 +92,8 @@ test "a stream's events decode, its last carrying the whole response, and its ou
     try std.testing.expectEqual(@as(?u64, 6), vocabulary.Usage.ofResponse(response).input);
     const next = vocabulary.Item.ofOutput(response.output[1]);
     try std.testing.expectEqualStrings("c1", next.function_call.call_id);
-    const once = try json.encode(a, events);
-    try std.testing.expectEqualStrings(once, try json.encode(a, try json.decode([]const vocabulary.ResponseStreamEvent, a, once)));
+    const once = try json.encode(arena, events);
+    try std.testing.expectEqualStrings(once, try json.encode(arena, try json.decode([]const vocabulary.ResponseStreamEvent, arena, once)));
 }
 
 test "a response and a stream's event decode whole or are refused, whatever bytes they are given" {
@@ -108,8 +108,8 @@ test "a response and a stream's event decode whole or are refused, whatever byte
 fn fuzzDecode(_: void, smith: *std.testing.Smith) anyerror!void {
     var buffer: [4096]u8 = undefined;
     const bytes = buffer[0..smith.slice(&buffer)];
-    var arena: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena.deinit();
-    _ = json.decode(vocabulary.Response, arena.allocator(), bytes) catch {};
-    _ = json.decode(vocabulary.ResponseStreamEvent, arena.allocator(), bytes) catch {};
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    _ = json.decode(vocabulary.Response, arena_allocator.allocator(), bytes) catch {};
+    _ = json.decode(vocabulary.ResponseStreamEvent, arena_allocator.allocator(), bytes) catch {};
 }

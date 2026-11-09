@@ -167,112 +167,112 @@ fn outputText(arena: Allocator, script: Script) ![]const u8 {
 }
 
 test "a script calls its host's functions, awaits them, logs, and returns a value" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const source =
         \\const page = await host.coding.read({ path: "a.md" });
         \\const [x, y] = await Promise.all([host.math.add({ a: 1, b: 2 }), host.math.add({ a: 3, b: 4 })]);
         \\console.log("read", page.lines, { x });
         \\return { first: page.lines[0], sum: x + y };
     ;
-    const script = try startedFor(a, source, &.{ "coding.read", "math.add" }, .{});
+    const script = try startedFor(arena, source, &.{ "coding.read", "math.add" }, .{});
     defer script.end();
     try std.testing.expectEqual(Status.done, script.started);
     try std.testing.expectEqual(Status.waiting, script.step(test_time));
-    try std.testing.expectEqualStrings("[{\"id\":1,\"function\":\"coding.read\",\"arguments\":{\"path\":\"a.md\"}}]", try callsText(a, script));
+    try std.testing.expectEqualStrings("[{\"id\":1,\"function\":\"coding.read\",\"arguments\":{\"path\":\"a.md\"}}]", try callsText(arena, script));
     // Bytes with no NUL after them, as a host's are.
     try script.settle(1, true, "{\"lines\":[\"# A\"]}xx"[0..17]);
     try std.testing.expectEqual(Status.waiting, script.step(test_time));
-    try std.testing.expectEqualStrings("[{\"id\":2,\"function\":\"math.add\",\"arguments\":{\"a\":1,\"b\":2}},{\"id\":3,\"function\":\"math.add\",\"arguments\":{\"a\":3,\"b\":4}}]", try callsText(a, script));
+    try std.testing.expectEqualStrings("[{\"id\":2,\"function\":\"math.add\",\"arguments\":{\"a\":1,\"b\":2}},{\"id\":3,\"function\":\"math.add\",\"arguments\":{\"a\":3,\"b\":4}}]", try callsText(arena, script));
     try script.settle(3, true, "7");
     try script.settle(2, true, "3");
     try std.testing.expectEqual(Status.done, script.step(test_time));
-    try std.testing.expectEqualStrings("{\"value\":{\"first\":\"# A\",\"sum\":10}}", try resultText(a, script));
-    try std.testing.expectEqualStrings("[\"read [\\\"# A\\\"] {\\\"x\\\":3}\"]", try outputText(a, script));
+    try std.testing.expectEqualStrings("{\"value\":{\"first\":\"# A\",\"sum\":10}}", try resultText(arena, script));
+    try std.testing.expectEqualStrings("[\"read [\\\"# A\\\"] {\\\"x\\\":3}\"]", try outputText(arena, script));
 }
 
 test "a script fails with its error, a rejected call is thrown into it, and its steps bound it" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
 
-    const caught = try startedFor(a, "try { await host.t.fail({}); } catch (e) { return 'caught ' + e.message; }", &.{"t.fail"}, .{});
+    const caught = try startedFor(arena, "try { await host.t.fail({}); } catch (e) { return 'caught ' + e.message; }", &.{"t.fail"}, .{});
     defer caught.end();
     try std.testing.expectEqual(Status.done, caught.started);
     try std.testing.expectEqual(Status.waiting, caught.step(test_time));
-    _ = try callsText(a, caught);
+    _ = try callsText(arena, caught);
     try caught.settle(1, false, "no such file");
     try std.testing.expectEqual(Status.done, caught.step(test_time));
-    try std.testing.expectEqualStrings("{\"value\":\"caught no such file\"}", try resultText(a, caught));
+    try std.testing.expectEqualStrings("{\"value\":\"caught no such file\"}", try resultText(arena, caught));
 
-    const thrown = try startedFor(a, "throw new TypeError('bad');", &.{}, .{});
+    const thrown = try startedFor(arena, "throw new TypeError('bad');", &.{}, .{});
     defer thrown.end();
     try std.testing.expectEqual(Status.failed, thrown.step(test_time));
-    try std.testing.expect(std.mem.indexOf(u8, try resultText(a, thrown), "\"name\":\"TypeError\",\"message\":\"bad\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, try resultText(arena, thrown), "\"name\":\"TypeError\",\"message\":\"bad\"") != null);
 
-    const unparsed = try startedFor(a, "let = ;", &.{}, .{});
+    const unparsed = try startedFor(arena, "let = ;", &.{}, .{});
     defer unparsed.end();
     try std.testing.expectEqual(Status.failed, unparsed.started);
-    try std.testing.expect(std.mem.indexOf(u8, try resultText(a, unparsed), "SyntaxError") != null);
+    try std.testing.expect(std.mem.indexOf(u8, try resultText(arena, unparsed), "SyntaxError") != null);
 
-    const spinning = try startedFor(a, "while (true) {}", &.{}, .{ .steps_max = 1000 });
+    const spinning = try startedFor(arena, "while (true) {}", &.{}, .{ .steps_max = 1000 });
     defer spinning.end();
     try std.testing.expectEqual(Status.out_of_steps, spinning.started);
-    const later = try startedFor(a, "await 0; while (true) {}", &.{}, .{ .steps_max = 1000 });
+    const later = try startedFor(arena, "await 0; while (true) {}", &.{}, .{ .steps_max = 1000 });
     defer later.end();
     try std.testing.expectEqual(Status.out_of_steps, later.step(test_time));
-    try std.testing.expect(std.mem.indexOf(u8, try resultText(a, later), "StepLimit") != null);
+    try std.testing.expect(std.mem.indexOf(u8, try resultText(arena, later), "StepLimit") != null);
 
-    const stuck = try startedFor(a, "await new Promise(() => {});", &.{}, .{});
+    const stuck = try startedFor(arena, "await new Promise(() => {});", &.{}, .{});
     defer stuck.end();
     try std.testing.expectEqual(Status.failed, stuck.step(test_time));
-    try std.testing.expect(std.mem.indexOf(u8, try resultText(a, stuck), "waits on nothing") != null);
+    try std.testing.expect(std.mem.indexOf(u8, try resultText(arena, stuck), "waits on nothing") != null);
 }
 
 test "scripts run at once, each on its engine: what one does, another knows not" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
-    const first = try startedFor(a, "const n = await host.t.get({}); return n * 2;", &.{"t.get"}, .{});
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const first = try startedFor(arena, "const n = await host.t.get({}); return n * 2;", &.{"t.get"}, .{});
     defer first.end();
-    const second = try startedFor(a, "globalThis.mine = 1; const n = await host.t.get({}); return [n, typeof globalThis.mine];", &.{"t.get"}, .{});
+    const second = try startedFor(arena, "globalThis.mine = 1; const n = await host.t.get({}); return [n, typeof globalThis.mine];", &.{"t.get"}, .{});
     defer second.end();
     try std.testing.expectEqual(Status.waiting, first.step(test_time));
     try std.testing.expectEqual(Status.waiting, second.step(test_time));
-    try std.testing.expectEqualStrings("[{\"id\":1,\"function\":\"t.get\",\"arguments\":{}}]", try callsText(a, second));
+    try std.testing.expectEqualStrings("[{\"id\":1,\"function\":\"t.get\",\"arguments\":{}}]", try callsText(arena, second));
     try second.settle(1, true, "7");
     try first.settle(1, true, "21");
     try std.testing.expectEqual(Status.done, second.step(test_time));
     try std.testing.expectEqual(Status.done, first.step(test_time));
-    try std.testing.expectEqualStrings("{\"value\":42}", try resultText(a, first));
-    try std.testing.expectEqualStrings("{\"value\":[7,\"number\"]}", try resultText(a, second));
+    try std.testing.expectEqualStrings("{\"value\":42}", try resultText(arena, first));
+    try std.testing.expectEqualStrings("{\"value\":[7,\"number\"]}", try resultText(arena, second));
     // What the first set on its global, the second never sees.
-    const third = try startedFor(a, "return typeof globalThis.mine;", &.{}, .{});
+    const third = try startedFor(arena, "return typeof globalThis.mine;", &.{}, .{});
     defer third.end();
     try std.testing.expectEqual(Status.done, third.step(test_time));
-    try std.testing.expectEqualStrings("{\"value\":\"undefined\"}", try resultText(a, third));
+    try std.testing.expectEqualStrings("{\"value\":\"undefined\"}", try resultText(arena, third));
 }
 
 test "a script has the whole language QuickJS gives: code made from strings, Proxy, WeakRef, Temporal and Intl" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const source =
         \\const made = [eval("1 + 1"), new Function("return 2")()];
         \\return { made, kinds: [typeof Proxy, typeof WeakRef, typeof Temporal, typeof Intl], day: Temporal.PlainDate.from("2026-11-05").dayOfWeek };
     ;
-    const script = try startedFor(a, source, &.{}, .{});
+    const script = try startedFor(arena, source, &.{}, .{});
     defer script.end();
     try std.testing.expectEqual(Status.done, script.started);
     try std.testing.expectEqual(Status.done, script.step(test_time));
-    try std.testing.expectEqualStrings("{\"value\":{\"made\":[2,2],\"kinds\":[\"function\",\"function\",\"object\",\"object\"],\"day\":4}}", try resultText(a, script));
+    try std.testing.expectEqualStrings("{\"value\":{\"made\":[2,2],\"kinds\":[\"function\",\"function\",\"object\",\"object\"],\"day\":4}}", try resultText(arena, script));
 }
 
 test "a failure's stack tells the model's places: its lines, and on its first line its columns, no frame of its wrapping" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const cases = [_]struct { source: []const u8, stack: []const u8 }{
         .{ .source = "null.x;", .stack = "    at <anonymous> (script.ts:1:5)\n" },
         .{ .source = "let = ;", .stack = "    at script.ts:1:7\n" },
@@ -280,10 +280,10 @@ test "a failure's stack tells the model's places: its lines, and on its first li
         .{ .source = "await 0;\n  null.w;", .stack = "    at <anonymous> (script.ts:2:7)\n" },
     };
     for (cases) |case| {
-        const script = try startedFor(a, case.source, &.{}, .{});
+        const script = try startedFor(arena, case.source, &.{}, .{});
         defer script.end();
         try std.testing.expectEqual(Status.failed, script.step(test_time));
-        const failed = try std.json.parseFromSliceLeaky(struct { @"error": struct { name: []const u8, message: []const u8, stack: []const u8 } }, a, try resultText(a, script), .{});
+        const failed = try std.json.parseFromSliceLeaky(struct { @"error": struct { name: []const u8, message: []const u8, stack: []const u8 } }, arena, try resultText(arena, script), .{});
         try std.testing.expectEqualStrings(case.stack, failed.@"error".stack);
     }
 }
@@ -297,9 +297,9 @@ fn ranTo(arena: Allocator, source: []const u8) ![]const u8 {
 }
 
 test "TypeScript's types are skipped as the parser reads them, and what is left runs" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const source =
         \\interface Point { x: number; y?: number; readonly z: string; [k: string]: unknown }
         \\type Pair<T> = [T, T];
@@ -352,13 +352,13 @@ test "TypeScript's types are skipped as the parser reads them, and what is left 
     ;
     try std.testing.expectEqualStrings(
         \\{"value":{"add":5,"withThis":3,"length":1,"overloaded":5,"generic":"g","pair":[1,2],"definite":3,"p":1,"q":2,"w":4,"square":"[sq9]","iterated":[3],"keys":["kind","optional","side"],"extra":false,"count":1,"box":1,"async":"function"}}
-    , try ranTo(a, source));
+    , try ranTo(arena, source));
 }
 
 test "TypeScript is read as tsc reads it where JavaScript reads otherwise" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const source =
         \\function id<T>(x: T): T { return x; }
         \\const a = 1, b = 2, c = 3, t = true, y = 10, z = 20;
@@ -376,13 +376,13 @@ test "TypeScript is read as tsc reads it where JavaScript reads otherwise" {
         \\  ran, Foo, a as number < b,
         \\];
     ;
-    try std.testing.expectEqualStrings("{\"value\":[4,false,6,7,8,\"s\",\"x1\",10,\"function\",[5],7,true]}", try ranTo(a, source));
+    try std.testing.expectEqualStrings("{\"value\":[4,false,6,7,8,\"s\",\"x1\",10,\"function\",[5],7,true]}", try ranTo(arena, source));
 }
 
 test "TypeScript's corners: patterns and assertions, types of every kind, predicates, variance, ambient forms, namespaces of types" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const source =
         \\const f = ({ a, b }: { a: number; b: string } = { a: 1, b: "x" }, [c]: [number] = [2]): string => a + b + c;
         \\let x = 1; (x as number) = 2; (<number>x)++; x! += 1;
@@ -421,13 +421,13 @@ test "TypeScript's corners: patterns and assertions, types of every kind, predic
         \\  <number>1, typeof Types,
         \\];
     ;
-    try std.testing.expectEqualStrings("{\"value\":[\"1x2\",4,1,\"abc\",7,true,0,3,\"undefined\",1,5,6,[1,2],\"s\",9,8,10,\"function\",1,1,1,64,1,\"undefined\"]}", try ranTo(a, source));
+    try std.testing.expectEqualStrings("{\"value\":[\"1x2\",4,1,\"abc\",7,true,0,3,\"undefined\",1,5,6,[1,2],\"s\",9,8,10,\"function\",1,1,1,64,1,\"undefined\"]}", try ranTo(arena, source));
 }
 
 test "JavaScript that TypeScript reads too means what it does: TypeScript's words are names where JavaScript has them so" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const source =
         \\var type = 1, declare = 2, abstract = 3, namespace = 4, module = 5, readonly = 6, is = 7, asserts = 8;
         \\var satisfies = 9, keyof = 10, infer = 11, global = 12, out = 13, any = 14;
@@ -446,23 +446,23 @@ test "JavaScript that TypeScript reads too means what it does: TypeScript's word
         \\  "ab1".match(re)[0] + `t${1 + 1}`, typeof AfterAbstract,
         \\];
     ;
-    try std.testing.expectEqualStrings("{\"value\":[105,1,21,[1,2,3,4,5,6],\"abt2\",\"function\"]}", try ranTo(a, source));
+    try std.testing.expectEqualStrings("{\"value\":[105,1,21,[1,2,3,4,5,6],\"abt2\",\"function\"]}", try ranTo(arena, source));
 }
 
 test "what makes code from TypeScript is refused, and a type that does not parse is told, where they stand" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const refused = "TypeScript {s} is not supported: only types are erased; write it as JavaScript";
     const cases = [_]struct { source: []const u8, message: []const u8, at: []const u8 }{
-        .{ .source = "let a = 1;\nenum Color { Red }", .message = try std.fmt.allocPrint(a, refused, .{"enum"}), .at = "script.ts:2:1" },
-        .{ .source = "const enum E { A }", .message = try std.fmt.allocPrint(a, refused, .{"enum"}), .at = "script.ts:1:1" },
-        .{ .source = "namespace N { export const x = 1; }", .message = try std.fmt.allocPrint(a, refused, .{"namespace that holds values"}), .at = "script.ts:1:1" },
-        .{ .source = "class C { constructor(private x: number) {} }", .message = try std.fmt.allocPrint(a, refused, .{"parameter property"}), .at = "script.ts:1:23" },
+        .{ .source = "let a = 1;\nenum Color { Red }", .message = try arena.print(refused, .{"enum"}), .at = "script.ts:2:1" },
+        .{ .source = "const enum E { A }", .message = try arena.print(refused, .{"enum"}), .at = "script.ts:1:1" },
+        .{ .source = "namespace N { export const x = 1; }", .message = try arena.print(refused, .{"namespace that holds values"}), .at = "script.ts:1:1" },
+        .{ .source = "class C { constructor(private x: number) {} }", .message = try arena.print(refused, .{"parameter property"}), .at = "script.ts:1:23" },
         .{ .source = "let x: = 1;", .message = "unexpected token in type: '='", .at = "script.ts:1:8" },
     };
     for (cases) |case| {
-        const failed = try std.json.parseFromSliceLeaky(struct { @"error": struct { name: []const u8, message: []const u8, stack: []const u8 } }, a, try ranTo(a, case.source), .{});
+        const failed = try std.json.parseFromSliceLeaky(struct { @"error": struct { name: []const u8, message: []const u8, stack: []const u8 } }, arena, try ranTo(arena, case.source), .{});
         try std.testing.expectEqualStrings("SyntaxError", failed.@"error".name);
         try std.testing.expectEqualStrings(case.message, failed.@"error".message);
         std.testing.expect(std.mem.indexOf(u8, failed.@"error".stack, case.at) != null) catch |err| {
@@ -473,18 +473,18 @@ test "what makes code from TypeScript is refused, and a type that does not parse
 }
 
 test "where a script fails, the place told is the model's, its types and all" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
-    const failed = try ranTo(a, "const n: number = 1;\nconst v: number = (null as any).x;");
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const failed = try ranTo(arena, "const n: number = 1;\nconst v: number = (null as any).x;");
     try std.testing.expect(std.mem.indexOf(u8, failed, "script.ts:2:32") != null);
-    try std.testing.expect(std.mem.indexOf(u8, try ranTo(a, "let s: Größe = 1; null.x;"), "script.ts:1:23") != null);
+    try std.testing.expect(std.mem.indexOf(u8, try ranTo(arena, "let s: Größe = 1; null.x;"), "script.ts:1:23") != null);
 }
 
 test "its clocks tell the time its host gives each step, and its random numbers come of its seed: a replay runs alike" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const source =
         \\const before = [Date.now(), new Date().getTime(), Temporal.Now.instant().epochMilliseconds, Math.random()];
         \\await host.t.wait({});
@@ -492,16 +492,16 @@ test "its clocks tell the time its host gives each step, and its random numbers 
     ;
     var runs: [3][]const u8 = undefined;
     for (&runs, [_]u64{ 7, 7, 8 }) |*told, seed| {
-        const script = try Script.start(a, source, .{ .namespace = "host", .functions = &.{"t.wait"}, .time = test_time, .seed = seed });
+        const script = try Script.start(arena, source, .{ .namespace = "host", .functions = &.{"t.wait"}, .time = test_time, .seed = seed });
         defer script.end();
         try std.testing.expectEqual(Status.waiting, script.step(test_time));
-        _ = try script.calls(a);
+        _ = try script.calls(arena);
         try script.settle(1, true, "null");
         // The answer came a day on.
         try std.testing.expectEqual(Status.done, script.step(test_time + std.time.ms_per_day));
-        told.* = try resultText(a, script);
+        told.* = try resultText(arena, script);
     }
-    const ran = try std.json.parseFromSliceLeaky(struct { value: struct { before: [4]f64, after: struct { i64, []const u8, f64 } } }, a, runs[0], .{});
+    const ran = try std.json.parseFromSliceLeaky(struct { value: struct { before: [4]f64, after: struct { i64, []const u8, f64 } } }, arena, runs[0], .{});
     for (ran.value.before[0..3]) |at| try std.testing.expectEqual(@as(f64, @floatFromInt(test_time)), at);
     try std.testing.expectEqual(test_time + std.time.ms_per_day, ran.value.after[0]);
     try std.testing.expectEqualStrings("11/6/2026", ran.value.after[1]);

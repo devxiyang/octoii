@@ -19,33 +19,33 @@ fn partOf(path: []const u8) ?Part {
 
 test "every import between Siphon's parts goes down their order, through the part's own file" {
     const io = std.testing.io;
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var src = try std.Io.Dir.cwd().openDir(io, "src", .{ .iterate = true });
     defer src.close(io);
-    var walker = try src.walk(a);
+    var walker = try src.walk(arena);
     defer walker.deinit();
     var wrong: std.ArrayList([]const u8) = .empty;
     while (try walker.next(io)) |entry| {
         if (entry.kind != .file or !std.mem.endsWith(u8, entry.path, ".zig")) continue;
-        const path = try a.dupe(u8, entry.path);
+        const path = try arena.dupe(u8, entry.path);
         const from = partOf(path) orelse continue;
-        const source = try src.readFileAlloc(io, path, a, .limited(4 << 20));
+        const source = try src.readFileAlloc(io, path, arena, .limited(4 << 20));
         var at: usize = 0;
         while (std.mem.indexOfPos(u8, source, at, "@import(\"")) |found| {
             at = found + 9;
             const end = std.mem.indexOfScalarPos(u8, source, at, '"') orelse break;
             const imported = source[at..end];
             if (!std.mem.endsWith(u8, imported, ".zig")) continue;
-            const target = try std.fs.path.resolvePosix(a, &.{ std.fs.path.dirnamePosix(path) orelse "", imported });
+            const target = try std.fs.path.resolvePosix(arena, &.{ std.fs.path.dirnamePosix(path) orelse "", imported });
             const to = partOf(target) orelse {
-                try wrong.append(a, try std.fmt.allocPrint(a, "{s} imports {s}, above every part", .{ path, target }));
+                try wrong.append(arena, try arena.print("{s} imports {s}, above every part", .{ path, target }));
                 continue;
             };
             if (to == from) continue;
-            if (@backingInt(to) > @backingInt(from)) try wrong.append(a, try std.fmt.allocPrint(a, "{s} imports {s}, a part above it", .{ path, target }));
-            if (std.mem.indexOfScalar(u8, target, '/') != null) try wrong.append(a, try std.fmt.allocPrint(a, "{s} reaches into {s}, past its part's own file", .{ path, target }));
+            if (@backingInt(to) > @backingInt(from)) try wrong.append(arena, try arena.print("{s} imports {s}, a part above it", .{ path, target }));
+            if (std.mem.indexOfScalar(u8, target, '/') != null) try wrong.append(arena, try arena.print("{s} reaches into {s}, past its part's own file", .{ path, target }));
         }
     }
     for (wrong.items) |each| std.debug.print("layers: {s}\n", .{each});

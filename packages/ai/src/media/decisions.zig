@@ -42,7 +42,7 @@ fn decided(models: *Models, call: *Call, request: decisions.DecisionsRequest) Er
     prepared.state = try reading.media(request.state, "the state");
     var questions: std.json.ArrayHashMap(decisions.DecisionsQuestion) = .{};
     var it = request.questions.map.iterator();
-    while (it.next()) |entry| try questions.map.put(call.arena, entry.key_ptr.*, try reading.question(entry.value_ptr.*, try std.fmt.allocPrint(call.arena, "the question {s}", .{entry.key_ptr.*})));
+    while (it.next()) |entry| try questions.map.put(call.arena, entry.key_ptr.*, try reading.question(entry.value_ptr.*, try call.arena.print("the question {s}", .{entry.key_ptr.*})));
     prepared.questions = questions;
     inline for (.{ .image, .audio, .video }) |modality| if (@field(reading.found, @tagName(modality)) and !model.reads(modality)) {
         return call.failWith(.invalid_request, "The request holds " ++ @tagName(modality) ++ " in its state or questions, and the model {s} does not read " ++ @tagName(modality) ++ ": its architecture.input_modalities lack it", .{try model.reference(call.arena)});
@@ -108,7 +108,7 @@ const Reading = struct {
                 return .{ .array = read };
             },
             .object => |object| {
-                const what = try std.fmt.allocPrint(arena, "An item of {s}", .{where});
+                const what = try arena.print("An item of {s}", .{where});
                 if (decode(vocabulary.media.ImageReference, arena, value)) |image| {
                     reading.found.image = true;
                     const file = try references.read(call, .image, .{ .url = image.image_url.url, .octoii = image.octoii }, true, what);

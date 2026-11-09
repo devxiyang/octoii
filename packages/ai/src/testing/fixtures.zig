@@ -21,7 +21,7 @@ pub const Fixture = struct {
 
 /// The bytes of the fixture `name` of `provider`'s; read from the package's folder, where tests run.
 fn bytesOf(arena: Allocator, provider: []const u8, name: []const u8) ![]const u8 {
-    const path = try std.fmt.allocPrint(arena, "test/fixtures/{s}/{s}.json", .{ provider, name });
+    const path = try arena.print("test/fixtures/{s}/{s}.json", .{ provider, name });
     return std.Io.Dir.cwd().readFileAlloc(std.testing.io, path, arena, .limited(16 << 20));
 }
 
@@ -32,7 +32,7 @@ pub fn load(arena: Allocator, provider: []const u8, name: []const u8) !Fixture {
 
 /// The names of `provider`'s text fixtures, in order: those of no other kind.
 pub fn textNames(arena: Allocator, provider: []const u8) ![]const []const u8 {
-    const folder = try std.fmt.allocPrint(arena, "test/fixtures/{s}", .{provider});
+    const folder = try arena.print("test/fixtures/{s}", .{provider});
     var dir = try std.Io.Dir.cwd().openDir(std.testing.io, folder, .{ .iterate = true });
     defer dir.close(std.testing.io);
     var names: std.ArrayList([]const u8) = .empty;
@@ -264,8 +264,8 @@ pub fn expectJson(arena: Allocator, expected: []const u8, actual: []const u8) !v
 
 /// A request to `model` of "Hi" and `fields`, which may give its input in place of "Hi".
 pub fn requestWith(arena: Allocator, model: []const u8, fields: []const u8) ![]const u8 {
-    if (std.mem.indexOf(u8, fields, "\"input\":") != null) return std.fmt.allocPrint(arena, "{{\"model\":\"{s}\",{s}}}", .{ model, fields });
-    return std.fmt.allocPrint(arena, "{{\"model\":\"{s}\",\"input\":\"Hi\",{s}}}", .{ model, fields });
+    if (std.mem.indexOf(u8, fields, "\"input\":") != null) return arena.print("{{\"model\":\"{s}\",{s}}}", .{ model, fields });
+    return arena.print("{{\"model\":\"{s}\",\"input\":\"Hi\",{s}}}", .{ model, fields });
 }
 
 /// The failure the fixture `name` ends its response with.
@@ -289,7 +289,7 @@ pub fn MediaFixture(comptime Request: type) type {
 
 /// The names of `provider`'s fixtures of `kind`, in order.
 pub fn mediaNames(arena: Allocator, provider: []const u8, kind: []const u8) ![]const []const u8 {
-    const folder = try std.fmt.allocPrint(arena, "test/fixtures/{s}", .{provider});
+    const folder = try arena.print("test/fixtures/{s}", .{provider});
     var dir = try std.Io.Dir.cwd().openDir(std.testing.io, folder, .{ .iterate = true });
     defer dir.close(std.testing.io);
     var names: std.ArrayList([]const u8) = .empty;

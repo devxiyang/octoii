@@ -82,9 +82,9 @@ fn turn(siphon: *Siphon, arena: Allocator, tid: []const u8, text: []const u8, op
 }
 
 test "in default, an edit within the workspace goes ahead; one beyond it waits: once lets it alone, always grants the project every edit, a rejection is told" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var bench: Bench = undefined;
     try bench.open(arena, &.{
         try testing.streamed(arena, &.{testing.call("c1", "write", "{\"path\":\"a.txt\",\"content\":\"a\\n\"}")}),            try testing.message(arena, "a"),
@@ -162,10 +162,10 @@ fn statusOf(arena: Allocator, lines: []const []const u8, call_id: []const u8) !?
 }
 
 test "in default, a command runs within the sandbox, and one its model asks to run beyond it waits on the person" {
-    if (builtin.os.tag != .macos) return error.SkipZigTest;
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    if (builtin.target.os.tag != .macos) return error.SkipZigTest;
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var bench: Bench = undefined;
     // Within the workspace a command writes as ever; beyond it the sandbox refuses the write, till the person lets it
     // run beyond.
@@ -194,9 +194,9 @@ test "in default, a command runs within the sandbox, and one its model asks to r
 }
 
 test "in auto, what would ask is judged by a second model: let go ahead it runs, blocked the model reads why, and blocked three times in a row the person decides" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var bench: Bench = undefined;
     try bench.open(arena, &.{
         // A command that may write, judged and let go ahead.
@@ -241,9 +241,9 @@ test "in auto, what would ask is judged by a second model: let go ahead it runs,
 }
 
 test "in auto, with no model named to judge, what would ask asks the person, saying why" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var bench: Bench = undefined;
     try bench.open(arena, &.{
         try testing.streamed(arena, &.{testing.call("c1", "shell", "{\"command\":\"touch made.txt\"}")}),

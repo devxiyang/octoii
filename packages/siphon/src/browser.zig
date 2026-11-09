@@ -152,9 +152,9 @@ fn started(browser: *Browser) !*Running {
     if (browser.running) |running| return running;
     const program = browser.program orelse return error.NoBrowser;
     const machine = browser.machine.handle orelse return error.NoMachine;
-    var arena_state: std.heap.ArenaAllocator = .init(browser.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(browser.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var argv: std.ArrayList([]const u8) = .empty;
     try argv.appendSlice(arena, &.{ program, "--headless", "--remote-debugging-pipe", "--no-first-run", "--no-default-browser-check", "--hide-scrollbars", "--mute-audio", "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding" });
     if (browser.profile) |folder| try argv.append(arena, try std.mem.concat(arena, u8, &.{ "--user-data-dir=", folder }));
@@ -317,8 +317,7 @@ fn took(browser: *Browser, page: *Page, step: Step, result: std.json.Value) !voi
 /// of them.
 pub fn tookHistory(browser: *Browser, page: *Page, result: std.json.Value) !void {
     const entries = (Cdp.memberOf(result, "entries") orelse return).array.items;
-    const ids = try browser.allocator.alloc(i64, entries.len);
-    for (entries, ids) |entry, *each| each.* = @intFromFloat(Cdp.numberOf(entry, "id") orelse 0);
+    const ids = try historyOf(browser.allocator, entries);
     browser.allocator.free(page.history);
     page.history = ids;
     page.at = @intFromFloat(Cdp.numberOf(result, "currentIndex") orelse 0);
@@ -360,16 +359,31 @@ fn heardAttached(browser: *Browser, params: std.json.Value) !void {
     try running.unclaimed.put(browser.allocator, kept_target, kept_session);
 }
 
+/// The link to the page's `target` through its `session`, both copied into `allocator`.
+fn attachedLink(allocator: Allocator, target: []const u8, session: []const u8) !Page.Link {
+    const own_target = try allocator.dupe(u8, target);
+    errdefer allocator.free(own_target);
+    return .{ .attached = .{ .target = own_target, .session = try allocator.dupe(u8, session) } };
+}
+
+/// The ids of a page's history `entries`, in order, in `allocator`.
+fn historyOf(allocator: Allocator, entries: []const std.json.Value) ![]i64 {
+    const ids = try allocator.alloc(i64, entries.len);
+    errdefer allocator.free(ids);
+    for (entries, ids) |entry, *each| each.* = @intFromFloat(Cdp.numberOf(entry, "id") orelse 0);
+    return ids;
+}
+
 /// Attaches `page` to `target` by `session`: its events and its main frame's life heard, its title watched, laid out at its size and painted
 /// where it is to be; then let run, its history read — its first navigation may have been made before its events
 /// were heard — and taken where it was to go.
 fn attach(browser: *Browser, page: *Page, target: []const u8, session: []const u8) !void {
     const running = browser.running orelse return;
-    const own_target = try browser.allocator.dupe(u8, target);
-    errdefer browser.allocator.free(own_target);
-    const own_session = try browser.allocator.dupe(u8, session);
+    // Made whole before the page takes it: what fails after leaves it the page's.
+    const link = try attachedLink(browser.allocator, target, session);
     page.unlink(browser.allocator);
-    page.link = .{ .attached = .{ .target = own_target, .session = own_session } };
+    page.link = link;
+    const own_session = link.attached.session;
     try running.cdp.send(own_session, "Page.enable", Cdp.none, null);
     try running.cdp.send(own_session, "Page.setLifecycleEventsEnabled", .{ .enabled = true }, null);
     try running.cdp.send(own_session, "Runtime.enable", Cdp.none, null);
@@ -463,9 +477,9 @@ fn heardScripts(browser: *Browser, page: *Page, method: []const u8, params: std.
         return browser.tellPages(page.thread);
     }
     if (std.mem.eql(u8, method, "Runtime.consoleAPICalled")) {
-        var arena_state: std.heap.ArenaAllocator = .init(browser.allocator);
-        defer arena_state.deinit();
-        return page.heard(browser.allocator, .of(Cdp.textOf(params, "type") orelse "log"), try wordsOf(arena_state.allocator(), params));
+        var arena_allocator: std.heap.ArenaAllocator = .init(browser.allocator);
+        defer arena_allocator.deinit();
+        return page.heard(browser.allocator, .of(Cdp.textOf(params, "type") orelse "log"), try wordsOf(arena_allocator.allocator(), params));
     }
     if (std.mem.eql(u8, method, "Runtime.exceptionThrown")) {
         const details = Cdp.memberOf(params, "exceptionDetails") orelse return;
@@ -519,15 +533,14 @@ fn painted(browser: *Browser, page: *Page, params: std.json.Value) !void {
     const running = browser.running orelse return;
     const data = Cdp.textOf(params, "data") orelse return;
     const metadata = Cdp.memberOf(params, "metadata") orelse return;
-    const copy = try browser.allocator.dupe(u8, data);
-    const number = if (page.frame) |frame| frame.number + 1 else 1;
-    if (page.frame) |frame| browser.allocator.free(frame.data);
+    const before = page.frame;
     page.frame = .{
-        .data = copy,
+        .data = try browser.allocator.dupe(u8, data),
         .width = @intFromFloat(Cdp.numberOf(metadata, "deviceWidth") orelse 0),
         .height = @intFromFloat(Cdp.numberOf(metadata, "deviceHeight") orelse 0),
-        .number = number,
+        .number = if (before) |frame| frame.number + 1 else 1,
     };
+    if (before) |frame| browser.allocator.free(frame.data);
     const acknowledged: i64 = @intFromFloat(Cdp.numberOf(params, "sessionId") orelse 0);
     try running.cdp.send(page.link.session(), "Page.screencastFrameAck", .{ .sessionId = acknowledged }, null);
     if (browser.listener) |listener| listener.painted(listener.context, page.id);
@@ -535,9 +548,9 @@ fn painted(browser: *Browser, page: *Page, params: std.json.Value) !void {
 
 fn replace(allocator: Allocator, field: *[]const u8, value: []const u8) !void {
     if (field.ptr == value.ptr) return;
-    const copy = try allocator.dupe(u8, value);
-    allocator.free(field.*);
-    field.* = copy;
+    const before = field.*;
+    field.* = try allocator.dupe(u8, value);
+    allocator.free(before);
 }
 
 /// Sends `method` with `params` to the page's target, where it is attached; else nothing.
@@ -553,9 +566,9 @@ pub fn navigate(browser: *Browser, page: *Page, url: []const u8) !void {
     switch (page.link) {
         .attached => try browser.toPage(page, "Page.navigate", .{ .url = url }),
         .asked, .made => {
-            const going = try browser.allocator.dupe(u8, url);
-            if (page.going) |before| browser.allocator.free(before);
-            page.going = going;
+            const before = page.going;
+            page.going = try browser.allocator.dupe(u8, url);
+            if (before) |going| browser.allocator.free(going);
         },
         .none => {
             try replace(browser.allocator, &page.url, url);

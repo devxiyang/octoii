@@ -51,10 +51,10 @@ fn keep(siphon: *Siphon, arena: Allocator, request: *Request) !void {
     const max = siphon_.threads.stored.bytes_max;
     var buffer: [16 << 10]u8 = undefined;
     const body = (try request.reader(&buffer)).allocRemaining(arena, .limited(max + 1)) catch |err| switch (err) {
-        error.StreamTooLong => return auth.answerJson(request, .payload_too_large, try std.fmt.allocPrint(arena, "{{\"code\":\"too-large\",\"message\":\"A file holds at most {d} bytes.\"}}", .{max}), null),
+        error.StreamTooLong => return auth.answerJson(request, .payload_too_large, try arena.print("{{\"code\":\"too-large\",\"message\":\"A file holds at most {d} bytes.\"}}", .{max}), null),
         else => return err,
     };
-    if (body.len > max) return auth.answerJson(request, .payload_too_large, try std.fmt.allocPrint(arena, "{{\"code\":\"too-large\",\"message\":\"A file holds at most {d} bytes.\"}}", .{max}), null);
+    if (body.len > max) return auth.answerJson(request, .payload_too_large, try arena.print("{{\"code\":\"too-large\",\"message\":\"A file holds at most {d} bytes.\"}}", .{max}), null);
     const kept = siphon.storeFile(arena, body) catch |err| switch (err) {
         error.Malformed => return auth.answerJson(request, .unprocessable_entity, "{\"code\":\"malformed\",\"message\":\"The image does not decode.\"}", null),
         error.TooLarge => return auth.answerJson(request, .payload_too_large, "{\"code\":\"too-large\",\"message\":\"The image has more pixels than are decoded.\"}", null),

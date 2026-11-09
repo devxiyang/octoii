@@ -168,9 +168,9 @@ pub fn inlineBase64(file: TypedFile) ?[]const u8 {
 pub fn typedInline(arena: Allocator, file: TypedFile, media_type: []const u8) Allocator.Error!TypedFile {
     const data = inlineData(file) orelse return file;
     const typed = if (dataUrlParts(data)) |parts|
-        try std.fmt.allocPrint(arena, "data:{s}{s},{s}", .{ media_type, parameters(parts.header), parts.data })
+        try arena.print("data:{s}{s},{s}", .{ media_type, parameters(parts.header), parts.data })
     else
-        try std.fmt.allocPrint(arena, "data:{s};base64,{s}", .{ media_type, data });
+        try arena.print("data:{s};base64,{s}", .{ media_type, data });
     var made = file;
     switch (made) {
         .input_image => |*image| image.image_url = typed,
@@ -246,36 +246,36 @@ fn parameters(header: []const u8) []const u8 {
 
 /// `file` as a failure's message names it: by its stored file, its address, or as inline.
 pub fn described(arena: Allocator, file: TypedFile) Allocator.Error![]const u8 {
-    if (file.octoii()) |extension| if (extension.ref) |ref| return std.fmt.allocPrint(arena, "The {s} stored as {s}", .{ file.kind(), ref });
-    if (address(file)) |at| return std.fmt.allocPrint(arena, "The {s} at {s}", .{ file.kind(), at[0 .. std.mem.indexOfAny(u8, at, "?#") orelse at.len] });
-    return std.fmt.allocPrint(arena, "The inline {s}", .{file.kind()});
+    if (file.octoii()) |extension| if (extension.ref) |ref| return arena.print("The {s} stored as {s}", .{ file.kind(), ref });
+    if (address(file)) |at| return arena.print("The {s} at {s}", .{ file.kind(), at[0 .. std.mem.indexOfAny(u8, at, "?#") orelse at.len] });
+    return arena.print("The inline {s}", .{file.kind()});
 }
 
 /// Types as a message lists them: "a, b or c".
 fn listed(arena: Allocator, types: []const []const u8) Allocator.Error![]const u8 {
     if (types.len <= 1) return std.mem.join(arena, "", types);
-    return std.fmt.allocPrint(arena, "{s} or {s}", .{ try std.mem.join(arena, ", ", types[0 .. types.len - 1]), types[types.len - 1] });
+    return arena.print("{s} or {s}", .{ try std.mem.join(arena, ", ", types[0 .. types.len - 1]), types[types.len - 1] });
 }
 
 test "a file's type is what it declares, then what its bytes say, then its name" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const declared_file: TypedFile = .{ .input_image = .{ .detail = .auto, .image_url = "data:IMAGE/PNG;base64,AAAA" } };
-    try std.testing.expectEqualStrings("image/png", (try mediaType(a, declared_file, null)).?);
+    try std.testing.expectEqualStrings("image/png", (try mediaType(arena, declared_file, null)).?);
     const stored_file: TypedFile = .{ .input_file = .{ .octoii = .{ .ref = "f", .filename = "notes.md" } } };
-    try std.testing.expectEqualStrings("application/pdf", (try mediaType(a, stored_file, .{ .bytes = "%PDF-1.7" })).?);
-    try std.testing.expectEqualStrings("text/markdown", (try mediaType(a, stored_file, .{ .bytes = "# notes" })).?);
+    try std.testing.expectEqualStrings("application/pdf", (try mediaType(arena, stored_file, .{ .bytes = "%PDF-1.7" })).?);
+    try std.testing.expectEqualStrings("text/markdown", (try mediaType(arena, stored_file, .{ .bytes = "# notes" })).?);
     const addressed: TypedFile = .{ .input_image = .{ .detail = .auto, .image_url = "https://example.com/a/cat.WEBP?x=1" } };
-    try std.testing.expectEqualStrings("image/webp", (try mediaType(a, addressed, null)).?);
-    try std.testing.expectEqualStrings("application/pdf, text/plain or text/csv", try listed(a, &.{ "application/pdf", "text/plain", "text/csv" }));
+    try std.testing.expectEqualStrings("image/webp", (try mediaType(arena, addressed, null)).?);
+    try std.testing.expectEqualStrings("application/pdf, text/plain or text/csv", try listed(arena, &.{ "application/pdf", "text/plain", "text/csv" }));
 }
 
 test "a file inline is made a data URL of its type" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const made = try typedInline(a, .{ .input_file = .{ .file_data = "JVBERi0=" } }, "application/pdf");
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const made = try typedInline(arena, .{ .input_file = .{ .file_data = "JVBERi0=" } }, "application/pdf");
     try std.testing.expectEqualStrings("data:application/pdf;base64,JVBERi0=", made.input_file.file_data.?);
     try std.testing.expectEqualStrings("JVBERi0=", inlineBase64(made).?);
 }

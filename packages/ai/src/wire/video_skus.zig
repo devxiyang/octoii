@@ -147,20 +147,20 @@ fn resolutionMatches(sku: Sku, asked: Asked) ?bool {
 }
 
 test "a job is priced by the second at the SKU that fits it best, its images read, and at least its minimum" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var skus: std.json.ArrayHashMap([]const u8) = .{};
-    try skus.map.put(a, "duration_seconds_720p_with_audio", "0.10");
-    try skus.map.put(a, "duration_seconds_720p_without_audio", "0.05");
-    try skus.map.put(a, "duration_seconds_1080p_with_audio", "0.20");
-    try skus.map.put(a, "image_input", "0.01");
-    try skus.map.put(a, "minimum_cents", "60");
+    try skus.map.put(arena, "duration_seconds_720p_with_audio", "0.10");
+    try skus.map.put(arena, "duration_seconds_720p_without_audio", "0.05");
+    try skus.map.put(arena, "duration_seconds_1080p_with_audio", "0.20");
+    try skus.map.put(arena, "image_input", "0.01");
+    try skus.map.put(arena, "minimum_cents", "60");
     const model: Model = .{ .id = "v", .name = "V", .architecture = .{ .input_modalities = &.{}, .output_modalities = &.{} }, .generate_audio = true, .pricing_skus = skus, .octoii = .{ .provider = "p", .kinds = &.{.video} } };
-    const sounding = try pricedUsage(a, &model, &.{ .model = "p/v", .duration = 5, .resolution = "720P" });
+    const sounding = try pricedUsage(arena, &model, &.{ .model = "p/v", .duration = 5, .resolution = "720P" });
     try std.testing.expectApproxEqAbs(@as(f64, 0.6), sounding.cost.?, 1e-12);
-    const silent = try pricedUsage(a, &model, &.{ .model = "p/v", .duration = 12, .resolution = "720p", .generate_audio = false, .frame_images = &.{.{ .image_url = .{ .url = "https://a" }, .frame_type = .first_frame }} });
+    const silent = try pricedUsage(arena, &model, &.{ .model = "p/v", .duration = 12, .resolution = "720p", .generate_audio = false, .frame_images = &.{.{ .image_url = .{ .url = "https://a" }, .frame_type = .first_frame }} });
     try std.testing.expectApproxEqAbs(@as(f64, 0.61), silent.cost.?, 1e-12);
     try std.testing.expectEqual(@as(?u64, 1), silent.images_read);
-    try std.testing.expectEqual(null, (try pricedUsage(a, &model, &.{ .model = "p/v", .resolution = "720p" })).cost);
+    try std.testing.expectEqual(null, (try pricedUsage(arena, &model, &.{ .model = "p/v", .resolution = "720p" })).cost);
 }

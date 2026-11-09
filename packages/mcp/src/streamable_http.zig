@@ -35,7 +35,7 @@ pub const StreamableHttp = struct {
     host: *const Host,
     network: http.Http,
     /// The options, and the version settled on, as long as the transport.
-    lasting: std.heap.ArenaAllocator,
+    lasting_arena: std.heap.ArenaAllocator,
     options: Options,
     /// Guards what follows.
     lock: std.Io.Mutex = .init,
@@ -51,11 +51,13 @@ pub const StreamableHttp = struct {
 
     pub fn init(gpa: Allocator, host: *const Host, network: http.Http, options: Options) Allocator.Error!*StreamableHttp {
         const made = try gpa.create(StreamableHttp);
-        made.* = .{ .gpa = gpa, .host = host, .network = network, .lasting = .init(gpa), .options = undefined };
-        const lasting = made.lasting.allocator();
-        const headers = try lasting.alloc(Header, options.headers.len);
-        for (options.headers, headers) |header, *copy| copy.* = .{ .name = try lasting.dupe(u8, header.name), .value = try lasting.dupe(u8, header.value) };
-        made.options = .{ .url = try lasting.dupe(u8, options.url), .headers = headers, .reconnect_delay_ms = options.reconnect_delay_ms, .reconnects_max = options.reconnects_max };
+        errdefer gpa.destroy(made);
+        made.* = .{ .gpa = gpa, .host = host, .network = network, .lasting_arena = .init(gpa), .options = undefined };
+        errdefer made.lasting_arena.deinit();
+        const arena = made.lasting_arena.allocator();
+        const headers = try arena.alloc(Header, options.headers.len);
+        for (options.headers, headers) |header, *copy| copy.* = .{ .name = try arena.dupe(u8, header.name), .value = try arena.dupe(u8, header.value) };
+        made.options = .{ .url = try arena.dupe(u8, options.url), .headers = headers, .reconnect_delay_ms = options.reconnect_delay_ms, .reconnects_max = options.reconnects_max };
         return made;
     }
 
@@ -99,7 +101,7 @@ pub const StreamableHttp = struct {
             error.Canceled => slot.fail(.canceled),
             error.Transport, error.Timeout => {
                 self.shut();
-                return slot.fail(.{ .connection_lost = try std.fmt.allocPrint(slot.arena, "The MCP server at {s} could not be reached", .{self.options.url}) });
+                return slot.fail(.{ .connection_lost = try slot.arena.print("The MCP server at {s} could not be reached", .{self.options.url}) });
             },
         };
     }
@@ -266,7 +268,7 @@ pub const StreamableHttp = struct {
         const self = of(context);
         self.lock.lockUncancelable(self.host.io);
         defer self.lock.unlock(self.host.io);
-        self.version = self.lasting.allocator().dupe(u8, version) catch null;
+        self.version = self.lasting_arena.allocator().dupe(u8, version) catch null;
         self.era = era;
         if (era == .modern) if (self.session_id) |id| {
             self.gpa.free(id);
@@ -277,10 +279,10 @@ pub const StreamableHttp = struct {
     /// Ends a session with DELETE, and lets the transport go.
     fn close(context: *anyopaque) void {
         const self = of(context);
-        var scratch: std.heap.ArenaAllocator = .init(self.gpa);
-        defer scratch.deinit();
+        var scratch_arena: std.heap.ArenaAllocator = .init(self.gpa);
+        defer scratch_arena.deinit();
         if (self.inSession() and !self.isShut()) {
-            if (self.sessionHeaders(scratch.allocator())) |given| {
+            if (self.sessionHeaders(scratch_arena.allocator())) |given| {
                 if (self.network.send(.{ .method = .DELETE, .url = self.options.url, .headers = given })) |response| response.close() else |_| {}
             } else |_| {}
         }
@@ -288,7 +290,7 @@ pub const StreamableHttp = struct {
         if (self.listening) |stream| stream.destroy();
         if (self.listen_from) |id| self.gpa.free(id);
         if (self.session_id) |id| self.gpa.free(id);
-        self.lasting.deinit();
+        self.lasting_arena.deinit();
         self.gpa.destroy(self);
     }
 };
@@ -315,7 +317,9 @@ const Stream = struct {
 
     fn create(owner: *StreamableHttp, id: ?jsonrpc.Id, idle_ms: ?u64) Allocator.Error!*Stream {
         const stream = try owner.gpa.create(Stream);
+        errdefer owner.gpa.destroy(stream);
         stream.* = .{ .owner = owner, .id = null, .idle_ms = idle_ms, .arena = .init(owner.gpa) };
+        errdefer stream.arena.deinit();
         if (id) |given| stream.id = switch (given) {
             .number => given,
             .string => |text| .{ .string = try stream.arena.allocator().dupe(u8, text) },
@@ -346,10 +350,10 @@ const Stream = struct {
     /// none.
     fn queueAll(stream: *Stream, text: []const u8, whole: bool) Allocator.Error!void {
         stream.whole = whole;
-        var scratch: std.heap.ArenaAllocator = .init(stream.owner.gpa);
-        defer scratch.deinit();
+        var scratch_arena: std.heap.ArenaAllocator = .init(stream.owner.gpa);
+        defer scratch_arena.deinit();
         if (std.mem.trim(u8, text, " \t\r\n").len == 0) return;
-        const messages = jsonrpc.parse(scratch.allocator(), text) catch return;
+        const messages = jsonrpc.parse(scratch_arena.allocator(), text) catch return;
         for (messages) |message| try stream.queued.append(stream.arena.allocator(), try message.encode(stream.arena.allocator()));
     }
 
@@ -423,10 +427,10 @@ const Stream = struct {
         owner.lock.unlock(owner.host.io);
         stream.detach();
         if (tells) if (stream.id) |id| {
-            var scratch: std.heap.ArenaAllocator = .init(owner.gpa);
-            defer scratch.deinit();
-            var slot: Slot = .{ .arena = scratch.allocator() };
-            if (transport_.cancelledNotification(scratch.allocator(), id, reason)) |cancelled| owner.post(&slot, cancelled, &.{}, null) catch {} else |_| {}
+            var scratch_arena: std.heap.ArenaAllocator = .init(owner.gpa);
+            defer scratch_arena.deinit();
+            var slot: Slot = .{ .arena = scratch_arena.allocator() };
+            if (transport_.cancelledNotification(scratch_arena.allocator(), id, reason)) |cancelled| owner.post(&slot, cancelled, &.{}, null) catch {} else |_| {}
         };
         stream.destroy();
     }

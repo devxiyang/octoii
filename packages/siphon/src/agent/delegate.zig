@@ -138,14 +138,14 @@ fn make(run: *Phase, thread: []const u8, own: threads.Manifest, title: ?[]const 
 fn refusalOf(run: *Phase, thread: []const u8, child: []const u8) !?[]const u8 {
     const path = try threads.pathOf(run.arena, child);
     const found = std.mem.indexOfScalar(u8, child, '/') == null and try run.runtime.volume.stat(&run.arena, path) != null;
-    if (!found) return try std.fmt.allocPrint(run.arena, "there is no thread {s}", .{child});
+    if (!found) return try run.arena.print("there is no thread {s}", .{child});
     const parent = (try threads.manifestOf(run.runtime.volume, &run.arena, path)).parent orelse return try noSubThread(run.arena, child);
     if (!std.mem.eql(u8, parent.thread, threads.idOf(thread))) return try noSubThread(run.arena, child);
     return null;
 }
 
 fn noSubThread(arena: Allocator, child: []const u8) ![]const u8 {
-    return std.fmt.allocPrint(arena, "the thread {s} is no sub-thread of yours", .{child});
+    return arena.print("the thread {s} is no sub-thread of yours", .{child});
 }
 
 /// Sleeps on the sub-thread of `waiting` till it stands otherwise — its status, as a turn begins or ends, or its inbox,
@@ -199,7 +199,7 @@ fn endedOf(run: *Phase, waiting: Waiting) !?Ended {
 
 /// The answer of a call that slept on the sub-thread `child` till its work ended as `ended`.
 fn answerOf(arena: Allocator, child: []const u8, ended: Ended) !log.CallOutcome {
-    const told = try std.fmt.allocPrint(arena, "the sub-thread {s} {s}", .{ child, try howOf(arena, ended) });
+    const told = try arena.print("the sub-thread {s} {s}", .{ child, try howOf(arena, ended) });
     return switch (ended) {
         .replied => |said| .{ .status = .ok, .output = try Tool.told(arena, .{ .text = said, .notes = &.{told} }) },
         .stopped => Tool.noted(arena, .stopped, told),
@@ -211,9 +211,9 @@ fn answerOf(arena: Allocator, child: []const u8, ended: Ended) !log.CallOutcome 
 /// how to go on meanwhile, and how to give it more.
 fn backgroundAnswerOf(arena: Allocator, child: []const u8) !log.CallOutcome {
     return .{ .status = .ok, .output = try Tool.told(arena, .{ .text = "", .notes = &.{
-        try std.fmt.allocPrint(arena, "the sub-thread {s} works on it in the background: you will be told when it finishes, by a message with what it said last", .{child}),
+        try arena.print("the sub-thread {s} works on it in the background: you will be told when it finishes, by a message with what it said last", .{child}),
         "do not wait, poll or ask after its progress, and do not do its work or work on what it works on; work on what does not hang on it, or tell the person what you started and end your reply",
-        try std.fmt.allocPrint(arena, "to give it more to do or change what it does, call delegate with the thread {s}", .{child}),
+        try arena.print("to give it more to do or change what it does, call delegate with the thread {s}", .{child}),
     } }) };
 }
 
@@ -221,7 +221,7 @@ fn backgroundAnswerOf(arena: Allocator, child: []const u8) !log.CallOutcome {
 /// says: Siphon's note as its first part, so it reads as no words of the person's, then what the sub-thread said last,
 /// where it finished — which a page shows of it, as it shows a thread's words.
 fn noticeOf(arena: Allocator, child: []const u8, ended: Ended) !vocabulary.items.InputMessage {
-    const note = try std.fmt.allocPrint(arena, "[the sub-thread {s}, which you gave a task in the background, {s}]", .{ child, try howOf(arena, ended) });
+    const note = try arena.print("[the sub-thread {s}, which you gave a task in the background, {s}]", .{ child, try howOf(arena, ended) });
     const parts: []const vocabulary.content.InputContent = switch (ended) {
         .replied => |said| try arena.dupe(vocabulary.content.InputContent, &.{ .{ .input_text = .{ .text = note } }, .{ .input_text = .{ .text = said } } }),
         else => try arena.dupe(vocabulary.content.InputContent, &.{.{ .input_text = .{ .text = note } }}),
@@ -233,7 +233,7 @@ fn noticeOf(arena: Allocator, child: []const u8, ended: Ended) !vocabulary.items
 fn howOf(arena: Allocator, ended: Ended) ![]const u8 {
     return switch (ended) {
         .replied => "finished: what it said last is here, and its whole work is in it",
-        .failed => |why| std.fmt.allocPrint(arena, "failed: {s}", .{why}),
+        .failed => |why| arena.print("failed: {s}", .{why}),
         .stopped => "was stopped by the person before it finished",
         .deleted => "was deleted before it finished",
         .withdrawn => "had the task taken back before it began it",

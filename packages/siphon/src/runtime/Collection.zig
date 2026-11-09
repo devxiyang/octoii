@@ -5,6 +5,7 @@
 const Collection = @This();
 
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const beak = @import("../beak.zig");
 const Runtime = @import("Runtime.zig");
 const Waits = @import("Waits.zig");
@@ -38,8 +39,7 @@ pub fn weigh(runtime: *Runtime) void {
     if (collection.running) return;
     const usage = runtime.volume.usage() catch |err| return log.warn("the volume's usage could not be read: {s}", .{@errorName(err)});
     if (!collection.isDue(usage)) return;
-    const collecting = runtime.allocator.create(Collecting) catch return;
-    collecting.* = .{ .runtime = runtime, .time = runtime.time, .before = usage };
+    const collecting = Collecting.create(runtime, usage) catch return;
     collection.running = true;
     runtime.spawn(.{ .context = collecting, .run = Collecting.run, .finish = Collecting.finish, .drop = Collecting.drop }) catch |err| {
         collection.running = false;
@@ -54,6 +54,14 @@ const Collecting = struct {
     before: u64,
     collected: anyerror!beak.h.beak_collected = error.NotRun,
     after: u64 = 0,
+
+    /// A collection of the runtime's volume at its time, which kept `before`.
+    fn create(runtime: *Runtime, before: u64) Allocator.Error!*Collecting {
+        const collecting = try runtime.allocator.create(Collecting);
+        errdefer runtime.allocator.destroy(collecting);
+        collecting.* = .{ .runtime = runtime, .time = runtime.time, .before = before };
+        return collecting;
+    }
 
     /// Collects the volume, in the job's task: it takes no commit meanwhile.
     fn run(context: *anyopaque, _: *Waits) void {
@@ -88,14 +96,14 @@ test "a volume grown past its base is collected by a job off the loop, and what 
     const Changes = @import("Changes.zig");
     const runtime = try Runtime.open(std.testing.allocator, .{ .io = std.testing.io, .device = .memory }, .{ .collection = .{ .min_bytes = 4 << 10 } });
     defer runtime.close();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     // A file written again and again leaves what it held before for a collection to give back.
     const written = 64;
     for (0..written) |round| {
         var changes: Changes = .{ .arena = arena };
-        try changes.write("notes", try std.fmt.allocPrint(arena, "{d:0>1024}", .{round}));
+        try changes.write("notes", try arena.print("{d:0>1024}", .{round}));
         _ = try runtime.commit(&changes);
         _ = try runtime.pump();
     }

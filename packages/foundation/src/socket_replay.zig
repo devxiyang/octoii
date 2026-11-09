@@ -54,7 +54,7 @@ pub const SocketReplay = struct {
     }
 
     fn refuse(replay: *SocketReplay, comptime format: []const u8, arguments: anytype) (websocket.Error || Allocator.Error) {
-        replay.mismatch = try std.fmt.allocPrint(replay.arena, format, arguments);
+        replay.mismatch = try replay.arena.print(format, arguments);
         return error.Transport;
     }
 
@@ -123,7 +123,7 @@ const Played = struct {
         const url = played.recorded.url;
         const shown = switch (message) {
             .text => |text| text,
-            .binary => |bytes| try std.fmt.allocPrint(replay.arena, "{d} bytes", .{bytes.len}),
+            .binary => |bytes| try replay.arena.print("{d} bytes", .{bytes.len}),
         };
         if (played.closed or played.peer_closed) return replay.refuse("a message was sent on {s} after its socket closed: {s}", .{ url, shown });
         const step = played.current() orelse return replay.refuse("a message was sent on {s} where the recording has no more steps: {s}", .{ url, shown });
@@ -193,40 +193,40 @@ fn base64Of(recorded: std.json.Value) ?[]const u8 {
 }
 
 test "a socket as recorded plays its steps: the peer's messages up to the client's next, then its close" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const recorded = try json.decode([]const RecordedSocket, a,
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const recorded = try json.decode([]const RecordedSocket, arena,
         \\[{"url":"wss://api.example/listen?model=m","headers":{"authorization":"Token t"},"steps":[
         \\  {"server":{"type":"ready"}},{"client":{"base64":"AAEC"}},{"client":{"b":[1],"a":true}},
         \\  {"server":{"base64":"AwQ="}},{"close":"server"}]}]
     );
     var clock_ms: i64 = 0;
-    var replay: SocketReplay = .init(a, recorded);
+    var replay: SocketReplay = .init(arena, recorded);
     replay.clock_ms = &clock_ms;
     const socket = try replay.connector().connect(.{ .url = "wss://api.example/listen?model=m", .headers = &.{.{ .name = "Authorization", .value = "Token t" }} });
-    try std.testing.expectEqualStrings("{\"type\":\"ready\"}", (try socket.receive(a, 1000)).message.text);
-    try std.testing.expectEqual(.quiet, std.meta.activeTag(try socket.receive(a, 1000)));
+    try std.testing.expectEqualStrings("{\"type\":\"ready\"}", (try socket.receive(arena, 1000)).message.text);
+    try std.testing.expectEqual(.quiet, std.meta.activeTag(try socket.receive(arena, 1000)));
     try std.testing.expectEqual(@as(i64, 1000), clock_ms);
     try socket.send(.{ .binary = &.{ 0, 1, 2 } });
     try socket.send(.{ .text = "{\"a\":true,\"b\":[1.0]}" });
-    try std.testing.expectEqualSlices(u8, &.{ 3, 4 }, (try socket.receive(a, null)).message.binary);
-    try std.testing.expectEqual(.closed, std.meta.activeTag(try socket.receive(a, null)));
+    try std.testing.expectEqualSlices(u8, &.{ 3, 4 }, (try socket.receive(arena, null)).message.binary);
+    try std.testing.expectEqual(.closed, std.meta.activeTag(try socket.receive(arena, null)));
     socket.deinit();
     try std.testing.expectEqual(@as(usize, 0), replay.unplayed());
 }
 
 test "a socket or a message the recording does not expect is refused, saying why" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const recorded = try json.decode([]const RecordedSocket, a,
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const recorded = try json.decode([]const RecordedSocket, arena,
         \\[{"url":"wss://api.example/a","steps":[{"client":{"type":"finalize"}}]}]
     );
-    var replay: SocketReplay = .init(a, recorded);
+    var replay: SocketReplay = .init(arena, recorded);
     try std.testing.expectError(error.Transport, replay.connector().connect(.{ .url = "wss://api.example/b" }));
     try std.testing.expectEqualStrings("socket 1: wss://api.example/b was opened where wss://api.example/a was recorded", replay.mismatch.?);
-    replay = .init(a, recorded);
+    replay = .init(arena, recorded);
     const socket = try replay.connector().connect(.{ .url = "wss://api.example/a" });
     try std.testing.expectError(error.Transport, socket.send(.{ .text = "{\"type\":\"close\"}" }));
     try std.testing.expectEqualStrings("step 1 of wss://api.example/a: {\"type\":\"close\"} was sent where {\"type\":\"finalize\"} was recorded", replay.mismatch.?);

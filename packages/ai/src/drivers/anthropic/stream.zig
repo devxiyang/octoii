@@ -204,7 +204,7 @@ pub const Translator = struct {
         if (translator.message == null) {
             const output_index: u32 = @intCast(translator.output.items.len);
             const message = try arena.create(Message);
-            message.* = .{ .output_index = output_index, .id = try std.fmt.allocPrint(arena, "msg_{s}_{d}", .{ translator.response_id orelse "", output_index }) };
+            message.* = .{ .output_index = output_index, .id = try arena.print("msg_{s}_{d}", .{ translator.response_id orelse "", output_index }) };
             translator.message = message;
             const item: OutputItem = .{ .output_message = .{ .type = .message, .id = message.id, .status = .in_progress, .content = .{ .parts = &.{} } } };
             try translator.output.append(arena, item);
@@ -230,7 +230,7 @@ pub const Translator = struct {
     fn reasoningStarted(translator: *Translator, index: u32, raw: *Value, out: *std.ArrayList(Event)) Error!void {
         const arena = translator.call.arena;
         const output_index: u32 = @intCast(translator.output.items.len);
-        const id = try std.fmt.allocPrint(arena, "rs_{s}_{d}", .{ translator.response_id orelse "", output_index });
+        const id = try arena.print("rs_{s}_{d}", .{ translator.response_id orelse "", output_index });
         if (textOf(raw.*, "data")) |data| {
             const item: OutputItem = .{ .reasoning = .{ .id = id, .summary = &.{}, .encrypted_content = data, .format = reasoning_format, .status = .in_progress } };
             try translator.output.append(arena, item);
@@ -263,7 +263,7 @@ pub const Translator = struct {
         const call_id = textOf(raw.*, "id") orelse return translator.invalid("a tool_use block without its id or name", .{});
         const name = textOf(raw.*, "name") orelse return translator.invalid("a tool_use block without its id or name", .{});
         const output_index: u32 = @intCast(translator.output.items.len);
-        const item: OutputItem = .{ .function_call = .{ .id = try std.fmt.allocPrint(arena, "fc_{s}", .{call_id}), .call_id = call_id, .name = name, .arguments = "", .status = .in_progress } };
+        const item: OutputItem = .{ .function_call = .{ .id = try arena.print("fc_{s}", .{call_id}), .call_id = call_id, .name = name, .arguments = "", .status = .in_progress } };
         try translator.output.append(arena, item);
         const block = try translator.newBlock(index, .{ .raw = raw, .kind = .{ .call = .{ .output_index = output_index } } });
         if (raw.object.get("input")) |input| {
@@ -279,7 +279,7 @@ pub const Translator = struct {
         const name = textOf(raw.*, "name") orelse return translator.invalid("a server_tool_use block without its id or name", .{});
         const output_index: u32 = @intCast(translator.output.items.len);
         if (std.mem.eql(u8, name, wire.web_search_name)) {
-            const id = try std.fmt.allocPrint(arena, "ws_{s}", .{call_id});
+            const id = try arena.print("ws_{s}", .{call_id});
             const item: OutputItem = .{ .web_search_call = .{ .id = id, .status = .in_progress } };
             try translator.output.append(arena, item);
             _ = try translator.newBlock(index, .{ .raw = raw, .kind = .{ .search = .{ .output_index = output_index, .call_id = call_id } } });
@@ -290,7 +290,7 @@ pub const Translator = struct {
             if (std.mem.eql(u8, each, name)) break true;
         } else false;
         if (!searches) return translator.invalid("a call of the server tool {s}, which the request did not declare", .{name});
-        const item: OutputItem = .{ .tool_search_call = .{ .id = try std.fmt.allocPrint(arena, "ts_{s}", .{call_id}), .call_id = call_id, .execution = .server, .status = .in_progress } };
+        const item: OutputItem = .{ .tool_search_call = .{ .id = try arena.print("ts_{s}", .{call_id}), .call_id = call_id, .execution = .server, .status = .in_progress } };
         try translator.output.append(arena, item);
         _ = try translator.newBlock(index, .{ .raw = raw, .kind = .{ .tool_search = .{ .output_index = output_index, .call_id = call_id } } });
         try translator.emit(out, .{ .output_item_added = .{ .item = item, .output_index = output_index, .sequence_number = 0 } });
@@ -328,7 +328,7 @@ pub const Translator = struct {
         };
         const output_index: u32 = @intCast(translator.output.items.len);
         const item: OutputItem = .{ .tool_search_output = .{
-            .id = try std.fmt.allocPrint(arena, "tso_{s}", .{tool_use_id}),
+            .id = try arena.print("tso_{s}", .{tool_use_id}),
             .call_id = tool_use_id,
             .execution = .server,
             .tools = tools.items,

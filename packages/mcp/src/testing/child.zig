@@ -57,7 +57,7 @@ pub const Child = struct {
             .stdin = .pipe,
             .stdout = .pipe,
             .stderr = if (options.stderr == null) .ignore else .pipe,
-        }) catch return slot.fail(.{ .connection_lost = try std.fmt.allocPrint(slot.arena, "Could not start the MCP server {s}", .{options.command}) });
+        }) catch return slot.fail(.{ .connection_lost = try slot.arena.print("Could not start the MCP server {s}", .{options.command}) });
         made.* = .{ .gpa = gpa, .io = io, .child = child, .command = command, .stderr = options.stderr };
         made.output = made.child.stdout.?.readerStreaming(io, &made.buffer);
         if (options.stderr != null) made.logging = io.concurrent(readStderr, .{made}) catch null;
@@ -102,10 +102,10 @@ pub const Child = struct {
         if (child.logging) |*logging| logging.await(child.io);
         child.logging = null;
         closeInput(child);
-        const term = child.child.wait(child.io) catch return std.fmt.allocPrint(arena, "the MCP server {s} ended", .{child.command});
+        const term = child.child.wait(child.io) catch return arena.print("the MCP server {s} ended", .{child.command});
         return switch (term) {
-            .exited => |code| std.fmt.allocPrint(arena, "the MCP server {s} exited with {d}", .{ child.command, code }),
-            else => std.fmt.allocPrint(arena, "the MCP server {s} ended", .{child.command}),
+            .exited => |code| arena.print("the MCP server {s} exited with {d}", .{ child.command, code }),
+            else => arena.print("the MCP server {s} ended", .{child.command}),
         };
     }
 
@@ -137,7 +137,7 @@ pub const Child = struct {
         const child = of(context);
         closeInput(child);
         const id = child.child.id orelse return;
-        if (builtin.os.tag == .windows) {
+        if (builtin.target.os.tag == .windows) {
             _ = std.os.windows.ntdll.NtTerminateProcess(id, @fromBackingInt(1));
         } else std.posix.kill(id, .KILL) catch {};
     }

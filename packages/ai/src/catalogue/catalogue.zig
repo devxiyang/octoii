@@ -22,9 +22,9 @@ pub fn bundled(arena: Allocator) Allocator.Error![]const Model {
 }
 
 test "the bundled catalogue decodes whole, every model of a provider and a kind" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const models = try bundled(arena_state.allocator());
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const models = try bundled(arena_allocator.allocator());
     try std.testing.expect(models.len > 0);
     var described: usize = 0;
     var timed: usize = 0;

@@ -77,7 +77,7 @@ pub const Call = struct {
 
     /// Refuses the request with a JSON-RPC error.
     pub fn refuse(call: *Call, code: i64, comptime text: []const u8, arguments: anytype) Error {
-        call.refusal = .{ .code = code, .message = try std.fmt.allocPrint(call.arena, text, arguments) };
+        call.refusal = .{ .code = code, .message = try call.arena.print(text, arguments) };
         return error.Refused;
     }
 

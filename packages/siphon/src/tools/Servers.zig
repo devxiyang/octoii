@@ -143,7 +143,7 @@ const Gathered = struct {
         const path = try std.fs.path.join(arena, &.{ folder, project_name });
         try gathered.sources.append(arena, path);
         const text = machine.readAll(&arena, path, configuration_bytes_max) catch |err| switch (err) {
-            error.Refused => return gathered.problems.append(arena, try std.fmt.allocPrint(arena, "{s} could not be read", .{path})),
+            error.Refused => return gathered.problems.append(arena, try arena.print("{s} could not be read", .{path})),
             else => return err,
         } orelse return;
         const configuration = try parsed(arena, path, text, folder);
@@ -180,14 +180,14 @@ pub fn parsed(arena: Allocator, path: []const u8, text: []const u8, folder: []co
     for (named.?.object.keys(), named.?.object.values()) |name, entry| {
         switch (try serverOf(arena, .{ .name = name, .command = "", .cwd = folder, .source = path }, entry)) {
             .server => |server| try servers.append(arena, server),
-            .why => |why| try problems.append(arena, try std.fmt.allocPrint(arena, "{s}: the server {s} is not run: {s}", .{ path, name, why })),
+            .why => |why| try problems.append(arena, try arena.print("{s}: the server {s} is not run: {s}", .{ path, name, why })),
         }
     }
     return .{ .servers = servers.items, .problems = problems.items };
 }
 
 fn one(arena: Allocator, comptime format: []const u8, arguments: anytype) Allocator.Error![]const []const u8 {
-    return arena.dupe([]const u8, &.{try std.fmt.allocPrint(arena, format, arguments)});
+    return arena.dupe([]const u8, &.{try arena.print(format, arguments)});
 }
 
 /// The server the configuration's `entry` describes, as `named` names it, from its source, run in its folder unless
@@ -248,7 +248,7 @@ fn keyOf(arena: Allocator, server: Server) Allocator.Error![]const u8 {
         hasher.update(pair[1]);
         hasher.update("\x00");
     }
-    return std.fmt.allocPrint(arena, "{s}{s}#{x:0>16}", .{ try prefixOf(arena, server.source), server.name, hasher.final() });
+    return arena.print("{s}{s}#{x:0>16}", .{ try prefixOf(arena, server.source), server.name, hasher.final() });
 }
 
 /// What the keys of the servers the configuration at `source` names begin with, which no other's do: its path, and a
@@ -462,7 +462,7 @@ pub fn call(servers: *Servers, arena: Allocator, key: []const u8, asked: Tool.Ca
 }
 
 fn unavailable(arena: Allocator, name: []const u8) !log.CallOutcome {
-    return Tool.noted(arena, .unavailable, try std.fmt.allocPrint(arena, "no tool named {s}", .{name}));
+    return Tool.noted(arena, .unavailable, try arena.print("no tool named {s}", .{name}));
 }
 
 fn invalid(arena: Allocator, why: []const u8) !log.CallOutcome {
@@ -494,9 +494,9 @@ fn lineOf(out: *std.Io.Writer.Allocating, text: []const u8) !void {
 }
 
 test "the configuration's servers are those run as commands, each that cannot be one a problem said why" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const found = try parsed(arena, "/home/me/.octoii/mcp.json",
         \\{"mcpServers":{
         \\  "docs":{"command":"docs-server","args":["--stdio"],"env":{"TOKEN":"t"},"cwd":"/work"},

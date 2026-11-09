@@ -183,30 +183,30 @@ fn texts(comptime T: type, arena: Allocator, parts: []const Part) Allocator.Erro
 }
 
 test "an item's text grows with its deltas and is made whole on asking" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    var builder: Builder = try .init(a, .{ .output_message = .{ .id = "m", .content = .{ .parts = &.{} } } }, true);
-    try builder.apply(a, .{ .content_part_added = .{ .item_id = "m", .output_index = 0, .sequence_number = 1, .content_index = 0, .part = .{ .output_text = .{ .text = "" } } } });
-    try builder.apply(a, .{ .output_text_delta = .{ .item_id = "m", .output_index = 0, .sequence_number = 2, .content_index = 0, .delta = "hel", .logprobs = &.{} } });
-    try builder.apply(a, .{ .output_text_delta = .{ .item_id = "m", .output_index = 0, .sequence_number = 3, .content_index = 0, .delta = "lo", .logprobs = &.{} } });
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var builder: Builder = try .init(arena, .{ .output_message = .{ .id = "m", .content = .{ .parts = &.{} } } }, true);
+    try builder.apply(arena, .{ .content_part_added = .{ .item_id = "m", .output_index = 0, .sequence_number = 1, .content_index = 0, .part = .{ .output_text = .{ .text = "" } } } });
+    try builder.apply(arena, .{ .output_text_delta = .{ .item_id = "m", .output_index = 0, .sequence_number = 2, .content_index = 0, .delta = "hel", .logprobs = &.{} } });
+    try builder.apply(arena, .{ .output_text_delta = .{ .item_id = "m", .output_index = 0, .sequence_number = 3, .content_index = 0, .delta = "lo", .logprobs = &.{} } });
     // A delta of a part past the end changes nothing.
-    try builder.apply(a, .{ .output_text_delta = .{ .item_id = "m", .output_index = 0, .sequence_number = 4, .content_index = 3, .delta = "x", .logprobs = &.{} } });
-    const made = endedIncomplete(try builder.whole(a));
+    try builder.apply(arena, .{ .output_text_delta = .{ .item_id = "m", .output_index = 0, .sequence_number = 4, .content_index = 3, .delta = "x", .logprobs = &.{} } });
+    const made = endedIncomplete(try builder.whole(arena));
     try std.testing.expectEqualStrings("hello", made.output_message.content.parts[0].output_text.text);
     try std.testing.expectEqual(.incomplete, made.output_message.status.?);
 }
 
 test "a call's arguments and a reasoning summary grow in place" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    var call: Builder = try .init(a, .{ .function_call = .{ .call_id = "c", .name = "read", .arguments = "" } }, true);
-    try call.apply(a, .{ .function_call_arguments_delta = .{ .item_id = "f", .output_index = 1, .sequence_number = 0, .delta = "{\"a\"" } });
-    try call.apply(a, .{ .function_call_arguments_delta = .{ .item_id = "f", .output_index = 1, .sequence_number = 1, .delta = ":1}" } });
-    try std.testing.expectEqualStrings("{\"a\":1}", (try call.whole(a)).function_call.arguments);
-    var reasoning: Builder = try .init(a, .{ .reasoning = .{ .id = "r", .summary = &.{} } }, true);
-    try reasoning.apply(a, .{ .summary_part_added = .{ .item_id = "r", .output_index = 0, .sequence_number = 0, .summary_index = 0, .part = .{ .text = "" } } });
-    try reasoning.apply(a, .{ .summary_text_delta = .{ .item_id = "r", .output_index = 0, .sequence_number = 1, .summary_index = 0, .delta = "why" } });
-    try std.testing.expectEqualStrings("why", (try reasoning.whole(a)).reasoning.summary.?[0].text);
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var call: Builder = try .init(arena, .{ .function_call = .{ .call_id = "c", .name = "read", .arguments = "" } }, true);
+    try call.apply(arena, .{ .function_call_arguments_delta = .{ .item_id = "f", .output_index = 1, .sequence_number = 0, .delta = "{\"a\"" } });
+    try call.apply(arena, .{ .function_call_arguments_delta = .{ .item_id = "f", .output_index = 1, .sequence_number = 1, .delta = ":1}" } });
+    try std.testing.expectEqualStrings("{\"a\":1}", (try call.whole(arena)).function_call.arguments);
+    var reasoning: Builder = try .init(arena, .{ .reasoning = .{ .id = "r", .summary = &.{} } }, true);
+    try reasoning.apply(arena, .{ .summary_part_added = .{ .item_id = "r", .output_index = 0, .sequence_number = 0, .summary_index = 0, .part = .{ .text = "" } } });
+    try reasoning.apply(arena, .{ .summary_text_delta = .{ .item_id = "r", .output_index = 0, .sequence_number = 1, .summary_index = 0, .delta = "why" } });
+    try std.testing.expectEqualStrings("why", (try reasoning.whole(arena)).reasoning.summary.?[0].text);
 }

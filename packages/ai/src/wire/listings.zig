@@ -37,7 +37,7 @@ pub fn answer(comptime T: type, call: *Call, request: foundation.http.Request) E
 /// How the provider of a server stands, by whether it answered at `url`.
 pub fn status(call: *Call, answered: bool, url: []const u8) Error!seam.Status {
     if (answered) return .{ .connected = true };
-    return .{ .connected = false, .problem = try std.fmt.allocPrint(call.arena, "No server answers with its models at {s}", .{url}) };
+    return .{ .connected = false, .problem = try call.arena.print("No server answers with its models at {s}", .{url}) };
 }
 
 /// What a server on this machine says of one of its text models.

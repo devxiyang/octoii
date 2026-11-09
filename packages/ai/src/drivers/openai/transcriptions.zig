@@ -33,7 +33,7 @@ pub fn formFields(call: *Call, model: *const Model, request: *const transcriptio
     var fields: std.ArrayList(multipart.Field) = .empty;
     try fields.append(arena, .{ .name = "model", .value = model.id });
     if (request.language) |language| try fields.append(arena, .{ .name = "languages[]", .value = language });
-    if (request.temperature) |temperature| try fields.append(arena, .{ .name = "temperature", .value = try std.fmt.allocPrint(arena, "{d}", .{temperature}) });
+    if (request.temperature) |temperature| try fields.append(arena, .{ .name = "temperature", .value = try arena.print("{d}", .{temperature}) });
     if (request.response_format) |format| try fields.append(arena, .{ .name = "response_format", .value = @tagName(format) });
     for (request.timestamp_granularities orelse &.{}) |granularity| try fields.append(arena, .{ .name = "timestamp_granularities[]", .value = @tagName(granularity) });
     for (request.keyterms orelse &.{}) |term| try fields.append(arena, .{ .name = "keywords[]", .value = term });
@@ -49,7 +49,7 @@ pub fn appendOptions(arena: Allocator, fields: *std.ArrayList(multipart.Field), 
     while (it.next()) |entry| switch (entry.value_ptr.*) {
         .null => {},
         .array => |entries| for (entries.items) |each| {
-            try fields.append(arena, .{ .name = try std.fmt.allocPrint(arena, "{s}[]", .{entry.key_ptr.*}), .value = try fieldText(arena, each) });
+            try fields.append(arena, .{ .name = try arena.print("{s}[]", .{entry.key_ptr.*}), .value = try fieldText(arena, each) });
         },
         else => try fields.append(arena, .{ .name = entry.key_ptr.*, .value = try fieldText(arena, entry.value_ptr.*) }),
     };
@@ -78,7 +78,7 @@ fn filePart(call: *Call, name: []const u8, base64: []const u8, format: []const u
     const size = decoder.calcSizeForSlice(base64) catch return call.failWith(.invalid_request, "The input_audio's data is not base64", .{});
     const bytes = try call.arena.alloc(u8, size);
     decoder.decode(bytes, base64) catch return call.failWith(.invalid_request, "The input_audio's data is not base64", .{});
-    return .{ .name = name, .filename = try std.fmt.allocPrint(call.arena, "audio.{s}", .{format}), .content_type = media_type orelse try references.audioMediaType(call.arena, format), .data = bytes };
+    return .{ .name = name, .filename = try call.arena.print("audio.{s}", .{format}), .content_type = media_type orelse try references.audioMediaType(call.arena, format), .data = bytes };
 }
 
 pub fn transcribe(call: *Call, model: *const Model, request: *const transcriptions.TranscriptionRequest) Error!seam.TranscriptionSource {

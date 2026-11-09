@@ -518,7 +518,7 @@ fn jsonOf(given: []const u8) ?foundation.json.Raw {
 pub fn setRunning(changes: *Changes, thread: []const u8, time: i64) Allocator.Error!void {
     try changes.annotate(thread, &.{
         .{ .name = status_annotation, .value = @tagName(Status.running) },
-        .{ .name = began_annotation, .value = try std.fmt.allocPrint(changes.arena, "{d}", .{time}) },
+        .{ .name = began_annotation, .value = try changes.arena.print("{d}", .{time}) },
         .{ .name = ended_annotation, .value = null },
     });
 }
@@ -527,7 +527,7 @@ pub fn setRunning(changes: *Changes, thread: []const u8, time: i64) Allocator.Er
 pub fn setEnded(changes: *Changes, thread: []const u8, outcome: log.Outcome, time: i64) Allocator.Error!void {
     try changes.annotate(thread, &.{
         .{ .name = status_annotation, .value = @tagName(outcome) },
-        .{ .name = ended_annotation, .value = try std.fmt.allocPrint(changes.arena, "{d}", .{time}) },
+        .{ .name = ended_annotation, .value = try changes.arena.print("{d}", .{time}) },
     });
 }
 

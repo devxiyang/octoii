@@ -34,14 +34,14 @@ pub const Out = struct {
     /// Where the events it gives live, until the caller has read them.
     arena: Allocator,
     /// Where the messages it sends live, until they are sent.
-    scratch: Allocator,
+    scratch_arena: Allocator,
     messages: std.ArrayList(websocket.Message) = .empty,
     events: std.ArrayList(ServerEvent) = .empty,
     /// Why the provider's message broke its protocol, where one did.
     broken: ?[]const u8 = null,
 
     pub fn send(out: *Out, message: websocket.Message) Allocator.Error!void {
-        try out.messages.append(out.scratch, message);
+        try out.messages.append(out.scratch_arena, message);
     }
 
     pub fn give(out: *Out, event: ServerEvent) Allocator.Error!void {
@@ -50,7 +50,7 @@ pub const Out = struct {
 
     /// Fails the step, the provider's message having broken its protocol as `text` says.
     pub fn brokenBy(out: *Out, comptime text: []const u8, arguments: anytype) Error {
-        out.broken = try std.fmt.allocPrint(out.arena, text, arguments);
+        out.broken = try out.arena.print(text, arguments);
         return error.Broken;
     }
 };
@@ -90,7 +90,7 @@ pub const Ids = struct {
 
     pub fn event(ids: *Ids, arena: Allocator) Allocator.Error![]const u8 {
         ids.events += 1;
-        return std.fmt.allocPrint(arena, "event_{d}", .{ids.events});
+        return arena.print("event_{d}", .{ids.events});
     }
 
     /// The next item's number; `itemId` names it.
@@ -101,12 +101,12 @@ pub const Ids = struct {
 
     pub fn segment(ids: *Ids, arena: Allocator) Allocator.Error![]const u8 {
         ids.segments += 1;
-        return std.fmt.allocPrint(arena, "segment_{d}", .{ids.segments});
+        return arena.print("segment_{d}", .{ids.segments});
     }
 };
 
 pub fn itemId(arena: Allocator, number: u64) Allocator.Error![]const u8 {
-    return std.fmt.allocPrint(arena, "item_{d}", .{number});
+    return arena.print("item_{d}", .{number});
 }
 
 /// A `RealtimeError` of `kind` that Octoii itself answers a client event with, as a provider answers one it does not
@@ -122,7 +122,7 @@ pub fn realtimeError(kind: failure_.Kind, message: []const u8, code: ?[]const u8
 
 /// An `error` event of `kind`, its message formatted, numbered from `ids`.
 pub fn errorEvent(arena: Allocator, ids: *Ids, kind: failure_.Kind, comptime text: []const u8, arguments: anytype) Allocator.Error!ServerEvent {
-    const message = try std.fmt.allocPrint(arena, text, arguments);
+    const message = try arena.print(text, arguments);
     return .{ .@"error" = .{ .@"error" = realtimeError(kind, message, null), .event_id = try ids.event(arena) } };
 }
 
@@ -143,15 +143,15 @@ pub const Session = struct {
     /// Guards all that follows, but for `received`, which the one reading task keeps.
     lock: std.Io.Mutex = .init,
     /// The events kept and what they hold, until the caller has read them all.
-    events: std.heap.ArenaAllocator,
+    events_arena: std.heap.ArenaAllocator,
     kept: std.ArrayList(ServerEvent) = .empty,
     taken: usize = 0,
     /// What a read receives, until the next read.
-    received: std.heap.ArenaAllocator,
+    received_arena: std.heap.ArenaAllocator,
     /// What a send writes, until the next send.
-    sending: std.heap.ArenaAllocator,
+    sending_arena: std.heap.ArenaAllocator,
     /// The failures, which last as long as the session.
-    failures: std.heap.ArenaAllocator,
+    failures_arena: std.heap.ArenaAllocator,
     is_open: bool,
     closing: bool = false,
     /// Whether the session closed the socket itself, once all it asked was answered.
@@ -173,23 +173,24 @@ pub const Session = struct {
             wire.vtable.deinit(wire.context);
             return err;
         };
+        errdefer gpa.destroy(session);
         const now = host.nowMs();
         session.* = .{
             .gpa = gpa,
             .host = host,
             .socket = socket,
             .wire = wire,
-            .events = .init(gpa),
-            .received = .init(gpa),
-            .sending = .init(gpa),
-            .failures = .init(gpa),
+            .events_arena = .init(gpa),
+            .received_arena = .init(gpa),
+            .sending_arena = .init(gpa),
+            .failures_arena = .init(gpa),
             .is_open = wire.opens_on == null,
             .last_sent_ms = now,
             .open_by_ms = now + response_timeout_ms,
         };
         session.lock.lockUncancelable(host.io);
         defer session.lock.unlock(host.io);
-        var out = session.outOf(session.sending.allocator());
+        var out = session.outOf(session.sending_arena.allocator());
         session.wire.vtable.start(session.wire.context, &out) catch |err| session.failStep(err, &out);
         session.apply(&out);
         return session;
@@ -201,10 +202,10 @@ pub const Session = struct {
         session.socket.deinit();
         session.wire.vtable.deinit(session.wire.context);
         session.kept.deinit(session.gpa);
-        session.events.deinit();
-        session.received.deinit();
-        session.sending.deinit();
-        session.failures.deinit();
+        session.events_arena.deinit();
+        session.received_arena.deinit();
+        session.sending_arena.deinit();
+        session.failures_arena.deinit();
         session.gpa.destroy(session);
     }
 
@@ -248,8 +249,8 @@ pub const Session = struct {
         session.lock.lockUncancelable(session.host.io);
         defer session.lock.unlock(session.host.io);
         if (session.ended or session.closing) return;
-        _ = session.sending.reset(.retain_capacity);
-        var out = session.outOf(session.sending.allocator());
+        _ = session.sending_arena.reset(.retain_capacity);
+        var out = session.outOf(session.sending_arena.allocator());
         session.wire.vtable.write(session.wire.context, &out, event) catch |err| return session.failStep(err, &out);
         session.apply(&out);
     }
@@ -261,22 +262,22 @@ pub const Session = struct {
         if (session.ended or session.closing) return;
         session.closing = true;
         session.close_by_ms = session.host.nowMs() + response_timeout_ms;
-        _ = session.sending.reset(.retain_capacity);
-        var out = session.outOf(session.sending.allocator());
+        _ = session.sending_arena.reset(.retain_capacity);
+        var out = session.outOf(session.sending_arena.allocator());
         session.wire.vtable.close(session.wire.context, &out) catch |err| return session.failStep(err, &out);
         session.apply(&out);
         session.closeWhenSettled();
     }
 
-    fn outOf(session: *Session, scratch: Allocator) Out {
-        return .{ .arena = session.events.allocator(), .scratch = scratch };
+    fn outOf(session: *Session, scratch_arena: Allocator) Out {
+        return .{ .arena = session.events_arena.allocator(), .scratch_arena = scratch_arena };
     }
 
     /// Drops the events the caller has read, every one of them.
     fn forgetRead(session: *Session) void {
         session.kept.clearRetainingCapacity();
         session.taken = 0;
-        _ = session.events.reset(.retain_capacity);
+        _ = session.events_arena.reset(.retain_capacity);
     }
 
     /// Reads what comes next, waiting no longer than the session's next deadline or `until_ms`, the lock let go
@@ -285,9 +286,9 @@ pub const Session = struct {
         const now = session.host.nowMs();
         const wait_until = earliest(session.dueMs(), until_ms);
         const wait: ?u64 = if (wait_until) |at| @intCast(@max(at - now, 0)) else null;
-        _ = session.received.reset(.retain_capacity);
+        _ = session.received_arena.reset(.retain_capacity);
         session.lock.unlock(session.host.io);
-        const received = session.socket.receive(session.received.allocator(), wait);
+        const received = session.socket.receive(session.received_arena.allocator(), wait);
         session.lock.lockUncancelable(session.host.io);
         if (session.ended) return true;
         const got = received catch |err| {
@@ -341,7 +342,7 @@ pub const Session = struct {
 
     /// Reads a message of the provider's into the events it stands for.
     fn read(session: *Session, message: websocket.Message) void {
-        var out = session.outOf(session.received.allocator());
+        var out = session.outOf(session.received_arena.allocator());
         session.wire.vtable.read(session.wire.context, &out, message) catch |err| return session.failStep(err, &out);
         session.apply(&out);
         session.closeWhenSettled();
@@ -385,7 +386,7 @@ pub const Session = struct {
     /// The end of the socket: the session's end after `close()`, else the provider's last failure or `transport`.
     fn socketEnded(session: *Session) void {
         if (!session.closing) return session.fail(session.last_error orelse Failure.init(.transport, "The session's connection ended unasked"));
-        var out = session.outOf(session.received.allocator());
+        var out = session.outOf(session.received_arena.allocator());
         session.wire.vtable.ended(session.wire.context, &out) catch |err| return session.failStep(err, &out);
         session.apply(&out);
         session.ended = true;
@@ -416,7 +417,7 @@ pub const Session = struct {
 
     /// `text` kept as long as the session; as it is, where memory runs out.
     fn lasting(session: *Session, text: []const u8) []const u8 {
-        return session.failures.allocator().dupe(u8, text) catch text;
+        return session.failures_arena.allocator().dupe(u8, text) catch text;
     }
 };
 
@@ -431,5 +432,5 @@ pub fn socketUrl(arena: Allocator, base_url: []const u8, path: []const u8, query
     const scheme_rest = if (std.mem.startsWith(u8, base_url, "http")) base_url["http".len..] else base_url;
     const scheme = if (std.mem.startsWith(u8, base_url, "http")) "ws" else "";
     const separator: []const u8 = if (query.len == 0) "" else "?";
-    return std.fmt.allocPrint(arena, "{s}{s}{s}{s}{s}", .{ scheme, scheme_rest, path, separator, query });
+    return arena.print("{s}{s}{s}{s}{s}", .{ scheme, scheme_rest, path, separator, query });
 }

@@ -133,9 +133,9 @@ fn paged(arena: Allocator, text: []const u8, range: usize, bounds: Bounds) !Page
 }
 
 test "a page gathers a text's lines across its ranges: shown as UTF-8, cut where long, and whether more follow" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const text = "one\r\ntwo\n\xffbad\nabcdefghij\nfive";
     for ([_]usize{ 1, 3, 64 }) |range| {
         const whole = try paged(arena, text, range, .{ .line_chars_max = 5 });

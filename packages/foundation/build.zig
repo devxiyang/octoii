@@ -14,7 +14,12 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_tests.step);
 
     const format = b.addFmt(.{ .paths = &.{ b.path("build.zig"), b.path("src") }, .check = true });
-    const check_step = b.step("check", "Check foundation: its sources formatted and its tests passing");
+    const lint = b.addRunArtifact(b.dependency("lint", .{}).artifact("lint"));
+    lint.addDirectoryArg(b.path("src"));
+    lint.has_side_effects = true;
+    b.step("lint", "Check how the code holds memory and names its allocators").dependOn(&lint.step);
+    const check_step = b.step("check", "Check foundation: its sources formatted and linted and its tests passing");
+    check_step.dependOn(&lint.step);
     check_step.dependOn(&format.step);
     check_step.dependOn(&run_tests.step);
 }

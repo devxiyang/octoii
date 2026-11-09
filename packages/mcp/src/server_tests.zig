@@ -50,7 +50,7 @@ const Fixture = struct {
         const eql = std.mem.eql;
         if (eql(u8, name, "echo")) {
             const text = if (arguments.object.get("text")) |given| given.string else "";
-            return .{ .content = try texts(call.arena, &.{text}), .structuredContent = try json(call.arena, try std.fmt.allocPrint(call.arena, "{{\"echoed\":\"{s}\"}}", .{text})) };
+            return .{ .content = try texts(call.arena, &.{text}), .structuredContent = try json(call.arena, try call.arena.print("{{\"echoed\":\"{s}\"}}", .{text})) };
         }
         if (eql(u8, name, "slow")) {
             fixture.io.sleep(.fromSeconds(3600), .awake) catch |err| {
@@ -69,7 +69,7 @@ const Fixture = struct {
                 else => return .{ .content = try texts(call.arena, &.{"declined"}) },
             };
             const second = try call.elicit("sure", .{ .form = .{ .message = "Sure?", .requestedSchema = try json(call.arena, "{\"type\":\"object\",\"properties\":{}}") } });
-            return .{ .content = try texts(call.arena, &.{try std.fmt.allocPrint(call.arena, "{s}:{t}", .{ who, std.meta.activeTag(second) })}) };
+            return .{ .content = try texts(call.arena, &.{try call.arena.print("{s}:{t}", .{ who, std.meta.activeTag(second) })}) };
         }
         if (eql(u8, name, "roots")) {
             const roots = try call.roots("roots");
@@ -122,7 +122,7 @@ const Fixture = struct {
         if (!std.mem.eql(u8, name, "greet")) return call.refuse(jsonrpc.codes.invalid_params, "Unknown prompt: {s}", .{name});
         const who = if (arguments.get("who")) |given| given.string else "nobody";
         const messages = try call.arena.alloc(types.PromptMessage, 1);
-        messages[0] = .{ .role = .user, .content = .{ .text = .{ .text = try std.fmt.allocPrint(call.arena, "Hello, {s}.", .{who}) } } };
+        messages[0] = .{ .role = .user, .content = .{ .text = .{ .text = try call.arena.print("Hello, {s}.", .{who}) } } };
         return .{ .messages = messages };
     }
 };
@@ -162,10 +162,10 @@ const Setup = struct {
     client: Client.Options = .{ .host = undefined, .client = .{ .name = "test-client", .version = "1.0.0" }, .timeout_ms = 5000, .probe_timeout_ms = 1000 },
 };
 
-fn connected(a: Allocator, setup: Setup) !Given {
-    const host = try a.create(transport_.Host);
+fn connected(arena: Allocator, setup: Setup) !Given {
+    const host = try arena.create(transport_.Host);
     host.* = .{ .io = std.testing.io };
-    const fixture = try a.create(Fixture);
+    const fixture = try arena.create(Fixture);
     fixture.* = .{ .io = std.testing.io };
     const server = try Server.init(std.testing.allocator, std.testing.io, .{
         .info = .{ .name = "fixture", .version = "2.0.0" },
@@ -177,69 +177,69 @@ fn connected(a: Allocator, setup: Setup) !Given {
         .page_size = setup.page_size,
     });
     errdefer server.deinit();
-    const pair = try memory.Pair.init(a, host, server.memoryServer());
+    const pair = try memory.Pair.init(arena, host, server.memoryServer());
     var with = setup.client;
     with.host = host.*;
-    const made = try Client.connect(a, a, with, pair.transport());
+    const made = try Client.connect(arena, arena, with, pair.transport());
     return .{ .server = server, .client = made.client, .fixture = fixture };
 }
 
 const both = [_]protocol.Era{ .modern, .legacy };
 
 test "a client of either era connects, lists the tools and calls one, its structured content checked" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     for (both) |era| {
-        const given = try connected(a, .{ .eras = &.{era} });
+        const given = try connected(arena, .{ .eras = &.{era} });
         defer given.deinit();
         const settled = given.client.server().?;
         try std.testing.expectEqual(era, settled.era);
         try std.testing.expectEqualStrings("fixture", settled.server.?.name);
         try std.testing.expectEqualStrings("Serve well.", settled.instructions.?);
-        const tools = (try given.client.allTools(a, .{})).done;
+        const tools = (try given.client.allTools(arena, .{})).done;
         try std.testing.expectEqual(@as(usize, 5), tools.len);
         var arguments: ObjectMap = .empty;
-        try arguments.put(a, "text", .{ .string = "hi" });
-        const echoed = (try given.client.callTool(a, "echo", .{ .object = arguments }, .{})).done;
+        try arguments.put(arena, "text", .{ .string = "hi" });
+        const echoed = (try given.client.callTool(arena, "echo", .{ .object = arguments }, .{})).done;
         try std.testing.expectEqualStrings("hi", textOf(echoed.content));
         try std.testing.expectEqualStrings("hi", echoed.structuredContent.?.object.get("echoed").?.string);
-        const unknown = (try given.client.callTool(a, "nothing", null, .{})).failed;
+        const unknown = (try given.client.callTool(arena, "nothing", null, .{})).failed;
         try std.testing.expectEqual(@as(i64, jsonrpc.codes.invalid_params), unknown.refused.code);
-        if (era == .legacy) _ = (try given.client.ping(a, .{})).done;
+        if (era == .legacy) _ = (try given.client.ping(arena, .{})).done;
     }
 }
 
 test "a client that speaks both eras is spoken to statelessly" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const given = try connected(arena_state.allocator(), .{});
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const given = try connected(arena_allocator.allocator(), .{});
     defer given.deinit();
     try std.testing.expectEqual(.modern, given.client.era().?);
 }
 
 test "the server pages its lists by the size it is given" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const given = try connected(a, .{ .page_size = 2 });
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const given = try connected(arena, .{ .page_size = 2 });
     defer given.deinit();
-    const first = (try given.client.listTools(a, null, .{})).done;
+    const first = (try given.client.listTools(arena, null, .{})).done;
     try std.testing.expectEqual(@as(usize, 2), first.items.len);
     try std.testing.expectEqualStrings("2", first.nextCursor.?);
-    try std.testing.expectEqual(@as(usize, 5), (try given.client.allTools(a, .{})).done.len);
-    const refused = (try given.client.listTools(a, "x", .{})).failed;
+    try std.testing.expectEqual(@as(usize, 5), (try given.client.allTools(arena, .{})).done.len);
+    const refused = (try given.client.listTools(arena, "x", .{})).failed;
     try std.testing.expectEqual(@as(i64, jsonrpc.codes.invalid_params), refused.refused.code);
 }
 
 test "progress goes to the request that asked for it, and log messages at the level the client set" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     for (both) |era| {
-        const given = try connected(a, .{ .eras = &.{era} });
+        const given = try connected(arena, .{ .eras = &.{era} });
         defer given.deinit();
-        _ = (try given.client.setLoggingLevel(a, .info)).done;
+        _ = (try given.client.setLoggingLevel(arena, .info)).done;
         var seen: std.ArrayList(types.Progress) = .empty;
         defer seen.deinit(std.testing.allocator);
         const Seen = struct {
@@ -248,14 +248,14 @@ test "progress goes to the request that asked for it, and log messages at the le
                 list.append(std.testing.allocator, progress) catch {};
             }
         };
-        const done = (try given.client.callTool(a, "progressing", null, .{ .progress = .{ .context = &seen, .progressed = Seen.progressed } })).done;
+        const done = (try given.client.callTool(arena, "progressing", null, .{ .progress = .{ .context = &seen, .progressed = Seen.progressed } })).done;
         try std.testing.expectEqualStrings("finished", textOf(done.content));
         try std.testing.expectEqual(@as(usize, 2), seen.items.len);
         try std.testing.expectEqualStrings("half", seen.items[0].message.?);
-        const event = (try given.client.nextEvent(a, 1000)).?;
+        const event = (try given.client.nextEvent(arena, 1000)).?;
         try std.testing.expectEqual(.info, event.log.level);
         try std.testing.expectEqualStrings("fixture", event.log.logger.?);
-        try std.testing.expectEqual(null, try given.client.nextEvent(a, 0));
+        try std.testing.expectEqual(null, try given.client.nextEvent(arena, 0));
     }
 }
 
@@ -268,107 +268,107 @@ const Answers = struct {
 };
 
 test "the server asks the client its questions in either era, the call run again with each answer" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     for (both) |era| {
         var setup: Setup = .{ .eras = &.{era} };
         setup.client.elicitation = .{ .form = true, .handler = .{ .context = undefined, .answer = Answers.answer } };
-        const given = try connected(a, setup);
+        const given = try connected(arena, setup);
         defer given.deinit();
-        const answered = (try given.client.callTool(a, "ask", null, .{})).done;
+        const answered = (try given.client.callTool(arena, "ask", null, .{})).done;
         try std.testing.expectEqualStrings("Ada:accept", textOf(answered.content));
     }
 }
 
 test "a stateless client's questions handed back are answered past the request, with the state the server kept" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var setup: Setup = .{ .eras = &.{.modern} };
     setup.client.elicitation = .{ .form = true };
-    const given = try connected(a, setup);
+    const given = try connected(arena, setup);
     defer given.deinit();
-    const first = (try given.client.callTool(a, "ask", null, .{ .hand_back_input = true })).failed.input_required.input;
-    const name = try a.alloc(types.KeyedAnswer, 1);
-    name[0] = .{ .key = "name", .answer = .{ .accept = try json(a, "{\"name\":\"Lin\"}") } };
-    const second = (try given.client.callTool(a, "ask", null, .{ .hand_back_input = true, .answered = .{ .required = first, .answers = name } })).failed.input_required.input;
+    const first = (try given.client.callTool(arena, "ask", null, .{ .hand_back_input = true })).failed.input_required.input;
+    const name = try arena.alloc(types.KeyedAnswer, 1);
+    name[0] = .{ .key = "name", .answer = .{ .accept = try json(arena, "{\"name\":\"Lin\"}") } };
+    const second = (try given.client.callTool(arena, "ask", null, .{ .hand_back_input = true, .answered = .{ .required = first, .answers = name } })).failed.input_required.input;
     try std.testing.expectEqualStrings("sure", second.requests[0].key);
-    const sure = try a.alloc(types.KeyedAnswer, 1);
+    const sure = try arena.alloc(types.KeyedAnswer, 1);
     sure[0] = .{ .key = "sure", .answer = .decline };
-    const done = (try given.client.callTool(a, "ask", null, .{ .answered = .{ .required = second, .answers = sure } })).done;
+    const done = (try given.client.callTool(arena, "ask", null, .{ .answered = .{ .required = second, .answers = sure } })).done;
     try std.testing.expectEqualStrings("Lin:decline", textOf(done.content));
 }
 
 test "a question the client does not offer is refused, and its roots are asked where it does" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     for (both) |era| {
         var setup: Setup = .{ .eras = &.{era} };
         setup.client.roots = &.{ .{ .uri = "file:///one" }, .{ .uri = "file:///two" } };
-        const given = try connected(a, setup);
+        const given = try connected(arena, setup);
         defer given.deinit();
-        const refused = (try given.client.callTool(a, "ask", null, .{})).failed;
+        const refused = (try given.client.callTool(arena, "ask", null, .{})).failed;
         const code: i64 = if (era == .modern) protocol.codes.missing_required_client_capability else jsonrpc.codes.invalid_params;
         try std.testing.expectEqual(code, refused.refused.code);
-        const roots = (try given.client.callTool(a, "roots", null, .{})).done;
+        const roots = (try given.client.callTool(arena, "roots", null, .{})).done;
         try std.testing.expectEqualStrings("file:///one,file:///two", textOf(roots.content));
     }
 }
 
 test "a request the client cancels has its task cancelled, and the server serves the next" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     for (both) |era| {
-        const given = try connected(a, .{ .eras = &.{era} });
+        const given = try connected(arena, .{ .eras = &.{era} });
         defer given.deinit();
-        const failed = (try given.client.callTool(a, "slow", null, .{ .timeout_ms = 50 })).failed;
+        const failed = (try given.client.callTool(arena, "slow", null, .{ .timeout_ms = 50 })).failed;
         try std.testing.expectEqual(@as(u64, 50), failed.timeout.timeout_ms);
-        _ = (try given.client.allTools(a, .{})).done;
+        _ = (try given.client.allTools(arena, .{})).done;
         try std.testing.expectEqual(@as(usize, 1), given.fixture.cancelled);
     }
 }
 
 test "resources are listed and read, prompts listed and got, in either era" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     for (both) |era| {
-        const given = try connected(a, .{ .eras = &.{era} });
+        const given = try connected(arena, .{ .eras = &.{era} });
         defer given.deinit();
-        const resources = (try given.client.listResources(a, null, .{})).done;
+        const resources = (try given.client.listResources(arena, null, .{})).done;
         try std.testing.expectEqual(@as(usize, 2), resources.items.len);
         try std.testing.expectEqualStrings("text/plain", resources.items[0].mimeType.?);
-        const templates = (try given.client.listResourceTemplates(a, null, .{})).done;
+        const templates = (try given.client.listResourceTemplates(arena, null, .{})).done;
         try std.testing.expectEqualStrings("file:///{name}", templates.items[0].uriTemplate);
-        const contents = (try given.client.readResource(a, "file:///a", .{})).done;
+        const contents = (try given.client.readResource(arena, "file:///a", .{})).done;
         try std.testing.expectEqualStrings("alpha", contents.contents[0].text.text);
-        const missing = (try given.client.readResource(a, "file:///z", .{})).failed;
+        const missing = (try given.client.readResource(arena, "file:///z", .{})).failed;
         try std.testing.expectEqual(@as(i64, Server.resource_not_found), missing.refused.code);
-        const prompts = (try given.client.listPrompts(a, null, .{})).done;
+        const prompts = (try given.client.listPrompts(arena, null, .{})).done;
         try std.testing.expectEqualStrings("who", prompts.items[0].arguments.?[0].name);
-        const prompt = (try given.client.getPrompt(a, "greet", &.{.{ "who", "Ada" }}, .{})).done;
+        const prompt = (try given.client.getPrompt(arena, "greet", &.{.{ "who", "Ada" }}, .{})).done;
         try std.testing.expectEqualStrings("Hello, Ada.", prompt.messages[0].content.text.text);
     }
 }
 
 test "a list's change reaches a stateless subscription that asked for it, and a session" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     for (both) |era| {
-        const given = try connected(a, .{ .eras = &.{era} });
+        const given = try connected(arena, .{ .eras = &.{era} });
         defer given.deinit();
-        const subscription = (try given.client.listen(a, .{ .toolsListChanged = true, .resourceSubscriptions = &.{"file:///a"} })).done;
+        const subscription = (try given.client.listen(arena, .{ .toolsListChanged = true, .resourceSubscriptions = &.{"file:///a"} })).done;
         defer subscription.close();
         try std.testing.expect(subscription.acknowledged.toolsListChanged);
         try std.testing.expectEqual(@as(usize, 0), subscription.acknowledged.resourceSubscriptions.len);
         given.fixture.extra_tool = true;
         given.server.toolsChanged();
-        try std.testing.expectEqual(.tools_list_changed, std.meta.activeTag((try subscription.next(a, 1000)).?));
-        try std.testing.expectEqual(@as(usize, 6), (try given.client.allTools(a, .{})).done.len);
+        try std.testing.expectEqual(.tools_list_changed, std.meta.activeTag((try subscription.next(arena, 1000)).?));
+        try std.testing.expectEqual(@as(usize, 6), (try given.client.allTools(arena, .{})).done.len);
     }
 }
 
@@ -382,7 +382,8 @@ const Sent = struct {
 
     fn send(context: *anyopaque, message: []const u8) void {
         const sent: *Sent = @ptrCast(@alignCast(context));
-        sent.messages.append(std.testing.allocator, std.testing.allocator.dupe(u8, message) catch return) catch {};
+        sent.messages.ensureUnusedCapacity(std.testing.allocator, 1) catch return;
+        sent.messages.appendAssumeCapacity(std.testing.allocator.dupe(u8, message) catch return);
     }
 
     fn deinit(sent: *Sent) void {
@@ -398,26 +399,26 @@ const Sent = struct {
 };
 
 test "the server refuses what is not JSON-RPC, a version it does not speak, and a request before a session opens" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fixture: Fixture = .{ .io = std.testing.io };
     const server = try Server.init(std.testing.allocator, std.testing.io, .{ .info = .{ .name = "raw", .version = "1" }, .tools = fixture.tools() });
     defer server.deinit();
     var sent: Sent = .{};
     defer sent.deinit();
     server.handle(sent.peer(), "{not json");
-    try std.testing.expectEqual(@as(i64, jsonrpc.codes.parse_error), try sent.lastCode(a));
+    try std.testing.expectEqual(@as(i64, jsonrpc.codes.parse_error), try sent.lastCode(arena));
     server.handle(sent.peer(), "{\"jsonrpc\":\"2.0\"}");
-    try std.testing.expectEqual(@as(i64, jsonrpc.codes.invalid_request), try sent.lastCode(a));
+    try std.testing.expectEqual(@as(i64, jsonrpc.codes.invalid_request), try sent.lastCode(arena));
     server.handle(sent.peer(), "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"1999-01-01\"}}}");
-    const refused = try jsonrpc.parseOne(a, sent.messages.items[2]);
+    const refused = try jsonrpc.parseOne(arena, sent.messages.items[2]);
     try std.testing.expectEqual(@as(i64, protocol.codes.unsupported_protocol_version), refused.failure.@"error".code);
     const supported = refused.failure.@"error".data.?.object.get("supported").?.array.items;
     try std.testing.expectEqualStrings(protocol.version, supported[0].string);
     try std.testing.expectEqual(@as(usize, 1 + protocol.legacy_versions.len), supported.len);
     server.handle(sent.peer(), "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}");
-    try std.testing.expectEqual(@as(i64, jsonrpc.codes.method_not_found), try sent.lastCode(a));
+    try std.testing.expectEqual(@as(i64, jsonrpc.codes.method_not_found), try sent.lastCode(arena));
     server.handle(sent.peer(), "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"prompts/list\",\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\"}}}");
-    try std.testing.expectEqual(@as(i64, jsonrpc.codes.method_not_found), try sent.lastCode(a));
+    try std.testing.expectEqual(@as(i64, jsonrpc.codes.method_not_found), try sent.lastCode(arena));
 }

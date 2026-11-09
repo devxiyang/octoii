@@ -47,9 +47,9 @@ fn answerOf(arena: std.mem.Allocator, request: *http3.Client.Request) !struct { 
 test "a device pairs with the node through a relay, then reaches its files and its protocol by its key" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
-    var arena_state: std.heap.ArenaAllocator = .init(testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var environ: std.process.Environ.Map = .init(testing.allocator);
     defer environ.deinit();
     const node = try Node.open(testing.allocator, testing.io, &environ, arena, try tmp.dir.realPathFileAlloc(testing.io, ".", arena), .{ .port = 7600 });
@@ -103,7 +103,7 @@ test "a device pairs with the node through a relay, then reaches its files and i
     var messages: [64 * 1024]u8 = undefined;
     const socket = try client.openWebSocket(serve.socket_path, .{ .authority = "node", .buffer = &messages });
     defer socket.close();
-    try socket.send(.text, try std.fmt.allocPrint(arena, "{{\"id\":\"1\",\"method\":\"hello\",\"params\":{{\"protocol\":{d}}}}}", .{siphon_.protocol.Connection.protocol}));
+    try socket.send(.text, try arena.print("{{\"id\":\"1\",\"method\":\"hello\",\"params\":{{\"protocol\":{d}}}}}", .{siphon_.protocol.Connection.protocol}));
     const greeted = (try socket.receive()).text;
     const answer = try std.json.parseFromSliceLeaky(struct { id: []const u8, result: struct { session: []const u8 } }, arena, greeted, .{ .ignore_unknown_fields = true });
     try testing.expectEqualStrings("1", answer.id);

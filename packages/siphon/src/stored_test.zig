@@ -15,9 +15,9 @@ fn refOf(arena: Allocator, bytes: []const u8) ![]const u8 {
 }
 
 test "a kept image is drawn fitted to a box, its shape kept and never enlarged; a kept file that is no image has none" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
@@ -33,9 +33,9 @@ test "a kept image is drawn fitted to a box, its shape kept and never enlarged; 
 }
 
 test "a file a person gives a message is kept as a model is given it: an image fitted to what every model reads, any other as it came" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();

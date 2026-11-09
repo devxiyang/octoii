@@ -141,13 +141,13 @@ fn initialize(client: *Client, slot: *Slot) Error!void {
 
 /// Keeps what the client settled on, as long as the client, and tells the transport.
 fn settleWith(client: *Client, era: protocol.Era, version: []const u8, capabilities: Value, server_info: ?types.Implementation, instructions: ?Value) Error!void {
-    const lasting = client.lasting.allocator();
+    const arena = client.lasting_arena.allocator();
     const kept: Client.Settled = .{
         .era = era,
-        .version = try lasting.dupe(u8, version),
-        .capabilities = try object.copied(lasting, capabilities),
-        .server = if (server_info) |given| .{ .name = try lasting.dupe(u8, given.name), .version = try lasting.dupe(u8, given.version) } else null,
-        .instructions = if (instructions) |given| (if (given == .string) try lasting.dupe(u8, given.string) else null) else null,
+        .version = try arena.dupe(u8, version),
+        .capabilities = try object.copied(arena, capabilities),
+        .server = if (server_info) |given| .{ .name = try arena.dupe(u8, given.name), .version = try arena.dupe(u8, given.version) } else null,
+        .instructions = if (instructions) |given| (if (given == .string) try arena.dupe(u8, given.string) else null) else null,
     };
     {
         client.lock.lockUncancelable(client.options.host.io);
@@ -178,7 +178,7 @@ pub fn capabilitiesOf(client: *const Client, arena: Allocator, era: protocol.Era
 /// A lost stream as a failure: `connection_lost`, naming `method`.
 fn lostAs(slot: *Slot, err: AttemptError, method: []const u8) Error {
     return switch (err) {
-        error.Lost => slot.fail(.{ .connection_lost = try std.fmt.allocPrint(slot.arena, "The response stream of {s} broke", .{method}) }),
+        error.Lost => slot.fail(.{ .connection_lost = try slot.arena.print("The response stream of {s} broke", .{method}) }),
         else => |other| other,
     };
 }
@@ -264,7 +264,7 @@ pub fn attempt(client: *Client, slot: *Slot, method: []const u8, params: ObjectM
             .closed => |reason| {
                 exchange.close();
                 shut(client);
-                return slot.fail(.{ .connection_lost = if (reason) |why| try std.fmt.allocPrint(slot.arena, "The MCP connection closed: {s}", .{why}) else "The MCP connection closed" });
+                return slot.fail(.{ .connection_lost = if (reason) |why| try slot.arena.print("The MCP connection closed: {s}", .{why}) else "The MCP connection closed" });
             },
         }
     }
@@ -395,7 +395,7 @@ pub fn listTools(client: *Client, slot: *Slot, cursor: ?[]const u8, options: Req
     }
     for (tools.items) |*tool| {
         switch (try headers_.paramHeaders(slot.arena, &tool.inputSchema)) {
-            .problem => |problem| client.report(try std.fmt.allocPrint(slot.arena, "The MCP tool {s} is left out: {s}", .{ tool.name, problem })),
+            .problem => |problem| client.report(try slot.arena.print("The MCP tool {s} is left out: {s}", .{ tool.name, problem })),
             .headers => |found| {
                 try remember(client, tool.*, found);
                 try kept.append(slot.arena, tool.*);

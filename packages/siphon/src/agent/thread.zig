@@ -90,7 +90,7 @@ fn begin(phase: *Phase, thread: []const u8, gathering: []const u8, gathered: sys
 fn failBefore(phase: *Phase, thread: []const u8, why: []const u8) !void {
     var writer: log.Writer = try .init(phase, thread);
     if ((try threads.takeInputs(&writer)).len == 0) return phase.next(null);
-    _ = try writer.append(log.TurnEnd{ .id = try phase.mint(), .outcome = .failed, .reason = try std.fmt.allocPrint(phase.arena, "what the model is told could not be gathered: {s}", .{why}) });
+    _ = try writer.append(log.TurnEnd{ .id = try phase.mint(), .outcome = .failed, .reason = try phase.arena.print("what the model is told could not be gathered: {s}", .{why}) });
     // A turn that failed at once began and ended in the same commit.
     try threads.setRunning(&phase.changes, thread, phase.time);
     try threads.setEnded(&phase.changes, thread, .failed, phase.time);

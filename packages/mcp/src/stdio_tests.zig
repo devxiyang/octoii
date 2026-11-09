@@ -12,23 +12,24 @@ const server_path = @import("test_options").example_stdio_server;
 /// A client of the example server in a child process, and what it wrote to its stderr.
 const Connected = struct { client: *Client, stderr: *std.ArrayList([]const u8) };
 
-fn connected(a: Allocator, host: *const transport_.Host, eras: []const u8, env: []const [2][]const u8) !Connected {
-    const stderr = try a.create(std.ArrayList([]const u8));
+fn connected(arena: Allocator, host: *const transport_.Host, eras: []const u8, env: []const [2][]const u8) !Connected {
+    const stderr = try arena.create(std.ArrayList([]const u8));
     stderr.* = .empty;
-    var slot: failure_.Slot = .{ .arena = a };
-    const child = try Child.start(a, host.io, &slot, .{
+    var slot: failure_.Slot = .{ .arena = arena };
+    const child = try Child.start(arena, host.io, &slot, .{
         .command = server_path,
         .args = &.{eras},
         .env = env,
         .stderr = .{ .context = stderr, .line = struct {
             fn line(context: *anyopaque, text: []const u8) void {
                 const lines: *std.ArrayList([]const u8) = @ptrCast(@alignCast(context));
-                lines.append(std.heap.page_allocator, std.heap.page_allocator.dupe(u8, text) catch return) catch {};
+                lines.ensureUnusedCapacity(std.heap.page_allocator, 1) catch return;
+                lines.appendAssumeCapacity(std.heap.page_allocator.dupe(u8, text) catch return);
             }
         }.line },
     });
-    const stdio = try stdio_.Stdio.start(a, host, &slot, child.process());
-    const made = try Client.connect(a, a, .{ .host = host.*, .client = .{ .name = "test", .version = "1" }, .timeout_ms = 5000, .probe_timeout_ms = 2000 }, stdio.transport());
+    const stdio = try stdio_.Stdio.start(arena, host, &slot, child.process());
+    const made = try Client.connect(arena, arena, .{ .host = host.*, .client = .{ .name = "test", .version = "1" }, .timeout_ms = 5000, .probe_timeout_ms = 2000 }, stdio.transport());
     return .{ .client = made.client, .stderr = stderr };
 }
 
@@ -37,61 +38,61 @@ fn realHost() transport_.Host {
 }
 
 test "a server in a child process is talked to a message a line, its stderr kept apart" {
-    var arena_state = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const host = realHost();
-    const given = try connected(a, &host, "both", &.{});
+    const given = try connected(arena, &host, "both", &.{});
     defer given.client.deinit();
     try std.testing.expectEqual(.modern, given.client.era().?);
     try std.testing.expectEqualStrings("Runs in a child process.", given.client.server().?.instructions.?);
-    const tools = (try given.client.allTools(a, .{})).done;
+    const tools = (try given.client.allTools(arena, .{})).done;
     try std.testing.expectEqual(@as(usize, 3), tools.len);
     try std.testing.expectEqualStrings("env", tools[0].name);
     try std.testing.expectEqualStrings("stdio server ready", given.stderr.items[0]);
 }
 
 test "a server that speaks only the session-based protocol is spoken to so over stdio" {
-    var arena_state = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const host = realHost();
-    const given = try connected(a, &host, "legacy", &.{});
+    const given = try connected(arena, &host, "legacy", &.{});
     defer given.client.deinit();
     try std.testing.expectEqual(.legacy, given.client.era().?);
-    _ = (try given.client.ping(a, .{})).done;
+    _ = (try given.client.ping(arena, .{})).done;
 }
 
 test "a server's process starts with exactly the environment it is given" {
-    var arena_state = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const host = realHost();
-    const given = try connected(a, &host, "modern", &.{.{ "ONLY_THIS", "1" }});
+    const given = try connected(arena, &host, "modern", &.{.{ "ONLY_THIS", "1" }});
     defer given.client.deinit();
-    const listed = (try given.client.callTool(a, "env", null, .{})).done;
+    const listed = (try given.client.callTool(arena, "env", null, .{})).done;
     try std.testing.expectEqualStrings("ONLY_THIS", listed.content[0].text.text);
 }
 
 test "a request over stdio is cancelled with notifications/cancelled, and the server serves the next" {
-    var arena_state = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const host = realHost();
-    const given = try connected(a, &host, "modern", &.{});
+    const given = try connected(arena, &host, "modern", &.{});
     defer given.client.deinit();
-    _ = (try given.client.callTool(a, "wait", null, .{ .timeout_ms = 50 })).failed.timeout;
-    try std.testing.expectEqual(@as(usize, 3), (try given.client.allTools(a, .{})).done.len);
+    _ = (try given.client.callTool(arena, "wait", null, .{ .timeout_ms = 50 })).failed.timeout;
+    try std.testing.expectEqual(@as(usize, 3), (try given.client.allTools(arena, .{})).done.len);
 }
 
 test "the transport closes when the server's process exits, saying so" {
-    var arena_state = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const host = realHost();
-    const given = try connected(a, &host, "modern", &.{});
+    const given = try connected(arena, &host, "modern", &.{});
     defer given.client.deinit();
-    const failed = (try given.client.callTool(a, "exit", null, .{})).failed;
+    const failed = (try given.client.callTool(arena, "exit", null, .{})).failed;
     try std.testing.expect(std.mem.endsWith(u8, failed.connection_lost, "exited with 3"));
     try std.testing.expectEqual(.closed, given.client.currentState());
 }

@@ -135,9 +135,9 @@ fn answerSchemaOf(arena: Allocator, payload: []const u8) ![]const u8 {
 }
 
 test "the answer questions take: dismissed, or each question's choices and words, one at most for a single choice" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const payload =
         \\{"questions":[{"question":"Which stack?","header":"Stack","options":[{"label":"Bun"},{"label":"Node"}]},
         \\{"question":"Which checks?","header":"Checks","options":[{"label":"lint"},{"label":"test"}],"multiple":true},
@@ -145,8 +145,8 @@ test "the answer questions take: dismissed, or each question's choices and words
     ;
     const schema = try std.json.parseFromSliceLeaky(std.json.Value, arena, try answerSchemaOf(arena, payload), .{});
     const fits = struct {
-        fn of(a: Allocator, s: std.json.Value, given: []const u8) !bool {
-            return (try typebox.problems(a, s, try std.json.parseFromSliceLeaky(std.json.Value, a, given, .{}))).len == 0;
+        fn of(call_arena: Allocator, s: std.json.Value, given: []const u8) !bool {
+            return (try typebox.problems(call_arena, s, try std.json.parseFromSliceLeaky(std.json.Value, call_arena, given, .{}))).len == 0;
         }
     };
     try std.testing.expect(try fits.of(arena, schema, "{\"dismissed\":true}"));

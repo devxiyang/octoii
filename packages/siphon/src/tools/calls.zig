@@ -153,7 +153,7 @@ fn reviewed(run: *Phase, table: *Table, input: Input, tool: ?Tool, judging: Judg
     try run.take(judging.key);
     if (mail.interrupted()) return weigh(run, table, input, tool);
     if (!std.mem.eql(u8, mail.name, Request.answered_name)) {
-        return askPerson(run, input, judging.access, judging.project, try std.fmt.allocPrint(run.arena, "the call could not be judged: {s}", .{mail.payload}));
+        return askPerson(run, input, judging.access, judging.project, try run.arena.print("the call could not be judged: {s}", .{mail.payload}));
     }
     const verdict = try foundation.json.decode(review.Verdict, run.arena, mail.payload);
     if (verdict.usage) |used| {
@@ -169,8 +169,8 @@ fn reviewed(run: *Phase, table: *Table, input: Input, tool: ?Tool, judging: Judg
     const in_a_row = countOf(entry, review.blocked_in_a_row) + 1;
     const in_all = countOf(entry, review.blocked_in_all) + 1;
     try run.changes.annotate(thread, &.{
-        .{ .name = review.blocked_in_a_row, .value = try std.fmt.allocPrint(run.arena, "{d}", .{in_a_row}) },
-        .{ .name = review.blocked_in_all, .value = try std.fmt.allocPrint(run.arena, "{d}", .{in_all}) },
+        .{ .name = review.blocked_in_a_row, .value = try run.arena.print("{d}", .{in_a_row}) },
+        .{ .name = review.blocked_in_all, .value = try run.arena.print("{d}", .{in_all}) },
     });
     if (in_a_row >= review.in_a_row_max or in_all >= review.in_all_max) return askPerson(run, input, judging.access, judging.project, verdict.reason);
     return endNoted(run, .rejected, try review.blockedNote(run.arena, verdict.reason));
@@ -193,7 +193,7 @@ fn permitted(run: *Phase, input: Input, tool: ?Tool, asked: Permitting) !void {
     const answer = try foundation.json.decode(permissions.Answer, run.arena, mail.payload);
     switch (answer.reply) {
         .reject => {
-            const told = if (answer.message) |message| try std.fmt.allocPrint(run.arena, "the person rejected this call: {s}", .{message}) else "the person rejected this call";
+            const told = if (answer.message) |message| try run.arena.print("the person rejected this call: {s}", .{message}) else "the person rejected this call";
             return endNoted(run, .rejected, told);
         },
         // A thread of no project has nothing to grant always: the call goes ahead once.

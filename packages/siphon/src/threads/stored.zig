@@ -122,9 +122,9 @@ fn nameOf(ref: []const u8) ![]const u8 {
 }
 
 test "a file is kept once by its content, read back by its reference, and a reference of no file refused" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const runtime = try Runtime.open(std.testing.allocator, .{ .io = std.testing.io, .device = .memory }, .{});
     defer runtime.close();
     const ref = try put(runtime, arena, "\x89PNG\r\n\x1a\nbytes");

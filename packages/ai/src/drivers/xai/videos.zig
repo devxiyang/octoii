@@ -51,14 +51,14 @@ pub fn wireRequest(call: *Call, model: *const Model, request: videos.VideoReques
     for (request.input_references orelse &.{}, 0..) |given, index| switch (given) {
         .video => return call.failWith(.invalid_request, "The model {s} takes no video reference: give images or audio as references", .{reference}),
         .image => |image| {
-            try media.checkImageType(call, image.image_url.url, image.octoii, try std.fmt.allocPrint(arena, "The input_references[{d}]", .{index}));
+            try media.checkImageType(call, image.image_url.url, image.octoii, try arena.print("The input_references[{d}]", .{index}));
             try images.append(arena, .{ .url = image.image_url.url orelse "" });
         },
         .audio => |audio| try audios.append(arena, .{ .url = audio.audio_url.url orelse "" }),
     };
     var body: Body = .{ .model = model.id, .prompt = request.prompt, .duration = request.duration, .resolution = request.resolution, .aspect_ratio = request.aspect_ratio, .generate_audio = request.generate_audio, .user = request.user };
     for (request.frame_images orelse &.{}, 0..) |frame, index| {
-        try media.checkImageType(call, frame.image_url.url, frame.octoii, try std.fmt.allocPrint(arena, "The frame_images[{d}]", .{index}));
+        try media.checkImageType(call, frame.image_url.url, frame.octoii, try arena.print("The frame_images[{d}]", .{index}));
         const at: Reference = .{ .url = frame.image_url.url orelse "" };
         switch (frame.frame_type) {
             .first_frame => if (body.image == null) {
@@ -97,7 +97,7 @@ const Video = struct {
 
 /// How the job `id` stands, as xAI says; a job xAI no longer keeps fails as `invalid_request`.
 fn retrieved(call: *Call, id: []const u8) Error!Video {
-    const path = try std.fmt.allocPrint(call.arena, "/videos/{f}", .{std.fmt.alt(std.Uri.Component{ .raw = id }, .formatEscaped)});
+    const path = try call.arena.print("/videos/{f}", .{std.fmt.alt(std.Uri.Component{ .raw = id }, .formatEscaped)});
     const response = media.send(call, .{ .method = .GET, .path = path, .accept = "application/json" }) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         error.Failed => return shared.goneAsInvalid(call, &.{ 404, 410 }, "xAI no longer keeps the video job {s}: download a video once its job completes", .{id}),
@@ -125,7 +125,7 @@ fn videoJob(arena: Allocator, reference: []const u8, id: []const u8, video: Vide
         .failed => {
             job.status = .failed;
             const given = video.@"error";
-            job.@"error" = if (given) |raised| try std.fmt.allocPrint(arena, "{s}: {s}", .{ raised.code, raised.message }) else "The video failed without saying why";
+            job.@"error" = if (given) |raised| try arena.print("{s}: {s}", .{ raised.code, raised.message }) else "The video failed without saying why";
             const lowered = if (given) |raised| try std.ascii.allocLowerString(arena, raised.message) else "";
             const moderated = std.mem.indexOf(u8, lowered, "moderat") != null or std.mem.indexOf(u8, lowered, "content polic") != null or std.mem.indexOf(u8, lowered, "safety") != null;
             const kind: Kind = if (given == null) .server else if (moderated) .content_filter else kinds.get(given.?.code) orelse .server;

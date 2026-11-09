@@ -315,9 +315,9 @@ fn programsOf(arena: Allocator, parsed: Parsed) ![]const []const u8 {
 }
 
 test "a line's simple commands come with the variables they set, their programs and their words unquoted" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const parsed = try parse(arena, "FOO=1 git commit -m \"fix: it's \\$done\" 'single' esc\\ aped a\"b\"'c' && npm test | tee out.log; echo hi &");
     try std.testing.expectEqualDeep(@as([]const []const u8, &.{ "git", "npm", "tee", "echo" }), try programsOf(arena, parsed));
     const git = parsed.commands[0];
@@ -342,9 +342,9 @@ test "a line's simple commands come with the variables they set, their programs 
 }
 
 test "a redirection binds as bash binds it: after a list or a pipeline to its last statement, else to all it runs" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const listed = try parse(arena, "npm install x && git push origin main 2>&1 | tee build.log > out.txt");
     try std.testing.expectEqual(@as(usize, 0), listed.commands[0].redirections.len);
     try std.testing.expectEqualStrings("2", listed.commands[1].redirections[0].descriptor);
@@ -376,9 +376,9 @@ test "a redirection binds as bash binds it: after a list or a pipeline to its la
 }
 
 test "a line no reading knows says why: a syntax error, a substitution, a function, a program an expansion names" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const lines = [_]struct { []const u8, Unknowable }{
         .{ "echo 'unclosed", .syntax_error },
         .{ "cat <<'EOF' a && rm -rf x\nEOF\n", .syntax_error },

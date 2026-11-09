@@ -143,28 +143,28 @@ pub fn numberOf(value: Value) ?f64 {
 }
 
 test "a tool's result is read, and one that does not fit is a protocol violation" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    var slot: Slot = .{ .arena = a };
-    const good = try std.json.parseFromSliceLeaky(Value, a, "{\"content\":[{\"type\":\"text\",\"text\":\"hi\"},{\"type\":\"resource\",\"resource\":{\"uri\":\"u\",\"blob\":\"AA==\"}}],\"structuredContent\":{\"n\":1}}", .{});
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var slot: Slot = .{ .arena = arena };
+    const good = try std.json.parseFromSliceLeaky(Value, arena, "{\"content\":[{\"type\":\"text\",\"text\":\"hi\"},{\"type\":\"resource\",\"resource\":{\"uri\":\"u\",\"blob\":\"AA==\"}}],\"structuredContent\":{\"n\":1}}", .{});
     const result = try callToolResult(&slot, good.object);
     try std.testing.expectEqualStrings("hi", result.content[0].text.text);
     try std.testing.expectEqualStrings("AA==", result.content[1].resource.resource.blob.blob);
-    const bad = try std.json.parseFromSliceLeaky(Value, a, "{\"content\":[{\"type\":\"video\"}]}", .{});
+    const bad = try std.json.parseFromSliceLeaky(Value, arena, "{\"content\":[{\"type\":\"video\"}]}", .{});
     try std.testing.expectError(error.Failed, callToolResult(&slot, bad.object));
     try std.testing.expectEqualStrings("A tool result's content is not a list of content blocks", slot.failure.?.protocol);
 }
 
 test "an elicitation is a flat form or a link, a form when it names no mode" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    var slot: Slot = .{ .arena = a };
-    const form = try std.json.parseFromSliceLeaky(Value, a, "{\"message\":\"Name?\",\"requestedSchema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required\":[\"name\"]}}", .{});
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var slot: Slot = .{ .arena = arena };
+    const form = try std.json.parseFromSliceLeaky(Value, arena, "{\"message\":\"Name?\",\"requestedSchema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required\":[\"name\"]}}", .{});
     try std.testing.expectEqualStrings("Name?", (try elicitRequest(&slot, form)).form.message);
-    const link = try std.json.parseFromSliceLeaky(Value, a, "{\"mode\":\"url\",\"message\":\"Sign in\",\"url\":\"https://example.com/a\"}", .{});
+    const link = try std.json.parseFromSliceLeaky(Value, arena, "{\"mode\":\"url\",\"message\":\"Sign in\",\"url\":\"https://example.com/a\"}", .{});
     try std.testing.expectEqualStrings("https://example.com/a", (try elicitRequest(&slot, link)).url.url);
-    const nested = try std.json.parseFromSliceLeaky(Value, a, "{\"message\":\"m\",\"requestedSchema\":{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"object\"}}}}", .{});
+    const nested = try std.json.parseFromSliceLeaky(Value, arena, "{\"message\":\"m\",\"requestedSchema\":{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"object\"}}}}", .{});
     try std.testing.expectError(error.Failed, elicitRequest(&slot, nested));
 }

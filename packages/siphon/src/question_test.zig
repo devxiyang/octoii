@@ -18,9 +18,9 @@ const asked =
 ;
 
 test "a question waits on the person, refuses an answer that does not fit, and tells the model what they chose and wrote" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{
         try testing.streamed(arena, &.{testing.call("c1", "question", asked)}), try testing.message(arena, "Bun it is."),
         try testing.streamed(arena, &.{testing.call("c2", "question", asked)}), try testing.message(arena, "I will pick for you."),

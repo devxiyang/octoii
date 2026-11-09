@@ -16,7 +16,7 @@ pub const session_path = "/api/auth/session";
 /// The name of the cookie a browser holds its session in at the node of `port`: a browser keeps one set of cookies for
 /// a host whatever its port, so each port's node names its own.
 pub fn cookieName(arena: Allocator, port: u16) ![]const u8 {
-    return std.fmt.allocPrint(arena, "octoii_session_{d}", .{port});
+    return arena.print("octoii_session_{d}", .{port});
 }
 
 /// Who a request's client is, as the way it came tells, read before its body, which takes its fields' memory over.
@@ -118,9 +118,9 @@ pub fn answerSession(arena: Allocator, request: *Request, access: Access, client
         return answerJson(request, .bad_request, "{\"code\":\"invalid\",\"message\":\"The body is not a pairing's.\"}", null);
     const made = try access.redeem(arena, std.mem.trim(u8, given.credential, " \t\r\n"), client.holder, client.agent) orelse
         return answerJson(request, .unauthorized, "{\"code\":\"invalid-credential\",\"message\":\"The pairing link is unknown, spent or expired.\"}", null);
-    const answer = try std.fmt.allocPrint(arena, "{{\"authenticated\":true,\"session\":\"{s}\",\"expires_at\":{d}}}", .{ made.id, made.expires_at });
+    const answer = try arena.print("{{\"authenticated\":true,\"session\":\"{s}\",\"expires_at\":{d}}}", .{ made.id, made.expires_at });
     return switch (client.holder) {
-        .cookie => answerJson(request, .ok, answer, try std.fmt.allocPrint(arena, "{s}={s}; HttpOnly; SameSite=Strict; Path=/; Max-Age={d}", .{ cookie, made.credential, @divTrunc(Access.session_ms, std.time.ms_per_s) })),
+        .cookie => answerJson(request, .ok, answer, try arena.print("{s}={s}; HttpOnly; SameSite=Strict; Path=/; Max-Age={d}", .{ cookie, made.credential, @divTrunc(Access.session_ms, std.time.ms_per_s) })),
         .bearer, .key => answerJson(request, .ok, answer, null),
     };
 }
@@ -167,9 +167,9 @@ fn answerOf(arena: Allocator, access: Access, sent: []const u8, answer: []u8) ![
 }
 
 test "a request's credential is its bearer token, else its session cookie; a page of another origin is told apart" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var unused: [1]u8 = undefined;
     var request: Sent = undefined;
     try request.init("GET /ws HTTP/1.1\r\nhost: 127.0.0.1:7600\r\norigin: http://127.0.0.1:7600\r\ncookie: other=1; octoii_session_7600=abc.def; x=y\r\nuser-agent: Firefox\r\n\r\n", &unused);
@@ -187,13 +187,13 @@ test "a request's credential is its bearer token, else its session cookie; a pag
 test "a page pairs its browser with a link's credential once: a session in an HttpOnly cookie, and nothing for another origin" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const access = try Access.open(std.testing.io, arena, try tmp.dir.realPathFileAlloc(std.testing.io, ".", arena));
     const link = try access.makeLink(arena, null, Access.all_scopes);
-    const body = try std.fmt.allocPrint(arena, "{{\"credential\":\"{s}\"}}", .{link.credential});
-    const post = try std.fmt.allocPrint(arena, "POST /api/auth/session HTTP/1.1\r\nhost: 127.0.0.1:7600\r\norigin: http://127.0.0.1:7600\r\ncontent-type: application/json\r\ncontent-length: {d}\r\n\r\n{s}", .{ body.len, body });
+    const body = try arena.print("{{\"credential\":\"{s}\"}}", .{link.credential});
+    const post = try arena.print("POST /api/auth/session HTTP/1.1\r\nhost: 127.0.0.1:7600\r\norigin: http://127.0.0.1:7600\r\ncontent-type: application/json\r\ncontent-length: {d}\r\n\r\n{s}", .{ body.len, body });
     var buffer: [2048]u8 = undefined;
     const paired = try answerOf(arena, access, post, &buffer);
     try std.testing.expect(std.mem.startsWith(u8, paired, "HTTP/1.1 200 OK\r\n"));

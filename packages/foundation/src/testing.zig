@@ -13,10 +13,10 @@ pub fn checkAllAllocationFailures(comptime test_fn: anytype, extra_args: anytype
 
 /// Grows a list a byte at a time, in an arena, with `allocator`: what would resize in place, were it let.
 fn grow(allocator: Allocator, count: usize) !void {
-    var arena_state: std.heap.ArenaAllocator = .init(allocator);
-    defer arena_state.deinit();
+    var arena_allocator: std.heap.ArenaAllocator = .init(allocator);
+    defer arena_allocator.deinit();
     var list: std.ArrayList(u8) = .empty;
-    for (0..count) |index| try list.append(arena_state.allocator(), @truncate(index));
+    for (0..count) |index| try list.append(arena_allocator.allocator(), @truncate(index));
 }
 
 test "a function that grows an arena makes the same allocations on every run, each failure freeing what came before" {

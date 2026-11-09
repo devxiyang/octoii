@@ -30,7 +30,7 @@ fn act(context: ?*anyopaque, request: *Request) anyerror!void {
     if (response.@"error") |failure| return request.fail(failure.message);
     const words = try models.textOf(arena, response) orelse return request.fail("the judge gave no answer");
     const judged = foundation.json.decode(Judged, arena, words) catch
-        return request.fail(try std.fmt.allocPrint(arena, "the judge gave no verdict: {s}", .{words[0..@min(words.len, 200)]}));
+        return request.fail(try arena.print("the judge gave no verdict: {s}", .{words[0..@min(words.len, 200)]}));
     try request.answer(review.Verdict{ .allow = judged.allow, .reason = judged.reason, .usage = models.usageOf(response) });
 }
 
@@ -92,7 +92,7 @@ fn transcriptOf(runtime: *const Runtime, arena: Allocator, thread: []const u8) !
         const kind = (try log.headOf(arena, line)).type;
         if (std.mem.eql(u8, kind, "input")) {
             const input = try foundation.json.decode(log.Input, arena, line);
-            try lines.append(arena, try std.fmt.allocPrint(arena, "person: {s}\n", .{try wordsOf(arena, input.message)}));
+            try lines.append(arena, try arena.print("person: {s}\n", .{try wordsOf(arena, input.message)}));
         } else if (std.mem.eql(u8, kind, "reply")) {
             const reply = try foundation.json.decode(log.Reply, arena, line);
             const response = try foundation.json.decode(vocabulary.Response, arena, reply.response.text);
@@ -109,7 +109,7 @@ fn transcriptOf(runtime: *const Runtime, arena: Allocator, thread: []const u8) !
 
 /// A call's line of the transcript: its tool and its arguments.
 fn callLine(arena: Allocator, call: vocabulary.items.FunctionCall) ![]const u8 {
-    return std.fmt.allocPrint(arena, "call: {s} {s}\n", .{ call.name, call.arguments });
+    return arena.print("call: {s} {s}\n", .{ call.name, call.arguments });
 }
 
 /// `lines` within `bytes_max`: the first, then as many of the newest as fit with it, in their order.
@@ -137,9 +137,9 @@ fn wordsOf(arena: Allocator, message: vocabulary.items.InputMessage) ![]const u8
 }
 
 test "a transcript keeps the person's first words and as many of the newest lines as fit" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const lines = [_][]const u8{ "person: fix it\n", "call: a\n", "call: b\n", "call: c\n" };
     try std.testing.expectEqualStrings("person: fix it\ncall: a\ncall: b\ncall: c\n", try keptWithin(arena, &lines, 1024));
     try std.testing.expectEqualStrings("person: fix it\n…\ncall: b\ncall: c\n", try keptWithin(arena, &lines, 31));

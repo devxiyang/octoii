@@ -118,6 +118,6 @@ pub fn audioMediaType(arena: std.mem.Allocator, content_type: ?[]const u8, asked
     const lowered = try std.ascii.allocLowerString(arena, given);
     const after = if (std.mem.indexOf(u8, lowered, "rate=")) |found| given[found + "rate=".len ..] else "";
     const rate = after[0 .. std.mem.indexOfNone(u8, after, "0123456789") orelse after.len];
-    if (rate.len > 0) return std.fmt.allocPrint(arena, "audio/pcm;rate={s}", .{rate});
-    return std.fmt.allocPrint(arena, "audio/pcm;rate={d}", .{rate_hz});
+    if (rate.len > 0) return arena.print("audio/pcm;rate={s}", .{rate});
+    return arena.print("audio/pcm;rate={d}", .{rate_hz});
 }

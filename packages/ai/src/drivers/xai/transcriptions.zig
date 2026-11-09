@@ -76,8 +76,8 @@ fn recordingField(call: *Call, audio: transcriptions.TranscriptionAudio) Error!m
             const bytes = try call.arena.alloc(u8, size);
             decoder.decode(bytes, given.data) catch return call.failWith(.invalid_request, "The input_audio's data is not base64", .{});
             const named = std.StaticStringMap([]const u8).initComptime(.{ .{ "mp3", "audio/mpeg" }, .{ "m4a", "audio/mp4" }, .{ "mulaw", "audio/basic" } });
-            const media_type = (if (given.octoii) |extension| extension.media_type else null) orelse named.get(given.format) orelse try std.fmt.allocPrint(call.arena, "audio/{s}", .{given.format});
-            return .{ .name = "file", .filename = try std.fmt.allocPrint(call.arena, "audio.{s}", .{given.format}), .content_type = media_type, .data = bytes };
+            const media_type = (if (given.octoii) |extension| extension.media_type else null) orelse named.get(given.format) orelse try call.arena.print("audio/{s}", .{given.format});
+            return .{ .name = "file", .filename = try call.arena.print("audio.{s}", .{given.format}), .content_type = media_type, .data = bytes };
         },
     }
 }

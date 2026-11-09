@@ -171,10 +171,11 @@ pub fn open(allocator: Allocator, host: Host, options: Options) !*Runtime {
     try beak.check(h.beak_events_open(&set));
     errdefer _ = h.beak_close(set);
     try beak.check(h.beak_events_add(set, volume.handle));
-    var arena_state: std.heap.ArenaAllocator = .init(allocator);
-    defer arena_state.deinit();
-    const latest = (try volume.journal(&arena_state.allocator(), 0, 0)).latest;
+    var arena_allocator: std.heap.ArenaAllocator = .init(allocator);
+    defer arena_allocator.deinit();
+    const latest = (try volume.journal(&arena_allocator.allocator(), 0, 0)).latest;
     const inbox_buffer = try allocator.alloc(Work, inbox_max);
+    errdefer allocator.free(inbox_buffer);
     runtime.* = .{
         .allocator = allocator,
         .host = host,
@@ -260,6 +261,7 @@ const Published = struct {
         const bytes = try std.mem.concat(allocator, u8, &.{ topic, key, data });
         errdefer allocator.free(bytes);
         const published = try allocator.create(Published);
+        errdefer allocator.destroy(published);
         published.* = .{ .runtime = runtime, .bytes = bytes, .topic = bytes[0..topic.len], .key = bytes[topic.len..][0..key.len], .data = bytes[topic.len + key.len ..] };
         return published;
     }
@@ -433,9 +435,9 @@ pub fn pump(runtime: *Runtime) !Pumped {
     var dispatched: h.beak_dispatched = undefined;
     try beak.check(h.beak_volume_dispatch(runtime.volume.handle, runtime.time, runtime.budget, &dispatched));
     const took = runtime.takeInbox();
-    var arena_state: std.heap.ArenaAllocator = .init(runtime.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(runtime.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const allocator = beak.outputs(&arena);
     var events: [*c]h.beak_event = null;
     var count: usize = 0;
@@ -606,22 +608,13 @@ fn reap(runtime: *Runtime) void {
 
 /// Starts `job` in a task of its own, from the loop; one that cannot start is dropped, and why told.
 pub fn spawn(runtime: *Runtime, job: Job) error{ OutOfMemory, ConcurrencyUnavailable }!void {
-    const running = runtime.allocator.create(Running) catch |err| {
-        job.drop(job.context);
-        return err;
-    };
+    errdefer job.drop(job.context);
+    const running = try runtime.allocator.create(Running);
+    errdefer runtime.allocator.destroy(running);
     running.* = .{ .job = job, .task = .{ .runtime = runtime } };
-    runtime.jobs.append(runtime.allocator, running) catch |err| {
-        runtime.allocator.destroy(running);
-        job.drop(job.context);
-        return err;
-    };
-    running.task.start(runJob, .{running}) catch |err| {
-        _ = runtime.jobs.pop();
-        runtime.allocator.destroy(running);
-        job.drop(job.context);
-        return err;
-    };
+    try runtime.jobs.append(runtime.allocator, running);
+    errdefer _ = runtime.jobs.pop();
+    try running.task.start(runJob, .{running});
 }
 
 fn runJob(running: *Running) void {
@@ -630,9 +623,9 @@ fn runJob(running: *Running) void {
 
 /// Answers the request `made` tells of, as no task acts on it, with mail named `name` carrying `payload`.
 fn answerWith(runtime: *Runtime, made: *const h.beak_event, name: []const u8, payload: []const u8) void {
-    var arena_state: std.heap.ArenaAllocator = .init(runtime.allocator);
-    defer arena_state.deinit();
-    var changes: Changes = .{ .arena = arena_state.allocator() };
+    var arena_allocator: std.heap.ArenaAllocator = .init(runtime.allocator);
+    defer arena_allocator.deinit();
+    var changes: Changes = .{ .arena = arena_allocator.allocator() };
     changes.answer(beak.slice(made.process), made.started, beak.slice(made.key), name, payload) catch return;
     _ = runtime.commit(&changes) catch |failure| {
         log.warn("the request {s} of {s} went unanswered: {s}", .{ beak.slice(made.key), beak.slice(made.process), @errorName(failure) });
@@ -644,16 +637,16 @@ fn answerWith(runtime: *Runtime, made: *const h.beak_event, name: []const u8, pa
 fn runPhase(context: ?*anyopaque, run: [*c]const h.beak_run, arena: [*c]const h.beak_allocator, out: [*c]h.beak_phase_out) callconv(.c) h.beak_status {
     const registered: *Registered = @ptrCast(@alignCast(context.?));
     const given = run.*;
-    const allocator = beak.allocatorOf(arena);
+    const phase_arena = beak.allocatorOf(arena);
     var phase: Phase = .{
-        .arena = allocator,
+        .arena = phase_arena,
         .runtime = registered.runtime,
-        .path = allocator.dupe(u8, beak.slice(given.path)) catch return h.BEAK_OUT_OF_MEMORY,
+        .path = phase_arena.dupe(u8, beak.slice(given.path)) catch return h.BEAK_OUT_OF_MEMORY,
         .input = beak.slice(given.input),
         .checkpoint = beak.slice(given.checkpoint),
         .stop_handler = given.stop_handler,
         .time = registered.runtime.time,
-        .changes = .{ .arena = allocator },
+        .changes = .{ .arena = phase_arena },
     };
     registered.program.phase(registered.program.context, &phase) catch |err| {
         out.* = .{ .changes = null, .count = 0, .ending = Phase.endingOf(h.BEAK_ENDING_THREW, @errorName(err)) };

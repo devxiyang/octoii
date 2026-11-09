@@ -107,5 +107,5 @@ fn listingOf(call: *Call) Error!?Listing {
 fn modelsUrl(call: *Call) Error![]const u8 {
     const base = call.provider.settings.base_url orelse
         return call.failWith(.invalid_request, "A provider of a Chat Completions server names where the server is, its base_url", .{});
-    return std.fmt.allocPrint(call.arena, "{s}/models", .{base});
+    return call.arena.print("{s}/models", .{base});
 }

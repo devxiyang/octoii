@@ -45,7 +45,7 @@ const Documents = struct {
 const resource_document = "{\"resource\":\"https://mcp.example/mcp\",\"authorization_servers\":[\"https://auth.example\"],\"scopes_supported\":[\"tools\",\"read\"]}";
 
 fn serverDocument(arena: Allocator, extra: []const u8) ![]const u8 {
-    return std.fmt.allocPrint(arena, "{{\"issuer\":\"https://auth.example\",\"authorization_endpoint\":\"https://auth.example/authorize\",\"token_endpoint\":\"https://auth.example/token\",\"code_challenge_methods_supported\":[\"S256\"]{s}}}", .{extra});
+    return arena.print("{{\"issuer\":\"https://auth.example\",\"authorization_endpoint\":\"https://auth.example/authorize\",\"token_endpoint\":\"https://auth.example/token\",\"code_challenge_methods_supported\":[\"S256\"]{s}}}", .{extra});
 }
 
 fn metadata(arena: Allocator, extra: []const u8) !oauth.AuthorizationServerMetadata {
@@ -54,88 +54,88 @@ fn metadata(arena: Allocator, extra: []const u8) !oauth.AuthorizationServerMetad
 }
 
 test "a Bearer challenge is read, its quoted values unescaped" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const challenge = try oauth.parseWwwAuthenticate(a, "Basic realm=\"x\", Bearer resource_metadata=\"https://mcp.example/.well-known/oauth-protected-resource/mcp\", scope=\"tools read\", error=insufficient_scope, error_description=\"needs \\\"read\\\"\"");
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const challenge = try oauth.parseWwwAuthenticate(arena, "Basic realm=\"x\", Bearer resource_metadata=\"https://mcp.example/.well-known/oauth-protected-resource/mcp\", scope=\"tools read\", error=insufficient_scope, error_description=\"needs \\\"read\\\"\"");
     try std.testing.expectEqualStrings("https://mcp.example/.well-known/oauth-protected-resource/mcp", challenge.resource_metadata.?);
     try std.testing.expectEqualStrings("tools read", challenge.scope.?);
     try std.testing.expectEqualStrings("insufficient_scope", challenge.@"error".?);
     try std.testing.expectEqualStrings("needs \"read\"", challenge.error_description.?);
-    try std.testing.expectEqual(null, (try oauth.parseWwwAuthenticate(a, "Basic realm=\"x\"")).scope);
+    try std.testing.expectEqual(null, (try oauth.parseWwwAuthenticate(arena, "Basic realm=\"x\"")).scope);
 }
 
 test "metadata is looked for where the challenge names, else at the path's then the root's well-known address, and an issuer's in the specification's order" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const found = try oauth.protectedResourceMetadataUrls(a, mcp_url, .{});
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const found = try oauth.protectedResourceMetadataUrls(arena, mcp_url, .{});
     try std.testing.expectEqualStrings("https://mcp.example/.well-known/oauth-protected-resource/mcp", found[0]);
     try std.testing.expectEqualStrings("https://mcp.example/.well-known/oauth-protected-resource", found[1]);
-    try std.testing.expectEqualStrings("https://x/y", (try oauth.protectedResourceMetadataUrls(a, mcp_url, .{ .resource_metadata = "https://x/y" }))[0]);
-    const tenant = try oauth.authorizationServerMetadataUrls(a, "https://auth.example/tenant");
+    try std.testing.expectEqualStrings("https://x/y", (try oauth.protectedResourceMetadataUrls(arena, mcp_url, .{ .resource_metadata = "https://x/y" }))[0]);
+    const tenant = try oauth.authorizationServerMetadataUrls(arena, "https://auth.example/tenant");
     try std.testing.expectEqualStrings("https://auth.example/.well-known/oauth-authorization-server/tenant", tenant[0]);
     try std.testing.expectEqualStrings("https://auth.example/.well-known/openid-configuration/tenant", tenant[1]);
     try std.testing.expectEqualStrings("https://auth.example/tenant/.well-known/openid-configuration", tenant[2]);
-    try std.testing.expectEqual(@as(usize, 2), (try oauth.authorizationServerMetadataUrls(a, issuer)).len);
+    try std.testing.expectEqual(@as(usize, 2), (try oauth.authorizationServerMetadataUrls(arena, issuer)).len);
 }
 
 test "discovery follows the well-known addresses to an OpenID Connect document, and refuses another issuer or no PKCE" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    var documents: Documents = .{ .arena = a, .documents = &.{
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var documents: Documents = .{ .arena = arena, .documents = &.{
         .{ "https://mcp.example/.well-known/oauth-protected-resource", resource_document },
-        .{ "https://auth.example/.well-known/openid-configuration", try serverDocument(a, ",\"registration_endpoint\":\"https://auth.example/register\"") },
+        .{ "https://auth.example/.well-known/openid-configuration", try serverDocument(arena, ",\"registration_endpoint\":\"https://auth.example/register\"") },
     } };
-    var slot: Slot = .{ .arena = a };
+    var slot: Slot = .{ .arena = arena };
     const found = try oauth.discover(documents.network(), &slot, mcp_url, .{});
     try std.testing.expectEqualStrings("https://auth.example/register", found.server.registration_endpoint.?);
     try std.testing.expectEqual(@as(usize, 4), documents.asked.items.len);
-    const other = try std.json.parseFromSliceLeaky(Value, a, "{\"issuer\":\"https://evil.example\"}", .{});
+    const other = try std.json.parseFromSliceLeaky(Value, arena, "{\"issuer\":\"https://evil.example\"}", .{});
     try std.testing.expectError(error.Failed, oauth.parseAuthorizationServerMetadata(&slot, other, issuer));
     try std.testing.expectEqual(.issuer, slot.failure.?.oauth.kind);
-    const plain = try std.json.parseFromSliceLeaky(Value, a, "{\"issuer\":\"https://auth.example\",\"authorization_endpoint\":\"a\",\"token_endpoint\":\"t\",\"code_challenge_methods_supported\":[\"plain\"]}", .{});
+    const plain = try std.json.parseFromSliceLeaky(Value, arena, "{\"issuer\":\"https://auth.example\",\"authorization_endpoint\":\"a\",\"token_endpoint\":\"t\",\"code_challenge_methods_supported\":[\"plain\"]}", .{});
     try std.testing.expectError(error.Failed, oauth.parseAuthorizationServerMetadata(&slot, plain, issuer));
     try std.testing.expectEqual(.pkce, slot.failure.?.oauth.kind);
-    const elsewhere = try std.json.parseFromSliceLeaky(Value, a, "{\"resource\":\"https://other.example/mcp\",\"authorization_servers\":[\"https://auth.example\"]}", .{});
+    const elsewhere = try std.json.parseFromSliceLeaky(Value, arena, "{\"resource\":\"https://other.example/mcp\",\"authorization_servers\":[\"https://auth.example\"]}", .{});
     try std.testing.expectError(error.Failed, oauth.parseProtectedResourceMetadata(&slot, elsewhere, mcp_url));
 }
 
 test "the challenge's scopes are asked for, else the resource's, and scopes are joined for step-up" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const resource: oauth.ProtectedResourceMetadata = .{ .resource = mcp_url, .authorization_servers = &.{issuer}, .scopes_supported = &.{ "tools", "read" } };
-    try std.testing.expectEqualStrings("write", (try oauth.selectScope(a, .{ .scope = "write" }, resource)).?);
-    try std.testing.expectEqualStrings("tools read", (try oauth.selectScope(a, .{}, resource)).?);
-    try std.testing.expectEqual(null, try oauth.selectScope(a, .{}, null));
-    try std.testing.expectEqualStrings("tools read write", (try oauth.stepUpScope(a, "tools read", "read write")).?);
+    try std.testing.expectEqualStrings("write", (try oauth.selectScope(arena, .{ .scope = "write" }, resource)).?);
+    try std.testing.expectEqualStrings("tools read", (try oauth.selectScope(arena, .{}, resource)).?);
+    try std.testing.expectEqual(null, try oauth.selectScope(arena, .{}, null));
+    try std.testing.expectEqualStrings("tools read write", (try oauth.stepUpScope(arena, "tools read", "read write")).?);
 }
 
 test "the client is chosen in order: pre-registered, a metadata document the server takes, then dynamic registration" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    var slot: Slot = .{ .arena = a };
-    const both = try metadata(a, ",\"registration_endpoint\":\"https://auth.example/register\",\"client_id_metadata_document_supported\":true");
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var slot: Slot = .{ .arena = arena };
+    const both = try metadata(arena, ",\"registration_endpoint\":\"https://auth.example/register\",\"client_id_metadata_document_supported\":true");
     try std.testing.expectEqual(.pre_registered, try oauth.chooseRegistration(&slot, both, true, null));
     try std.testing.expectEqual(.metadata_document, try oauth.chooseRegistration(&slot, both, false, "https://app.example/client.json"));
     try std.testing.expectEqual(.dynamic, try oauth.chooseRegistration(&slot, both, false, "https://app.example/"));
-    try std.testing.expectError(error.Failed, oauth.chooseRegistration(&slot, try metadata(a, ""), false, null));
+    try std.testing.expectError(error.Failed, oauth.chooseRegistration(&slot, try metadata(arena, ""), false, null));
     try std.testing.expectEqual(.client, slot.failure.?.oauth.kind);
 }
 
 test "a client registers dynamically with the application type of its redirect URIs" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    var slot: Slot = .{ .arena = a };
-    const server = try metadata(a, ",\"registration_endpoint\":\"https://auth.example/register\"");
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var slot: Slot = .{ .arena = arena };
+    const server = try metadata(arena, ",\"registration_endpoint\":\"https://auth.example/register\"");
     const request = try oauth.registrationRequest(&slot, server, .{ .client_name = "Octoii", .redirect_uris = &.{redirect} });
     try std.testing.expectEqualStrings("https://auth.example/register", request.url);
     try std.testing.expect(std.mem.indexOf(u8, request.body.?, "\"application_type\":\"native\"") != null);
-    try std.testing.expectEqual(.web, oauth.applicationType(a, &.{"https://app.example/callback"}));
+    try std.testing.expectEqual(.web, oauth.applicationType(arena, &.{"https://app.example/callback"}));
     const client = try oauth.parseRegistrationResponse(&slot, 201, "{\"client_id\":\"c1\",\"client_secret\":\"s1\"}");
     try std.testing.expectEqualStrings("c1", client.client_id);
     try std.testing.expectError(error.Failed, oauth.parseRegistrationResponse(&slot, 400, "{\"error\":\"invalid_redirect_uri\"}"));
@@ -143,24 +143,24 @@ test "a client registers dynamically with the application type of its redirect U
 }
 
 test "a sign-in's link carries PKCE, state and the resource, the endpoint's own query kept, and its state is 32 bytes in hex" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const state = try oauth.randomState(a, &@as([32]u8, @splat(0xab)));
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const state = try oauth.randomState(arena, &@as([32]u8, @splat(0xab)));
     try std.testing.expectEqual(@as(usize, 64), state.len);
-    var server = try metadata(a, "");
+    var server = try metadata(arena, "");
     server.authorization_endpoint = "https://auth.example/authorize?tenant=t1";
-    const link = try oauth.authorizationUrl(a, server, .{ .client_id = "c1", .redirect_uri = redirect, .state = "s", .code_challenge = "ch", .resource = mcp_url, .scope = "tools read" });
+    const link = try oauth.authorizationUrl(arena, server, .{ .client_id = "c1", .redirect_uri = redirect, .state = "s", .code_challenge = "ch", .resource = mcp_url, .scope = "tools read" });
     try std.testing.expectEqualStrings("https://auth.example/authorize?tenant=t1&response_type=code&client_id=c1&redirect_uri=http%3A%2F%2F127.0.0.1%3A4100%2Fcallback&code_challenge=ch&code_challenge_method=S256&state=s&resource=https%3A%2F%2Fmcp.example%2Fmcp&scope=tools+read", link);
-    try std.testing.expectEqualStrings("https://mcp.example", try oauth.canonicalResource(a, "https://mcp.example/"));
-    try std.testing.expectEqualStrings("https://mcp.example/mcp?x=1", try oauth.canonicalResource(a, "https://mcp.example/mcp?x=1#part"));
+    try std.testing.expectEqualStrings("https://mcp.example", try oauth.canonicalResource(arena, "https://mcp.example/"));
+    try std.testing.expectEqualStrings("https://mcp.example/mcp?x=1", try oauth.canonicalResource(arena, "https://mcp.example/mcp?x=1#part"));
 }
 
 test "a callback for another sign-in, or from another issuer, is refused without acting on its error" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    var slot: Slot = .{ .arena = a };
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var slot: Slot = .{ .arena = arena };
     const expected: oauth.CallbackExpectation = .{ .state = "s", .issuer = issuer, .iss_parameter_supported = true };
     try std.testing.expectEqualStrings("code1", try oauth.checkCallback(&slot, &.{ .{ "state", "s" }, .{ "iss", issuer }, .{ "code", "code1" } }, expected));
     try std.testing.expectError(error.Failed, oauth.checkCallback(&slot, &.{ .{ "state", "other" }, .{ "error", "access_denied" } }, expected));
@@ -172,14 +172,14 @@ test "a callback for another sign-in, or from another issuer, is refused without
 }
 
 test "tokens are exchanged as a public client or with Basic, refreshed keeping a refresh token not rotated, and revoked refresh token first" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    var slot: Slot = .{ .arena = a };
-    var server = try metadata(a, "");
-    const public = try oauth.tokenRequest(a, server, .{ .client_id = "c1" }, .{ .code = "code1", .code_verifier = "v", .redirect_uri = redirect, .resource = mcp_url });
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var slot: Slot = .{ .arena = arena };
+    var server = try metadata(arena, "");
+    const public = try oauth.tokenRequest(arena, server, .{ .client_id = "c1" }, .{ .code = "code1", .code_verifier = "v", .redirect_uri = redirect, .resource = mcp_url });
     try std.testing.expectEqualStrings("grant_type=authorization_code&code=code1&code_verifier=v&redirect_uri=http%3A%2F%2F127.0.0.1%3A4100%2Fcallback&resource=https%3A%2F%2Fmcp.example%2Fmcp&client_id=c1", public.body.?);
-    const confidential = try oauth.tokenRequest(a, server, .{ .client_id = "c1", .client_secret = "s1" }, .{ .code = "code1", .code_verifier = "v", .redirect_uri = redirect, .resource = mcp_url });
+    const confidential = try oauth.tokenRequest(arena, server, .{ .client_id = "c1", .client_secret = "s1" }, .{ .code = "code1", .code_verifier = "v", .redirect_uri = redirect, .resource = mcp_url });
     try std.testing.expectEqualStrings("Basic YzE6czE=", http.find(confidential.headers, "authorization").?);
     const tokens = try oauth.parseTokenResponse(&slot, 200, "{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\",\"expires_in\":3600}", 1000, null);
     try std.testing.expectEqual(@as(?i64, 3_601_000), tokens.expires_at);
@@ -187,9 +187,9 @@ test "tokens are exchanged as a public client or with Basic, refreshed keeping a
     try std.testing.expectEqualStrings("r1", refreshed.refresh_token.?);
     try std.testing.expectError(error.Failed, oauth.parseTokenResponse(&slot, 400, "{\"error\":\"invalid_grant\"}", 0, null));
     try std.testing.expectEqualStrings("The token endpoint answered 400: invalid_grant", slot.failure.?.oauth.message);
-    try std.testing.expectEqual(@as(usize, 0), (try oauth.revocationRequests(a, server, .{ .client_id = "c1" }, tokens)).len);
+    try std.testing.expectEqual(@as(usize, 0), (try oauth.revocationRequests(arena, server, .{ .client_id = "c1" }, tokens)).len);
     server.revocation_endpoint = "https://auth.example/revoke";
-    const revoked = try oauth.revocationRequests(a, server, .{ .client_id = "c1" }, tokens);
+    const revoked = try oauth.revocationRequests(arena, server, .{ .client_id = "c1" }, tokens);
     try std.testing.expectEqualStrings("token=r1&token_type_hint=refresh_token&client_id=c1", revoked[0].body.?);
     try std.testing.expectEqualStrings("token=a1&token_type_hint=access_token&client_id=c1", revoked[1].body.?);
 }

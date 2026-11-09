@@ -36,9 +36,9 @@ pub fn replacing(arena: Allocator, content: []const u8, was: Text) error{OutOfMe
 }
 
 test "a text file's bytes are text with its mark apart, and new text is written as the file held its own" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const marked = textOf("\xef\xbb\xbfone\r\ntwo\r\n").?;
     try std.testing.expect(marked.marked);
     try std.testing.expectEqualStrings("one\r\ntwo\r\n", marked.text);

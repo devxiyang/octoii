@@ -64,7 +64,7 @@ const Source = struct {
         const body = foundation.json.merged(.{ source.request, source.options });
         const response = try http.send(call, .{
             .method = .POST,
-            .url = try std.fmt.allocPrint(call.arena, "{s}/messages", .{call.baseUrl(base_url)}),
+            .url = try call.arena.print("{s}/messages", .{call.baseUrl(base_url)}),
             .headers = source.headers,
             .body = try foundation.json.encode(call.arena, body),
         });

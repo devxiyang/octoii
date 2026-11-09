@@ -28,9 +28,9 @@ pub fn send(call: *Call, request: Request) Error!foundation.http.Response {
     const key = try call.apiKey();
     const response = try http.send(call, .{
         .method = request.method,
-        .url = try std.fmt.allocPrint(call.arena, "{s}{s}", .{ call.baseUrl(openai.base_url), request.path }),
+        .url = try call.arena.print("{s}{s}", .{ call.baseUrl(openai.base_url), request.path }),
         .headers = &.{
-            .{ .name = "authorization", .value = try std.fmt.allocPrint(call.arena, "Bearer {s}", .{key}) },
+            .{ .name = "authorization", .value = try call.arena.print("Bearer {s}", .{key}) },
             .{ .name = "accept", .value = request.accept },
             .{ .name = "content-type", .value = request.content_type },
         },

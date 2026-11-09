@@ -54,7 +54,7 @@ pub fn liveQuery(arena: Allocator, refusal: *Refusal, model_id: []const u8, sess
     } else {
         try fields.append(arena, .{ "vad_events", "true" });
         const turn = if (input.turn_detection) |given| given.given() else null;
-        if (turn) |detection| if (detection.silence_duration_ms) |silence| try fields.append(arena, .{ "endpointing", try std.fmt.allocPrint(arena, "{d}", .{silence}) });
+        if (turn) |detection| if (detection.silence_duration_ms) |silence| try fields.append(arena, .{ "endpointing", try arena.print("{d}", .{silence}) });
     }
     const options = if (session.provider) |provider| try json.optionsOf(arena, provider.options, "deepgram") else null;
     if (try query_.appendOptions(arena, &fields, options)) |name| {
@@ -79,7 +79,7 @@ fn connect(call: *Call, model: *const Model, session: *const realtime.Session, g
     });
     return .{
         .url = try session_.socketUrl(call.arena, call.baseUrl(deepgram.base_url), "/listen", query),
-        .headers = try call.arena.dupe(foundation.http.Header, &.{.{ .name = "authorization", .value = try std.fmt.allocPrint(call.arena, "Token {s}", .{key}) }}),
+        .headers = try call.arena.dupe(foundation.http.Header, &.{.{ .name = "authorization", .value = try call.arena.print("Token {s}", .{key}) }}),
         .wire = wire.wire(),
     };
 }
@@ -97,7 +97,7 @@ const Connected = struct {
 /// How a session speaks over Deepgram's stream.
 const Wire = struct {
     gpa: Allocator,
-    strings: std.heap.ArenaAllocator,
+    strings_arena: std.heap.ArenaAllocator,
     connected: Connected,
     ids: session_.Ids = .{},
     items: items_.HeardItems,
@@ -105,14 +105,14 @@ const Wire = struct {
     fn create(gpa: Allocator, connected: Connected) Allocator.Error!*Wire {
         const made = try gpa.create(Wire);
         errdefer gpa.destroy(made);
-        made.* = .{ .gpa = gpa, .strings = .init(gpa), .connected = undefined, .items = undefined };
-        errdefer made.strings.deinit();
-        const strings = made.strings.allocator();
+        made.* = .{ .gpa = gpa, .strings_arena = .init(gpa), .connected = undefined, .items = undefined };
+        errdefer made.strings_arena.deinit();
+        const arena = made.strings_arena.allocator();
         made.connected = .{
-            .reference = try strings.dupe(u8, connected.reference),
-            .model_id = try strings.dupe(u8, connected.model_id),
-            .state = try strings.dupe(u8, connected.state),
-            .query = try strings.dupe(u8, connected.query),
+            .reference = try arena.dupe(u8, connected.reference),
+            .model_id = try arena.dupe(u8, connected.model_id),
+            .state = try arena.dupe(u8, connected.state),
+            .query = try arena.dupe(u8, connected.query),
             .ends_at_speech = connected.ends_at_speech,
         };
         made.items = .init(gpa, &made.ids);
@@ -194,7 +194,7 @@ const Wire = struct {
                 try items_.answerFixedUpdate(out, &self.ids, "Deepgram", &update.session, asked, refusal, self.connected.query);
             },
             .append => |append| {
-                const audio = try items_.audioOf(out.scratch, append.audio) orelse {
+                const audio = try items_.audioOf(out.scratch_arena, append.audio) orelse {
                     return out.give(try session_.errorEvent(out.arena, &self.ids, .invalid_request, "The audio appended is not base64", .{}));
                 };
                 self.items.sent(audio.len);
@@ -225,7 +225,7 @@ const Wire = struct {
     fn deinit(context: *anyopaque) void {
         const self = of(context);
         self.items.deinit();
-        self.strings.deinit();
+        self.strings_arena.deinit();
         self.gpa.destroy(self);
     }
 };

@@ -73,7 +73,7 @@ pub const Replay = struct {
     }
 
     fn refuse(replay: *Replay, comptime format: []const u8, arguments: anytype) transport.SendError {
-        replay.mismatch = try std.fmt.allocPrint(replay.arena, format, arguments);
+        replay.mismatch = try replay.arena.print(format, arguments);
         return error.Transport;
     }
 
@@ -133,14 +133,14 @@ pub const ChunkReader = struct {
 /// How the request sent differs from the one recorded; null where it is the same.
 fn mismatchOf(arena: Allocator, recorded: @FieldType(Exchange, "request"), sent: transport.Request) Allocator.Error!?[]const u8 {
     if (!std.ascii.eqlIgnoreCase(recorded.method, @tagName(sent.method)) or !std.mem.eql(u8, recorded.url, sent.url)) {
-        return try std.fmt.allocPrint(arena, "{t} {s} was sent where {s} {s} was recorded", .{ sent.method, sent.url, recorded.method, recorded.url });
+        return try arena.print("{t} {s} was sent where {s} {s} was recorded", .{ sent.method, sent.url, recorded.method, recorded.url });
     }
     if (recorded.headers) |headers| {
         var it = headers.map.iterator();
         while (it.next()) |header| {
             const value = transport.find(sent.headers, header.key_ptr.*);
             if (value == null or !std.mem.eql(u8, value.?, header.value_ptr.*)) {
-                return try std.fmt.allocPrint(arena, "the header {s} was {?s} where {s} was recorded", .{ header.key_ptr.*, value, header.value_ptr.* });
+                return try arena.print("the header {s} was {?s} where {s} was recorded", .{ header.key_ptr.*, value, header.value_ptr.* });
             }
         }
     }
@@ -151,23 +151,23 @@ fn mismatchOf(arena: Allocator, recorded: @FieldType(Exchange, "request"), sent:
 fn bodyMismatch(arena: Allocator, recorded: ?std.json.Value, request: transport.Request) Allocator.Error!?[]const u8 {
     const sent = request.body;
     const expected = recorded orelse {
-        if (sent) |bytes| return try std.fmt.allocPrint(arena, "a body was sent where none was recorded: {s}", .{bytes});
+        if (sent) |bytes| return try arena.print("a body was sent where none was recorded: {s}", .{bytes});
         return null;
     };
     const shown = try json.encode(arena, expected);
-    const bytes = sent orelse return try std.fmt.allocPrint(arena, "no body was sent where {s} was recorded", .{shown});
+    const bytes = sent orelse return try arena.print("no body was sent where {s} was recorded", .{shown});
     if (base64Of(expected)) |kept| {
         if (std.mem.eql(u8, try decoded(arena, kept), bytes)) return null;
         return "the body's bytes were not those recorded";
     }
     if (formOf(expected)) |fields| {
-        const form = try sentForm(arena, request) orelse return try std.fmt.allocPrint(arena, "no multipart form was sent where {s} was recorded", .{shown});
+        const form = try sentForm(arena, request) orelse return try arena.print("no multipart form was sent where {s} was recorded", .{shown});
         if (json.equal(form, fields)) return null;
-        return try std.fmt.allocPrint(arena, "the form {s} was sent where {s} was recorded", .{ try json.encode(arena, form), try json.encode(arena, fields) });
+        return try arena.print("the form {s} was sent where {s} was recorded", .{ try json.encode(arena, form), try json.encode(arena, fields) });
     }
     const value = std.json.parseFromSliceLeaky(std.json.Value, arena, bytes, .{}) catch null;
     if (value != null and json.equal(value.?, expected)) return null;
-    return try std.fmt.allocPrint(arena, "the body {s} was sent where {s} was recorded", .{ bytes, shown });
+    return try arena.print("the body {s} was sent where {s} was recorded", .{ bytes, shown });
 }
 
 /// The fields of a body recorded as a multipart form, `{"multipart": [...]}`; null for any other body.
@@ -233,14 +233,14 @@ fn copied(arena: Allocator, request: transport.Request) Allocator.Error!transpor
 }
 
 test "a request as recorded is answered with the recorded response, a chunk a read" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const exchanges = try json.decode([]const Exchange, a,
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const exchanges = try json.decode([]const Exchange, arena,
         \\[{"request":{"method":"POST","url":"https://api.example/v1","headers":{"x-version":"1"},"body":{"b":[1],"a":true}},
         \\  "response":{"status":200,"headers":{"content-type":"text/plain"},"chunks":["he",{"base64":"bGxv"}]}}]
     );
-    var replay: Replay = .init(a, exchanges);
+    var replay: Replay = .init(arena, exchanges);
     const response = try replay.http().send(.{
         .method = .POST,
         .url = "https://api.example/v1",
@@ -252,19 +252,19 @@ test "a request as recorded is answered with the recorded response, a chunk a re
     try std.testing.expectEqualStrings("text/plain", response.header("Content-Type").?);
     try response.body.fillMore();
     try std.testing.expectEqualStrings("he", response.body.buffered());
-    try std.testing.expectEqualStrings("hello", try response.body.allocRemaining(a, .unlimited));
+    try std.testing.expectEqualStrings("hello", try response.body.allocRemaining(arena, .unlimited));
     try std.testing.expectEqual(@as(usize, 0), replay.unused().len);
     try std.testing.expectEqualStrings("https://api.example/v1", replay.sent.items[0].url);
 }
 
 test "a request the recording does not expect is refused, saying why" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const exchanges = try json.decode([]const Exchange, a,
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const exchanges = try json.decode([]const Exchange, arena,
         \\[{"request":{"method":"POST","url":"https://api.example/v1","body":{"a":1}},"response":{"status":200}}]
     );
-    var replay: Replay = .init(a, exchanges);
+    var replay: Replay = .init(arena, exchanges);
     try std.testing.expectError(error.Transport, replay.http().send(.{ .method = .POST, .url = "https://api.example/v1", .body = "{\"a\":2}" }));
     try std.testing.expectEqualStrings("request 1: the body {\"a\":2} was sent where {\"a\":1} was recorded", replay.mismatch.?);
     try std.testing.expectError(error.Transport, replay.http().send(.{ .url = "https://api.example/v2" }));

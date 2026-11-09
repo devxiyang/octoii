@@ -51,7 +51,7 @@ pub const ToolCall = struct {
     pub fn elicit(call: *ToolCall, key: []const u8, request: []const u8) Error!?Value {
         const params = try parsed(call.arena, request);
         const mode = if (params.object.get("mode")) |given| given.string else "form";
-        return call.ask(key, "elicitation/create", params, try std.fmt.allocPrint(call.arena, "elicitation.{s}", .{mode}));
+        return call.ask(key, "elicitation/create", params, try call.arena.print("elicitation.{s}", .{mode}));
     }
 
     /// The client's roots, under `key`; null where they are asked for now.
@@ -358,7 +358,7 @@ pub const FakeServer = struct {
     }
 
     fn refuse(fake: *FakeServer, sink: Channel, id: jsonrpc.Id, code: i64, comptime text: []const u8, arguments: anytype, data: ?Value) DispatchError {
-        const message = try std.fmt.allocPrint(fake.arena, text, arguments);
+        const message = try fake.arena.print(text, arguments);
         try send(fake.arena, sink, .{ .failure = .{ .id = id, .@"error" = .{ .code = code, .message = message, .data = data } } });
         return error.Answered;
     }
@@ -515,7 +515,7 @@ pub const FakeServer = struct {
             try result.put(fake.arena, "requestState", .{ .string = try foundation.json.encode(fake.arena, Value{ .object = running.answers }) });
             return send(fake.arena, sink, .{ .result = .{ .id = running.id, .result = .{ .object = result } } });
         }
-        const id = try std.fmt.allocPrint(fake.arena, "ask-{d}", .{fake.session.next_ask});
+        const id = try fake.arena.print("ask-{d}", .{fake.session.next_ask});
         fake.session.next_ask += 1;
         running.ask_id = id;
         running.key = question.key;
@@ -593,7 +593,7 @@ pub const FakeServer = struct {
         try listed.appendSlice(items[@min(start, items.len)..end]);
         var result: ObjectMap = .empty;
         try result.put(fake.arena, field, .{ .array = listed });
-        if (end < items.len) try result.put(fake.arena, "nextCursor", .{ .string = try std.fmt.allocPrint(fake.arena, "{d}", .{end}) });
+        if (end < items.len) try result.put(fake.arena, "nextCursor", .{ .string = try fake.arena.print("{d}", .{end}) });
         return .{ .object = result };
     }
 };

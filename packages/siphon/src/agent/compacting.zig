@@ -118,7 +118,7 @@ fn recapped(phase: *Phase, thread: []const u8, asked: []const u8, cut: compactio
         _ = try writer.append(log.Failure{ .id = try phase.mint(), .request = asked, .response = try foundation.json.Raw.of(phase.arena, answer.payload) });
         if (phase.stop_handler) return phase.stopped(null);
         const why = if (response.@"error") |failure| failure.message else "it gave no recap";
-        return phase.fail(try std.fmt.allocPrint(phase.arena, "the conversation outgrew its model, which could not recap it: {s}", .{why}));
+        return phase.fail(try phase.arena.print("the conversation outgrew its model, which could not recap it: {s}", .{why}));
     }
     const gathering = try system.gather(phase, thread);
     const written: Recap = .{ .request = asked, .response = try foundation.json.Raw.of(phase.arena, answer.payload) };
@@ -135,7 +135,7 @@ fn regathered(phase: *Phase, thread: []const u8, gathering: []const u8, written:
         const again = try system.gather(phase, thread);
         return phase.waitForMail(Checkpoint{ .regathering = .{ .key = again, .recap = written, .cut = cut } }, again);
     }
-    if (std.mem.eql(u8, answer.name, Request.failed_name)) return phase.fail(try std.fmt.allocPrint(phase.arena, "what the model is told could not be gathered: {s}", .{answer.payload}));
+    if (std.mem.eql(u8, answer.name, Request.failed_name)) return phase.fail(try phase.arena.print("what the model is told could not be gathered: {s}", .{answer.payload}));
     const told = try system.changes(phase.arena, &.{}, try foundation.json.decode(system.Told, phase.arena, answer.payload));
     var writer: log.Writer = try .init(phase, thread);
     _ = try writer.append(log.Compaction{ .id = try phase.mint(), .request = written.request, .response = written.response, .kept = cut.kept, .from = cut.from });

@@ -26,5 +26,5 @@ pub const in_all_max = 20;
 
 /// What the model is told of a call blocked: why, and how to go on.
 pub fn blockedNote(arena: std.mem.Allocator, reason: []const u8) std.mem.Allocator.Error![]const u8 {
-    return std.fmt.allocPrint(arena, "a second model judged this call and blocked it: {s} — find a safer way within what the person asked, or ask them; do not work around the block", .{reason});
+    return arena.print("a second model judged this call and blocked it: {s} — find a safer way within what the person asked, or ask them; do not work around the block", .{reason});
 }

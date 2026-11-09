@@ -342,8 +342,8 @@ pub fn waitForEnd(io: std.Io, allocator: Allocator, waits: *Waits, command: h.be
     try beak.check(h.beak_events_add(set, command));
     errdefer _ = h.beak_command_signal(command, h.BEAK_SIGNAL_KILL);
     const deadline = std.Io.Clock.awake.now(io).toMilliseconds() + timeout_ms;
-    var scratch: std.heap.ArenaAllocator = .init(allocator);
-    defer scratch.deinit();
+    var scratch_arena: std.heap.ArenaAllocator = .init(allocator);
+    defer scratch_arena.deinit();
     var gathered: std.ArrayList(u8) = .empty;
     defer gathered.deinit(allocator);
     var handed_at: i64 = 0;
@@ -357,8 +357,8 @@ pub fn waitForEnd(io: std.Io, allocator: Allocator, waits: *Waits, command: h.be
         // What was gathered is handed on once its time comes, though nothing more comes.
         const due = if (gathered.items.len == 0) deadline else @max(now, handed_at + heard_every_ms);
         try waits.untilNews(@intCast(@min(deadline, due) - now));
-        _ = scratch.reset(.retain_capacity);
-        const arena = scratch.allocator();
+        _ = scratch_arena.reset(.retain_capacity);
+        const arena = scratch_arena.allocator();
         const outputs = beak.outputs(&arena);
         var events: [*c]h.beak_event = null;
         var count: usize = 0;

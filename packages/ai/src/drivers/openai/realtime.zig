@@ -63,7 +63,7 @@ fn opening(call: *Call, model: *const Model, gpa: Allocator, query: []const u8, 
     const wire = try Wire.create(gpa, model.id, try model.reference(call.arena), update);
     return .{
         .url = try session_.socketUrl(call.arena, call.baseUrl(openai.base_url), "/realtime", query),
-        .headers = try call.arena.dupe(foundation.http.Header, &.{.{ .name = "authorization", .value = try std.fmt.allocPrint(call.arena, "Bearer {s}", .{key}) }}),
+        .headers = try call.arena.dupe(foundation.http.Header, &.{.{ .name = "authorization", .value = try call.arena.print("Bearer {s}", .{key}) }}),
         .wire = wire.wire(),
     };
 }
@@ -92,7 +92,7 @@ fn createCall(call: *Call, model: *const Model, params: *const realtime.CallCrea
 /// Each commit goes with an id, Octoii's where the client gives none, by which an `error` answering it is known.
 const Wire = struct {
     gpa: Allocator,
-    strings: std.heap.ArenaAllocator,
+    strings_arena: std.heap.ArenaAllocator,
     model_id: []const u8,
     reference: []const u8,
     /// The `session.update` it opens with; none for a sideband.
@@ -106,12 +106,12 @@ const Wire = struct {
     fn create(gpa: Allocator, model_id: []const u8, reference: []const u8, update: ?[]const u8) Allocator.Error!*Wire {
         const made = try gpa.create(Wire);
         errdefer gpa.destroy(made);
-        made.* = .{ .gpa = gpa, .strings = .init(gpa), .model_id = undefined, .reference = undefined, .update = null };
-        errdefer made.strings.deinit();
-        const strings = made.strings.allocator();
-        made.model_id = try strings.dupe(u8, model_id);
-        made.reference = try strings.dupe(u8, reference);
-        if (update) |given| made.update = try strings.dupe(u8, given);
+        made.* = .{ .gpa = gpa, .strings_arena = .init(gpa), .model_id = undefined, .reference = undefined, .update = null };
+        errdefer made.strings_arena.deinit();
+        const arena = made.strings_arena.allocator();
+        made.model_id = try arena.dupe(u8, model_id);
+        made.reference = try arena.dupe(u8, reference);
+        if (update) |given| made.update = try arena.dupe(u8, given);
         return made;
     }
 
@@ -148,7 +148,10 @@ const Wire = struct {
     fn track(self: *Wire, kind: []const u8, value: std.json.Value) Allocator.Error!void {
         const item = json.textOf(value, "item_id");
         if (std.mem.eql(u8, kind, "input_audio_buffer.committed")) if (item) |id| {
-            if (!self.pending.contains(id)) try self.pending.put(self.gpa, try self.gpa.dupe(u8, id), {});
+            if (!self.pending.contains(id)) {
+                try self.pending.ensureUnusedCapacity(self.gpa, 1);
+                self.pending.putAssumeCapacity(try self.gpa.dupe(u8, id), {});
+            }
             if (self.commits.items.len > 0) self.gpa.free(self.commits.orderedRemove(0));
         };
         if (std.mem.endsWith(u8, kind, ".completed") or std.mem.endsWith(u8, kind, ".failed")) if (item) |id| {
@@ -201,27 +204,28 @@ const Wire = struct {
                 if (!std.mem.eql(u8, update.session.model(), self.reference)) {
                     return out.give(try session_.errorEvent(out.arena, &self.ids, .invalid_request, "A session.update names the session's own model", .{}));
                 }
-                const session = try wireSession(out.scratch, self.model_id, &update.session);
-                try out.send(.{ .text = try foundation.json.encode(out.scratch, .{ .type = "session.update", .session = session, .event_id = update.event_id }) });
+                const session = try wireSession(out.scratch_arena, self.model_id, &update.session);
+                try out.send(.{ .text = try foundation.json.encode(out.scratch_arena, .{ .type = "session.update", .session = session, .event_id = update.event_id }) });
             },
             .append => |append| {
                 self.appended = true;
-                try out.send(.{ .text = try foundation.json.encode(out.scratch, append) });
+                try out.send(.{ .text = try foundation.json.encode(out.scratch_arena, append) });
             },
             .commit => |commit| try self.sendCommit(out, commit.event_id),
             .clear => |clear| {
                 self.appended = false;
-                try out.send(.{ .text = try foundation.json.encode(out.scratch, clear) });
+                try out.send(.{ .text = try foundation.json.encode(out.scratch_arena, clear) });
             },
         }
     }
 
     /// Commits the buffer under `event_id`, Octoii's where none is given, kept until it is answered.
     fn sendCommit(self: *Wire, out: *Out, event_id: ?[]const u8) Allocator.Error!void {
-        const id = event_id orelse try std.fmt.allocPrint(out.scratch, "octoii_commit_{s}", .{try self.ids.event(out.scratch)});
-        try self.commits.append(self.gpa, try self.gpa.dupe(u8, id));
+        const id = event_id orelse try out.scratch_arena.print("octoii_commit_{s}", .{try self.ids.event(out.scratch_arena)});
+        try self.commits.ensureUnusedCapacity(self.gpa, 1);
+        self.commits.appendAssumeCapacity(try self.gpa.dupe(u8, id));
         self.appended = false;
-        try out.send(.{ .text = try foundation.json.encode(out.scratch, realtime.Commit{ .event_id = id }) });
+        try out.send(.{ .text = try foundation.json.encode(out.scratch_arena, realtime.Commit{ .event_id = id }) });
     }
 
     fn close(context: *anyopaque, out: *Out) WireError!void {
@@ -242,7 +246,7 @@ const Wire = struct {
         self.pending.deinit(self.gpa);
         for (self.commits.items) |commit| self.gpa.free(commit);
         self.commits.deinit(self.gpa);
-        self.strings.deinit();
+        self.strings_arena.deinit();
         self.gpa.destroy(self);
     }
 };

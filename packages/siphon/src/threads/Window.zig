@@ -120,9 +120,9 @@ fn indexOf(arena: Allocator, lines: []const []const u8, id: []const u8) !?usize 
 }
 
 test "a window begins at the last compaction: what it is told, its recap, what it keeps, then what came after" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const lines = [_][]const u8{
         \\{"id":"1","type":"system","request":"q1","sections":[{"name":"base","text":"b"}]}
         ,
@@ -158,9 +158,9 @@ test "a window begins at the last compaction: what it is told, its recap, what i
 }
 
 test "a turn the person stopped is sent with its end, so its model knows its work was stopped; another turn's end is not" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const lines = [_][]const u8{
         \\{"id":"1","type":"input","delivery_id":"d","actor":"person","message":{"role":"user","content":"one"}}
         ,
@@ -177,9 +177,9 @@ test "a turn the person stopped is sent with its end, so its model knows its wor
 }
 
 test "a window cut within a turn keeps the input that began it, then the entries from where the cut fell" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const lines = [_][]const u8{
         \\{"id":"1","type":"system","request":"q1","sections":[{"name":"base","text":"b"}]}
         ,

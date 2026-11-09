@@ -252,7 +252,7 @@ pub const Answer = struct {
         }
         if (!std.mem.eql(u8, block.type, "image") or (block.data == null and block.uri == null)) return;
         try answer.closeText(message, out);
-        const url = if (block.data) |data| try std.fmt.allocPrint(arena, "data:{s};base64,{s}", .{ block.mime_type orelse "image/png", data }) else block.uri.?;
+        const url = if (block.data) |data| try arena.print("data:{s};base64,{s}", .{ block.mime_type orelse "image/png", data }) else block.uri.?;
         const index: u32 = @intCast(message.content.items.len);
         try message.content.append(arena, .{ .output_image = .{ .image_url = url } });
         const part: vocabulary.events.ContentPart = .{ .output_image = .{ .image_url = url } };

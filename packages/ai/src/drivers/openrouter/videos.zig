@@ -62,7 +62,7 @@ fn create(call: *Call, model: *const Model, request: *const videos.VideoRequest)
 }
 
 fn retrieve(call: *Call, model: *const Model, id: []const u8) Error!videos.VideoJob {
-    const response = try media.send(call, try std.fmt.allocPrint(call.arena, "/videos/{f}", .{std.fmt.alt(std.Uri.Component{ .raw = id }, .formatEscaped)}), null, "application/json");
+    const response = try media.send(call, try call.arena.print("/videos/{f}", .{std.fmt.alt(std.Uri.Component{ .raw = id }, .formatEscaped)}), null, "application/json");
     return videoJob(call, model, try media.jsonBody(WireJob, call, response, "video job"), null);
 }
 
@@ -84,7 +84,7 @@ fn videoJob(call: *Call, model: *const Model, job: WireJob, usage: ?vocabulary.U
 /// The output at `index` of the job `id`, with the API key; an output OpenRouter no longer keeps fails as
 /// `invalid_request`.
 fn download(call: *Call, _: *const Model, id: []const u8, index: u32) Error!videos.VideoContent {
-    const path = try std.fmt.allocPrint(call.arena, "/videos/{f}/content?index={d}", .{ std.fmt.alt(std.Uri.Component{ .raw = id }, .formatEscaped), index });
+    const path = try call.arena.print("/videos/{f}/content?index={d}", .{ std.fmt.alt(std.Uri.Component{ .raw = id }, .formatEscaped), index });
     const response = media.send(call, path, null, "*/*") catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         error.Failed => return media.goneAsInvalid(call, &.{ 404, 410 }, "OpenRouter no longer keeps the output {d} of the video job {s}: download outputs once a job completes", .{ index, id }),

@@ -66,7 +66,7 @@ pub fn open(gpa: Allocator, io: std.Io, environ: *const std.process.Environ.Map,
         .instructions = node.home.instructions,
         .skills = node.home.skills,
         .mcp = node.home.mcp,
-        .sign_in_redirect = try std.fmt.allocPrint(arena, "http://127.0.0.1:{d}{s}", .{ serving.port, sign_in_path }),
+        .sign_in_redirect = try arena.print("http://127.0.0.1:{d}{s}", .{ serving.port, sign_in_path }),
     }, .{
         .providers = &providers.all,
         .catalogue = if (serving.catalogue) |url| .{ .url = url, .store = node.catalogue.store() } else null,
@@ -101,11 +101,11 @@ pub fn close(node: *Node) void {
 
 /// Opens a node in the Home at `home` with `gpa`, and closes it.
 fn openNode(gpa: Allocator, home: []const u8) !void {
-    var arena_state: std.heap.ArenaAllocator = .init(gpa);
-    defer arena_state.deinit();
+    var arena_allocator: std.heap.ArenaAllocator = .init(gpa);
+    defer arena_allocator.deinit();
     var environ: std.process.Environ.Map = .init(gpa);
     defer environ.deinit();
-    const node = try Node.open(gpa, std.testing.io, &environ, arena_state.allocator(), home, .{ .port = 7600 });
+    const node = try Node.open(gpa, std.testing.io, &environ, arena_allocator.allocator(), home, .{ .port = 7600 });
     node.close();
 }
 
@@ -120,9 +120,9 @@ test "a node frees what it took where an allocation fails as it opens" {
 test "a node's identity is made once and kept: opened again, the node shows the same key" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const path = try std.fs.path.join(arena, &.{ try tmp.dir.realPathFileAlloc(std.testing.io, ".", arena), "identity" });
     const made = try identityOf(std.testing.io, arena, path);
     const kept = try identityOf(std.testing.io, arena, path);

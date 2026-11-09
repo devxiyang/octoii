@@ -164,7 +164,7 @@ pub const Translator = struct {
             .failed => |failure| return translator.failed(.{
                 .octoii = failure,
                 .code = reason,
-                .message = try std.fmt.allocPrint(translator.call.arena, "The provider's response broke off: {s}", .{reason}),
+                .message = try translator.call.arena.print("The provider's response broke off: {s}", .{reason}),
             }, out),
             .completed => {
                 try translator.endText(.completed, out);

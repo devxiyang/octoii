@@ -35,9 +35,9 @@ pub fn shown(arena: Allocator, base: Base, place: []const u8) ![]const u8 {
 }
 
 test "a path names one place whatever its spelling, and is shown back as the model would write it" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const base: Base = .{ .workspace = "/work/app", .home = "/home/me" };
     const Case = struct { given: []const u8, place: []const u8, shown: []const u8 };
     const cases = [_]Case{

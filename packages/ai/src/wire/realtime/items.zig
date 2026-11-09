@@ -84,7 +84,7 @@ pub const HeardItems = struct {
     pub fn settle(items: *HeardItems, out: *Out, text: []const u8) Allocator.Error!void {
         items.partial.clearRetainingCapacity();
         if (text.len == 0) return;
-        const delta = if (items.settled.items.len == 0) try out.arena.dupe(u8, text) else try std.fmt.allocPrint(out.arena, " {s}", .{text});
+        const delta = if (items.settled.items.len == 0) try out.arena.dupe(u8, text) else try out.arena.print(" {s}", .{text});
         try items.settled.appendSlice(items.gpa, delta);
         try out.give(.{ .delta = .{ .item_id = try itemId(out.arena, items.item), .content_index = 0, .delta = delta, .event_id = try items.ids.event(out.arena) } });
     }
@@ -106,7 +106,7 @@ pub const HeardItems = struct {
                 .item_id = try itemId(out.arena, items.item),
                 .content_index = 0,
                 .text = text.items,
-                .speaker = try std.fmt.allocPrint(out.arena, "{d}", .{words[start].speaker.?}),
+                .speaker = try out.arena.print("{d}", .{words[start].speaker.?}),
                 .start = words[start].start,
                 .end = words[past - 1].end,
                 .event_id = try items.ids.event(out.arena),
@@ -161,7 +161,7 @@ pub const Refusal = struct {
     pub const Error = error{ OutOfMemory, Refused };
 
     pub fn refuse(refusal: *Refusal, arena: Allocator, comptime text: []const u8, arguments: anytype) Error {
-        refusal.message = try std.fmt.allocPrint(arena, text, arguments);
+        refusal.message = try arena.print(text, arguments);
         return error.Refused;
     }
 };
@@ -210,13 +210,13 @@ pub fn audioOf(arena: Allocator, audio: []const u8) Allocator.Error!?[]const u8 
 }
 
 test "an item counts its audio, settles its text after its partial text, and ends with its seconds" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var ids: Ids = .{};
     var items: HeardItems = .init(std.testing.allocator, &ids);
     defer items.deinit();
-    var out: Out = .{ .arena = a, .scratch = a };
+    var out: Out = .{ .arena = arena, .scratch_arena = arena };
     items.sent(9600);
     try items.heard(&out, "take met");
     try items.heard(&out, "take met");

@@ -260,11 +260,8 @@ pub fn changed(following: *Following, tid: []const u8) void {
     const listing = if (following.listing) |*watched| watched else return;
     if (listing.all or listing.changed.contains(tid)) return;
     // A row that cannot be marked alone is sent with every other.
-    const id = following.allocator.dupe(u8, tid) catch return following.changedAll();
-    listing.changed.put(following.allocator, id, {}) catch {
-        following.allocator.free(id);
-        following.changedAll();
-    };
+    listing.changed.ensureUnusedCapacity(following.allocator, 1) catch return following.changedAll();
+    listing.changed.putAssumeCapacity(following.allocator.dupe(u8, tid) catch return following.changedAll(), {});
 }
 
 /// Marks everything followed as changed, as a change at the root says.
@@ -281,26 +278,26 @@ pub fn changedAll(following: *Following) void {
 /// whose came, changed or went, the newest frame of each page followed, then what each terminal followed wrote, or its
 /// screen drawn again. Whether a page is left to feed while it has room.
 pub fn feed(following: *Following, connection: *Connection) bool {
-    var arena_state: std.heap.ArenaAllocator = .init(following.allocator);
-    defer arena_state.deinit();
+    var arena_allocator: std.heap.ArenaAllocator = .init(following.allocator);
+    defer arena_allocator.deinit();
     if (following.settings_watch) |*watch| if (watch.changed) {
         if (!connection.hasRoom()) return false;
         // Settings that cannot be read stay marked, and are read again as the next pump ends.
-        watch.send(connection, arena_state.allocator()) catch {};
-        _ = arena_state.reset(.retain_capacity);
+        watch.send(connection, arena_allocator.allocator()) catch {};
+        _ = arena_allocator.reset(.retain_capacity);
     };
     if (following.listing != null) {
         if (!connection.hasRoom()) return false;
         // A list that cannot be read is read whole as the next pump ends.
-        following.sendRows(connection, arena_state.allocator()) catch following.changedAll();
+        following.sendRows(connection, arena_allocator.allocator()) catch following.changedAll();
     }
     var left = false;
     for (following.followed.keys(), following.followed.values()) |tid, *each| {
         if (!each.changed) continue;
         // A follow that waits for room is fed once the host's taker makes some, which wakes the loop.
         if (!connection.hasRoom()) return false;
-        _ = arena_state.reset(.retain_capacity);
-        const arena = arena_state.allocator();
+        _ = arena_allocator.reset(.retain_capacity);
+        const arena = arena_allocator.allocator();
         // A thread whose entries cannot be sent is told of, and sent them again once it changes.
         each.changed = sendEntries(connection, arena, tid, each) catch |err| failed: {
             const told = foundation.json.encode(arena, .{ .event = "failed", .thread = tid, .@"error" = .{ .code = "failed", .message = @errorName(err) } });
@@ -313,27 +310,27 @@ pub fn feed(following: *Following, connection: *Connection) bool {
     for (following.followed.keys(), following.followed.values()) |tid, *each| {
         if (!each.terminals_changed) continue;
         if (!connection.hasRoom()) return false;
-        _ = arena_state.reset(.retain_capacity);
+        _ = arena_allocator.reset(.retain_capacity);
         // Terminals that cannot be told of are told of as the next pump ends.
-        connection.send(terminals_.listEvent(terminals, arena_state.allocator(), tid) catch continue);
+        connection.send(terminals_.listEvent(terminals, arena_allocator.allocator(), tid) catch continue);
         each.terminals_changed = false;
     }
     const browser = connection.clients.browser;
     for (following.followed.keys(), following.followed.values()) |tid, *each| {
         if (!each.pages_changed) continue;
         if (!connection.hasRoom()) return false;
-        _ = arena_state.reset(.retain_capacity);
+        _ = arena_allocator.reset(.retain_capacity);
         // Pages that cannot be told of are told of as the next pump ends.
-        connection.send(pages_.listEvent(browser, arena_state.allocator(), tid) catch continue);
+        connection.send(pages_.listEvent(browser, arena_allocator.allocator(), tid) catch continue);
         each.pages_changed = false;
     }
     for (following.pages.keys(), following.pages.values()) |id, *each| {
         if (!each.changed) continue;
         // A frame waits for room, the newest sent once there is.
         if (!connection.hasRoom()) return false;
-        _ = arena_state.reset(.retain_capacity);
+        _ = arena_allocator.reset(.retain_capacity);
         // A frame that cannot be sent is sent as the next pump ends.
-        pages_.send(browser, connection, arena_state.allocator(), id, each) catch {
+        pages_.send(browser, connection, arena_allocator.allocator(), id, each) catch {
             each.changed = true;
             left = true;
         };
@@ -341,9 +338,9 @@ pub fn feed(following: *Following, connection: *Connection) bool {
     for (following.terminals.keys(), following.terminals.values()) |id, *each| {
         if (!each.changed) continue;
         if (!connection.hasRoom()) return false;
-        _ = arena_state.reset(.retain_capacity);
+        _ = arena_allocator.reset(.retain_capacity);
         // A terminal whose output cannot be read is drawn again as the next pump ends.
-        terminals_.send(terminals, connection, arena_state.allocator(), id, each) catch {
+        terminals_.send(terminals, connection, arena_allocator.allocator(), id, each) catch {
             each.sent = null;
         };
         left = left or each.changed;

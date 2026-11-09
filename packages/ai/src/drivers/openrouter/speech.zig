@@ -42,7 +42,7 @@ fn plainReference(arena: Allocator, reference: speech.SpeechInputReference) Allo
             var input = audio.input_audio;
             const media_type = if (audio.octoii) |extension| extension.media_type else null;
             if (media_type != null and input.data != null and !std.mem.startsWith(u8, input.data.?, "data:")) {
-                input.data = try std.fmt.allocPrint(arena, "data:{s};base64,{s}", .{ media_type.?, input.data.? });
+                input.data = try arena.print("data:{s};base64,{s}", .{ media_type.?, input.data.? });
             }
             return .{ .audio = .{ .input_audio = input } };
         },

@@ -173,9 +173,9 @@ fn declared(arena: Allocator, path: []const u8, description: ?[]const u8, parame
 }
 
 test "a tool is declared as a function under tools, its parameters an object type, its descriptions doc comments" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const parameters =
         \\{"type":"object","properties":{
         \\ "owner":{"type":"string","description":"Who owns it"},
@@ -204,9 +204,9 @@ test "a tool is declared as a function under tools, its parameters an object typ
 }
 
 test "a name no identifier spells is reached in brackets, and a description of many lines is a comment of as many" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     try std.testing.expectEqualStrings(
         \\/**
         \\ * Searches.

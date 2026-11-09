@@ -23,7 +23,7 @@ const valued = [_][]const u8{ "textbox", "searchbox", "combobox", "spinbutton", 
 
 /// A ref to the element with the browser's node id `node`.
 pub fn refOf(arena: Allocator, node: i64) ![]const u8 {
-    return std.fmt.allocPrint(arena, "e{d}", .{node});
+    return arena.print("e{d}", .{node});
 }
 
 /// The browser's node id of the element `ref` names; null where it names none.
@@ -131,9 +131,9 @@ fn among(names: []const []const u8, name: []const u8) bool {
 }
 
 test "a tree is read as a person perceives it: containers read through, text its parent is named by passed over, refs to the elements" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const tree = try std.json.parseFromSliceLeaky(std.json.Value, arena,
         \\{"nodes":[
         \\ {"nodeId":"1","role":{"value":"RootWebArea"},"name":{"value":"Demo"},"childIds":["2","3"],"backendDOMNodeId":1},

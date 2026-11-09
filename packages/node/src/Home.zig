@@ -79,12 +79,12 @@ pub fn openMachine(home: Home, arena: Allocator) !h.beak_handle {
 
 /// Whether the local machine, as the node opens it, confines a command to the system's sandbox: on macOS by the
 /// system's own; on Linux only with Beak's helper, which the node does not give it yet; on Windows not yet.
-pub const machine_sandboxes = builtin.os.tag == .macos;
+pub const machine_sandboxes = builtin.target.os.tag == .macos;
 
 /// The local machine's name as its person knows it, which clients show the environment by: its host name, less the
 /// `.local` a Mac gives it; on Windows its computer name; none where the system tells none.
 pub fn machineNameOf(arena: Allocator, environ: *const std.process.Environ.Map) !?[]const u8 {
-    if (builtin.os.tag == .windows) return environ.get("COMPUTERNAME");
+    if (builtin.target.os.tag == .windows) return environ.get("COMPUTERNAME");
     var buffer: [std.posix.HOST_NAME_MAX]u8 = undefined;
     const name = std.posix.gethostname(&buffer) catch return null;
     const bare = if (std.mem.endsWith(u8, name, ".local")) name[0 .. name.len - ".local".len] else name;
@@ -95,9 +95,9 @@ pub fn machineNameOf(arena: Allocator, environ: *const std.process.Environ.Map) 
 /// the login environment names it, and on Unix the shared `/tmp`.
 pub fn temporaryOf(arena: Allocator, environ: *const std.process.Environ.Map) ![]const []const u8 {
     var folders: std.ArrayList([]const u8) = .empty;
-    const own = if (builtin.os.tag == .windows) environ.get("TEMP") else environ.get("TMPDIR");
+    const own = if (builtin.target.os.tag == .windows) environ.get("TEMP") else environ.get("TMPDIR");
     if (own) |folder| if (std.fs.path.isAbsolute(folder)) try folders.append(arena, folder);
-    if (builtin.os.tag != .windows) try folders.append(arena, "/tmp");
+    if (builtin.target.os.tag != .windows) try folders.append(arena, "/tmp");
     return folders.items;
 }
 
@@ -119,7 +119,7 @@ pub fn excludesOf(io: std.Io, arena: Allocator, environ: *const std.process.Envi
 /// Edge and Brave, where each is put on this system; none where there is none.
 pub fn browserOf(io: std.Io, arena: Allocator, environ: *const std.process.Environ.Map) !?[]const u8 {
     var candidates: std.ArrayList([]const u8) = .empty;
-    switch (builtin.os.tag) {
+    switch (builtin.target.os.tag) {
         .macos => {
             const apps = [_][]const u8{ "Google Chrome.app/Contents/MacOS/Google Chrome", "Chromium.app/Contents/MacOS/Chromium", "Microsoft Edge.app/Contents/MacOS/Microsoft Edge", "Brave Browser.app/Contents/MacOS/Brave Browser" };
             for (apps) |app| {

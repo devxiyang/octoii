@@ -90,11 +90,11 @@ pub const Run = struct {
     request: ?*Request = null,
 
     /// Tells `text`, what the run's tool does as it goes — a command's output as it comes — on its request's stream,
-    /// for those who follow its thread, as `{"text": …}`, in memory `scratch` lends; nothing where nothing follows it.
-    pub fn tell(run: *const Run, scratch: Allocator, text: []const u8) !void {
+    /// for those who follow its thread, as `{"text": …}`, in memory `scratch_arena` lends; nothing where nothing follows it.
+    pub fn tell(run: *const Run, scratch_arena: Allocator, text: []const u8) !void {
         const request = run.request orelse return;
         if (text.len == 0) return;
-        try request.publish(run.thread, try foundation.json.encode(scratch, .{ .text = text }));
+        try request.publish(run.thread, try foundation.json.encode(scratch_arena, .{ .text = text }));
     }
 
     /// The machine as the run reaches it: its paths starting at its thread's workspace, the threads shown.
@@ -123,7 +123,7 @@ pub const Notes = struct {
     list: std.ArrayList([]const u8) = .empty,
 
     pub fn add(notes: *Notes, comptime format: []const u8, arguments: anytype) Allocator.Error!void {
-        try notes.list.append(notes.arena, try std.fmt.allocPrint(notes.arena, format, arguments));
+        try notes.list.append(notes.arena, try notes.arena.print(format, arguments));
     }
 };
 
@@ -168,9 +168,9 @@ pub fn bounded(host: *const Host, arena: Allocator, key: []const u8, text: []con
     if (text.len <= told_bytes_max) return text;
     const end = if (std.mem.lastIndexOfScalar(u8, text[0..told_bytes_max], '\n')) |at| at + 1 else told_bytes_max;
     const note = if (try keep(host, arena, try std.mem.concat(arena, u8, &.{ key, ".txt" }), text)) |path|
-        try std.fmt.allocPrint(arena, "cut at {d} of {d} bytes; all of it in {s}", .{ end, text.len, path })
+        try arena.print("cut at {d} of {d} bytes; all of it in {s}", .{ end, text.len, path })
     else
-        try std.fmt.allocPrint(arena, "cut at {d} of {d} bytes", .{ end, text.len });
+        try arena.print("cut at {d} of {d} bytes", .{ end, text.len });
     return told(arena, .{ .text = text[0..end], .notes = &.{note} });
 }
 

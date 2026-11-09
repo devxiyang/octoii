@@ -183,9 +183,9 @@ pub fn gone(page: *Page, allocator: Allocator, reason: []const u8) void {
 /// Shows the document made by the load `document`: loaded already where it came back from the back-forward cache.
 pub fn navigated(page: *Page, allocator: Allocator, document: []const u8, restored: bool) !void {
     if (page.document == null or !std.mem.eql(u8, page.document.?, document)) {
-        const copy = try allocator.dupe(u8, document);
-        if (page.document) |before| allocator.free(before);
-        page.document = copy;
+        const before = page.document;
+        page.document = try allocator.dupe(u8, document);
+        if (before) |shown| allocator.free(shown);
         page.loaded = false;
     }
     if (restored) page.loaded = true;
@@ -248,20 +248,25 @@ fn freeAwaited(allocator: Allocator, awaited: Awaited) void {
 
 /// Marks the document it shows as the one its snapshot was taken of.
 pub fn tookSnapshot(page: *Page, allocator: Allocator) !void {
-    const copy = if (page.document) |document| try allocator.dupe(u8, document) else null;
-    if (page.snapshot) |before| allocator.free(before);
-    page.snapshot = copy;
+    const before = page.snapshot;
+    page.snapshot = if (page.document) |document| try allocator.dupe(u8, document) else null;
+    if (before) |taken| allocator.free(taken);
 }
 
 /// Shows the dialog `dialog`, copied.
 pub fn openedDialog(page: *Page, allocator: Allocator, dialog: Dialog) !void {
+    const copy = try copiedDialog(allocator, dialog);
+    page.closedDialog(allocator);
+    page.dialog = copy;
+}
+
+/// `dialog` with its words copied, in `allocator`.
+fn copiedDialog(allocator: Allocator, dialog: Dialog) !Dialog {
     const kind = try allocator.dupe(u8, dialog.kind);
     errdefer allocator.free(kind);
     const message = try allocator.dupe(u8, dialog.message);
     errdefer allocator.free(message);
-    const offered = try allocator.dupe(u8, dialog.offered);
-    page.closedDialog(allocator);
-    page.dialog = .{ .kind = kind, .message = message, .offered = offered };
+    return .{ .kind = kind, .message = message, .offered = try allocator.dupe(u8, dialog.offered) };
 }
 
 pub fn closedDialog(page: *Page, allocator: Allocator) void {
@@ -296,7 +301,7 @@ test "what waits for a page is told as the document it awaits loads, or as the p
         }
     };
     var told: Told = .{};
-    var page: Page = .{ .id = try allocator.dupe(u8, "p"), .thread = try allocator.dupe(u8, "t"), .key = 1, .url = try allocator.dupe(u8, "about:blank"), .title = try allocator.dupe(u8, ""), .size = .{ .width = 1, .height = 1 } };
+    var page = try testPage(allocator);
     defer page.deinit(allocator, "closed");
 
     // Its first document, loaded though its beginning was never heard.
@@ -325,4 +330,15 @@ test "what waits for a page is told as the document it awaits loads, or as the p
     try std.testing.expectEqual(@as(usize, messages_max), page.messages.items.len);
     try std.testing.expectEqual(@as(u64, messages_max + 2), page.messages.items[messages_max - 1].number);
     try std.testing.expectEqual(Level.@"error", Level.of("assert"));
+}
+
+/// A page as the browser makes one, its names copied, for a test.
+fn testPage(allocator: Allocator) !Page {
+    const id = try allocator.dupe(u8, "p");
+    errdefer allocator.free(id);
+    const thread = try allocator.dupe(u8, "t");
+    errdefer allocator.free(thread);
+    const url = try allocator.dupe(u8, "about:blank");
+    errdefer allocator.free(url);
+    return .{ .id = id, .thread = thread, .key = 1, .url = url, .title = try allocator.dupe(u8, ""), .size = .{ .width = 1, .height = 1 } };
 }

@@ -79,7 +79,7 @@ pub fn begin(call: *Call, options: seam.SignInOptions) Error!seam.SignIn {
         .state = try randomText(call),
         .nonce = try randomText(call),
         .pkce = try .of(call.arena, &secret),
-        .host_id = (if (earlier) |given| given.host_id else null) orelse try std.fmt.allocPrint(call.arena, "urn:uuid:{s}", .{try call.host.newId(call.arena)}),
+        .host_id = (if (earlier) |given| given.host_id else null) orelse try call.arena.print("urn:uuid:{s}", .{try call.host.newId(call.arena)}),
         .client_id = if (earlier) |given| given.client_id else null,
         .subject = if (earlier) |given| given.subject else null,
         // The attempt outlives the options, which last only as long as the call that begins it.
@@ -129,7 +129,7 @@ fn authorizeUrl(arena: Allocator, attempt: *const Attempt, agent_name_hint: []co
     });
     if (attempt.client_id == null) try query.append(arena, .{ "agent_name_hint", agent_name_hint });
     try query.append(arena, .{ "ext_agent_host_id", attempt.host_id });
-    return std.fmt.allocPrint(arena, "{s}?{s}", .{ authorize_url, try oauth.formEncoded(arena, query.items) });
+    return arena.print("{s}?{s}", .{ authorize_url, try oauth.formEncoded(arena, query.items) });
 }
 
 /// Finishes the attempt from the address the person's browser was sent back to: its code exchanged for tokens, the ID
@@ -267,9 +267,9 @@ fn tokenFailure(call: *Call, response: foundation.http.Response, spent: []const 
     failure.kind = .auth;
     failure.retryable = false;
     failure.message = if (reasonOf(said, raised)) |reason|
-        try std.fmt.allocPrint(call.arena, "{s} (the issuer said {s}: {s})", .{ spent, code, reason })
+        try call.arena.print("{s} (the issuer said {s}: {s})", .{ spent, code, reason })
     else
-        try std.fmt.allocPrint(call.arena, "{s} (the issuer said {s})", .{ spent, code });
+        try call.arena.print("{s} (the issuer said {s})", .{ spent, code });
     failure.code = code;
     return failure;
 }

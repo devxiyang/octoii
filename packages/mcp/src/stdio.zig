@@ -55,6 +55,7 @@ pub const Stdio = struct {
             discard(process);
             return err;
         };
+        errdefer gpa.destroy(stdio);
         stdio.* = .{ .gpa = gpa, .host = host, .router = .init(gpa, host), .process = process };
         stdio.reading = host.io.concurrent(readAll, .{stdio}) catch {
             discard(process);
@@ -76,11 +77,11 @@ pub const Stdio = struct {
     /// Routes each line the server writes, until it ends: its end closes the channel, saying how where it was not
     /// asked to end.
     fn readAll(stdio: *Stdio) void {
-        var arena_state: std.heap.ArenaAllocator = .init(stdio.gpa);
-        defer arena_state.deinit();
+        var arena_allocator: std.heap.ArenaAllocator = .init(stdio.gpa);
+        defer arena_allocator.deinit();
         while (true) {
-            _ = arena_state.reset(.retain_capacity);
-            const read = stdio.process.vtable.read(stdio.process.context, arena_state.allocator()) catch {
+            _ = arena_allocator.reset(.retain_capacity);
+            const read = stdio.process.vtable.read(stdio.process.context, arena_allocator.allocator()) catch {
                 stdio.router.shut("the MCP server's process could not be read");
                 return;
             };
@@ -169,10 +170,10 @@ const Exchange = struct {
     /// Cancels with `notifications/cancelled`.
     fn cancel(context: *anyopaque, reason: []const u8) void {
         const exchange = Exchange.of(context);
-        var scratch: std.heap.ArenaAllocator = .init(exchange.stdio.gpa);
-        defer scratch.deinit();
-        var slot: Slot = .{ .arena = scratch.allocator() };
-        if (transport_.cancelledNotification(scratch.allocator(), exchange.mailbox.id, reason)) |cancelled| {
+        var scratch_arena: std.heap.ArenaAllocator = .init(exchange.stdio.gpa);
+        defer scratch_arena.deinit();
+        var slot: Slot = .{ .arena = scratch_arena.allocator() };
+        if (transport_.cancelledNotification(scratch_arena.allocator(), exchange.mailbox.id, reason)) |cancelled| {
             exchange.stdio.write(&slot, cancelled) catch {};
         } else |_| {}
         closeOf(context);

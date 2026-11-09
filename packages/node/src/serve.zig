@@ -128,9 +128,9 @@ fn serveTunneled(server: *const Server, taken: *http3.Server.Request, device: []
 /// or given back, the protocol's WebSocket, or a file of the app's.
 fn answer(server: *const Server, request: *Request) void {
     const io = server.siphon.runtime.host.io;
-    var arena_state: std.heap.ArenaAllocator = .init(server.gpa);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(server.gpa);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const client = auth.clientOf(arena, request, server.access, server.cookie) catch return;
     const path = request.path();
     if (std.mem.eql(u8, path, socket_path)) return serveSocket(server, request, client);

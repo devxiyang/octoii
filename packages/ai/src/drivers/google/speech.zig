@@ -129,7 +129,7 @@ fn indexOf(voices: []const []const u8, voice: []const u8) usize {
 
 /// The name of the speaker at `index` among the voices, as the turns and the speech config name them.
 fn speakerName(arena: Allocator, index: usize) Allocator.Error![]const u8 {
-    return std.fmt.allocPrint(arena, "Speaker {d}", .{index + 1});
+    return arena.print("Speaker {d}", .{index + 1});
 }
 
 pub fn speak(call: *Call, model: *const Model, request: *const speech.SpeechRequest) Error!seam.SpeechSource {
@@ -168,7 +168,7 @@ const Source = struct {
 /// MP3 by the name the vocabulary gives it.
 fn audioMediaType(arena: Allocator, content: interactions.Content, asked: []const u8) Allocator.Error![]const u8 {
     const media_type = content.mime_type orelse asked;
-    if (std.mem.eql(u8, media_type, "audio/l16")) return std.fmt.allocPrint(arena, "audio/pcm;rate={d}", .{content.sample_rate orelse pcm_rate_hz});
+    if (std.mem.eql(u8, media_type, "audio/l16")) return arena.print("audio/pcm;rate={d}", .{content.sample_rate orelse pcm_rate_hz});
     if (std.mem.eql(u8, media_type, "audio/mp3")) return "audio/mpeg";
     return media_type;
 }

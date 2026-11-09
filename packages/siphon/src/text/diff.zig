@@ -147,7 +147,7 @@ pub fn unified(arena: Allocator, before: ?[]const u8, after: []const u8, name: [
     try writeHunks(arena, &body.writer, try runsOf(arena, old, new, exactly), old, new);
     const hunks = body.written();
     if (hunks.len == 0) return "";
-    return std.fmt.allocPrint(arena, "--- {s}\n+++ {s}\n{s}", .{ if (before == null) "/dev/null" else name, name, hunks[0 .. hunks.len - 1] });
+    return arena.print("--- {s}\n+++ {s}\n{s}", .{ if (before == null) "/dev/null" else name, name, hunks[0 .. hunks.len - 1] });
 }
 
 /// A hunk as it is gathered: where it starts in each text, from 0, how many lines of each it holds, and its lines.
@@ -223,9 +223,9 @@ fn writeLine(out: *std.Io.Writer, mark: u8, line: []const u8) error{OutOfMemory}
 }
 
 test "an edit between lines keeps their common start and end and finds the shortest edit between" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const runs = try runsOf(arena, &.{ "a", "b", "c", "d" }, &.{ "a", "x", "c", "d", "e" }, exactly);
     try std.testing.expectEqualSlices(Run, &.{
         .{ .kind = .equal, .count = 1 },
@@ -244,9 +244,9 @@ test "an edit between lines keeps their common start and end and finds the short
 }
 
 test "a unified diff shows each change with its context, marks a missing newline, and names a new file's /dev/null" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     try std.testing.expectEqualStrings(
         \\--- f
         \\+++ f

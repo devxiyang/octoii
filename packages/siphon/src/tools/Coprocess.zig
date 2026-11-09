@@ -55,12 +55,12 @@ pub fn start(gpa: Allocator, slot: *Slot, options: Options) Error!*Coprocess {
     spawn.mode = h.BEAK_SPAWN_COPROCESS;
     spawn.lines = true;
     var command: h.beak_handle = 0;
-    if (try beak.failed(slot.arena, h.beak_command_spawn(&spawn, &command))) |why| return slot.fail(.{ .connection_lost = try std.fmt.allocPrint(slot.arena, "the MCP server {s} could not be started: {s}", .{ options.name, why }) });
+    if (try beak.failed(slot.arena, h.beak_command_spawn(&spawn, &command))) |why| return slot.fail(.{ .connection_lost = try slot.arena.print("the MCP server {s} could not be started: {s}", .{ options.name, why }) });
     errdefer _ = h.beak_close(command);
     var set: h.beak_handle = 0;
-    if (try beak.failed(slot.arena, h.beak_events_open(&set))) |why| return slot.fail(.{ .connection_lost = try std.fmt.allocPrint(slot.arena, "the MCP server {s} could not be waited on: {s}", .{ options.name, why }) });
+    if (try beak.failed(slot.arena, h.beak_events_open(&set))) |why| return slot.fail(.{ .connection_lost = try slot.arena.print("the MCP server {s} could not be waited on: {s}", .{ options.name, why }) });
     errdefer _ = h.beak_close(set);
-    if (try beak.failed(slot.arena, h.beak_events_add(set, command))) |why| return slot.fail(.{ .connection_lost = try std.fmt.allocPrint(slot.arena, "the MCP server {s} could not be waited on: {s}", .{ options.name, why }) });
+    if (try beak.failed(slot.arena, h.beak_events_add(set, command))) |why| return slot.fail(.{ .connection_lost = try slot.arena.print("the MCP server {s} could not be waited on: {s}", .{ options.name, why }) });
     const coprocess = try gpa.create(Coprocess);
     errdefer gpa.destroy(coprocess);
     coprocess.* = .{ .gpa = gpa, .command = command, .set = set, .name = try gpa.dupe(u8, options.name) };
@@ -78,7 +78,7 @@ fn of(context: *anyopaque) *Coprocess {
 fn write(context: *anyopaque, arena: Allocator, line: []const u8) Allocator.Error!?[]const u8 {
     const coprocess = of(context);
     const why = try beak.failed(arena, h.beak_command_write(coprocess.command, beak.bytes(line))) orelse return null;
-    return try std.fmt.allocPrint(arena, "the MCP server {s} takes nothing written to it: {s}", .{ coprocess.name, why });
+    return try arena.print("the MCP server {s} takes nothing written to it: {s}", .{ coprocess.name, why });
 }
 
 /// The whole lines the server wrote since the last read, waiting on its set till there are some; or how it ended — at
@@ -92,14 +92,14 @@ fn read(context: *anyopaque, arena: Allocator) Allocator.Error!mcp.stdio.Process
         var events: [*c]h.beak_event = null;
         var count: usize = 0;
         var next: h.beak_optional = undefined;
-        if (h.beak_events_poll(coprocess.set, 0, &allocator, &events, &count, &next) != h.BEAK_OK) return .{ .ended = try std.fmt.allocPrint(arena, "the MCP server {s} could not be read", .{coprocess.name}) };
+        if (h.beak_events_poll(coprocess.set, 0, &allocator, &events, &count, &next) != h.BEAK_OK) return .{ .ended = try arena.print("the MCP server {s} could not be read", .{coprocess.name}) };
         var lines: std.ArrayList([]const u8) = .empty;
         for (beak.items(h.beak_event, events, count)) |event| switch (event.type) {
             h.BEAK_EVENT_LINES => for (beak.items(h.beak_bytes, event.items, event.item_count)) |line| try lines.append(arena, beak.slice(line)),
             h.BEAK_EVENT_EXIT => coprocess.exit = .{ .code = beak.get(event.code), .signal = beak.get(event.signal) },
             else => {},
         };
-        if (coprocess.stopping.load(.seq_cst)) return .{ .ended = try std.fmt.allocPrint(arena, "the MCP server {s} was stopped", .{coprocess.name}) };
+        if (coprocess.stopping.load(.seq_cst)) return .{ .ended = try arena.print("the MCP server {s} was stopped", .{coprocess.name}) };
         if (lines.items.len > 0) return .{ .lines = lines.items };
         if (coprocess.exit == null) {
             var ready = false;

@@ -26,7 +26,7 @@ pub const Polled = session_.Polled;
 pub const RealtimeSession = struct {
     gpa: Allocator,
     /// What the session keeps of its opening, its model among it.
-    lasting: std.heap.ArenaAllocator,
+    lasting_arena: std.heap.ArenaAllocator,
     model: *const Model,
     session: *session_.Session,
 
@@ -67,7 +67,7 @@ pub const RealtimeSession = struct {
 
     pub fn deinit(open: *RealtimeSession) void {
         open.session.deinit();
-        open.lasting.deinit();
+        open.lasting_arena.deinit();
         open.gpa.destroy(open);
     }
 };
@@ -96,18 +96,22 @@ const Opened = union(enum) {
 
 fn opened(models: *Models, arena: Allocator, reference: []const u8, given: Opened) Allocator.Error!Connected {
     const open = try models.gpa.create(RealtimeSession);
-    open.* = .{ .gpa = models.gpa, .lasting = .init(models.gpa), .model = undefined, .session = undefined };
-    var call: Call = .{ .arena = open.lasting.allocator(), .provider = undefined, .host = &models.host };
-    const made = opening(models, &call, open, reference, given) catch |err| {
-        open.lasting.deinit();
-        models.gpa.destroy(open);
-        return switch (err) {
-            error.OutOfMemory => error.OutOfMemory,
-            error.Failed => .{ .failed = try copied(arena, call.failure.?) },
-        };
+    errdefer models.gpa.destroy(open);
+    open.* = .{ .gpa = models.gpa, .lasting_arena = .init(models.gpa), .model = undefined, .session = undefined };
+    errdefer open.lasting_arena.deinit();
+    var call: Call = .{ .arena = open.lasting_arena.allocator(), .provider = undefined, .host = &models.host };
+    open.session = opening(models, &call, open, reference, given) catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        // What it failed with lives in the memory of the session it would have been: copied out before that goes.
+        error.Failed => {
+            const failed = try copied(arena, call.failure.?);
+            open.lasting_arena.deinit();
+            models.gpa.destroy(open);
+            return .{ .failed = failed };
+        },
     };
-    open.session = made;
-    if (made.awaitOpen()) |failure| {
+    errdefer open.session.deinit();
+    if (open.session.awaitOpen()) |failure| {
         const kept = try copied(arena, failure);
         open.deinit();
         return .{ .failed = kept };

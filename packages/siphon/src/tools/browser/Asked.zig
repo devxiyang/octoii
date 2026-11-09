@@ -115,14 +115,14 @@ fn made(completion: *Completion, browser: *Browser, thread: []const u8, op: Op) 
     return asked;
 }
 
-/// `op`, its words copied into `arena`.
+/// `op`, its words copied call_arena `arena`.
 fn copyOf(arena: Allocator, op: Op) !Op {
     const copy = struct {
-        fn text(into: Allocator, words: []const u8) ![]const u8 {
-            return into.dupe(u8, words);
+        fn text(call_arena: Allocator, words: []const u8) ![]const u8 {
+            return call_arena.dupe(u8, words);
         }
-        fn maybe(into: Allocator, words: ?[]const u8) !?[]const u8 {
-            return if (words) |each| try into.dupe(u8, each) else null;
+        fn maybe(call_arena: Allocator, words: ?[]const u8) !?[]const u8 {
+            return if (words) |each| try call_arena.dupe(u8, each) else null;
         }
     };
     return switch (op) {

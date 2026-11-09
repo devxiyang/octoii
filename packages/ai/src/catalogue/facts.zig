@@ -144,12 +144,12 @@ fn assumedFacts(arena: Allocator, id: []const u8, kinds: []const Kind) Allocator
 }
 
 test "each fact comes whole from the first source that gives it, and its source is kept" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const listed: ModelFacts = .{ .id = "m", .name = "Listed", .context_length = 64_000 };
     const person: ModelFacts = .{ .id = "m", .name = "Mine", .max_completion_tokens = 8000, .octoii = .{ .release_date = "2026-10-01" } };
-    const model = try modelOf(a, "local", "m", &.{.text}, .{ .listing = listed, .person = person });
+    const model = try modelOf(arena, "local", "m", &.{.text}, .{ .listing = listed, .person = person });
     try std.testing.expectEqualStrings("Listed", model.name);
     try std.testing.expectEqual(@as(?u64, 64_000), model.context_length);
     try std.testing.expectEqual(@as(?u64, 8000), model.max_completion_tokens);

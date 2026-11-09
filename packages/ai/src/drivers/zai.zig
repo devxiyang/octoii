@@ -55,7 +55,7 @@ pub fn dialect(comptime address: []const u8) chat.Dialect(Settings) {
 }
 
 fn authorization(call: *Call) Error!?[]const u8 {
-    return try std.fmt.allocPrint(call.arena, "Bearer {s}", .{try call.apiKey()});
+    return try call.arena.print("Bearer {s}", .{try call.apiKey()});
 }
 
 /// The request's settings as Z.ai takes them.
@@ -170,7 +170,7 @@ fn zaiError(arena: Allocator, given: std.json.Value) Allocator.Error!?ZaiError {
     if (given != .object) return null;
     const code: ?[]const u8 = if (given.object.get("code")) |value| switch (value) {
         .string => |text| text,
-        .integer => |number| try std.fmt.allocPrint(arena, "{d}", .{number}),
+        .integer => |number| try arena.print("{d}", .{number}),
         .number_string => |text| text,
         else => null,
     } else null;

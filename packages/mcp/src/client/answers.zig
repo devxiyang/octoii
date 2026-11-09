@@ -32,11 +32,13 @@ const events_max = 1024;
 /// Keeps a notification the client reads as an event; one it does not is passed over.
 pub fn notified(client: *Client, arena: Allocator, notification: jsonrpc.Notification) Allocator.Error!void {
     _ = try eventOf(arena, notification) orelse return;
-    const text = try client.gpa.dupe(u8, try (jsonrpc.Message{ .notification = notification }).encode(arena));
+    const encoded = try (jsonrpc.Message{ .notification = notification }).encode(arena);
     client.lock.lockUncancelable(client.options.host.io);
     defer client.lock.unlock(client.options.host.io);
     if (client.events.items.len == events_max) client.gpa.free(client.events.orderedRemove(0));
-    client.events.append(client.gpa, text) catch client.gpa.free(text);
+    // An event there is no room for goes untold, as one past the oldest kept does.
+    client.events.ensureUnusedCapacity(client.gpa, 1) catch return;
+    client.events.appendAssumeCapacity(try client.gpa.dupe(u8, encoded));
 }
 
 /// The event a notification is; null for one that is none.
@@ -139,7 +141,7 @@ fn served(client: *Client, slot: *Slot, request: jsonrpc.Request, related: ?*Pen
         defer if (target.pending) |pending| standing(client, pending, client.options.host.nowMs(), false);
         return elicitResponse(slot, asked, try handler.answer(handler.context, slot.arena, asked));
     }
-    return slot.fail(.{ .refused = .{ .code = jsonrpc.codes.method_not_found, .message = try std.fmt.allocPrint(slot.arena, "Method not found: {s}", .{request.method}) } });
+    return slot.fail(.{ .refused = .{ .code = jsonrpc.codes.method_not_found, .message = try slot.arena.print("Method not found: {s}", .{request.method}) } });
 }
 
 fn standing(client: *Client, pending: *Pending, now_ms: i64, stands: bool) void {
@@ -175,7 +177,7 @@ fn offered(client: *Client, slot: *Slot, request: types.ElicitRequest) Error!voi
 }
 
 fn refuseMode(slot: *Slot, request: types.ElicitRequest) Error {
-    return slot.fail(.{ .refused = .{ .code = jsonrpc.codes.invalid_params, .message = try std.fmt.allocPrint(slot.arena, "This client does not offer {t} elicitation", .{std.meta.activeTag(request)}) } });
+    return slot.fail(.{ .refused = .{ .code = jsonrpc.codes.invalid_params, .message = try slot.arena.print("This client does not offer {t} elicitation", .{std.meta.activeTag(request)}) } });
 }
 
 fn decline(arena: Allocator) Allocator.Error!Value {
@@ -199,7 +201,7 @@ fn elicitResponse(slot: *Slot, request: types.ElicitRequest, answer: types.Elici
     };
     const given = content orelse Value{ .object = .empty };
     const problems = try typebox.problems(slot.arena, form.requestedSchema, given);
-    if (problems.len > 0) return slot.fail(.{ .invalid_answer = try std.fmt.allocPrint(slot.arena, "The answer to the elicitation does not match its form: {s}", .{try typebox.shown(slot.arena, problems)}) });
+    if (problems.len > 0) return slot.fail(.{ .invalid_answer = try slot.arena.print("The answer to the elicitation does not match its form: {s}", .{try typebox.shown(slot.arena, problems)}) });
     try made.put(slot.arena, "content", given);
     return .{ .object = made };
 }
@@ -256,7 +258,7 @@ pub fn inputParams(client: *Client, slot: *Slot, answered: types.InputAnswers) E
         .elicitation => |asked| {
             const answer = for (answered.answers) |given| {
                 if (std.mem.eql(u8, given.key, each.key)) break given.answer;
-            } else return slot.fail(.{ .invalid_answer = try std.fmt.allocPrint(slot.arena, "The MCP server's question {s} has no answer", .{each.key}) });
+            } else return slot.fail(.{ .invalid_answer = try slot.arena.print("The MCP server's question {s} has no answer", .{each.key}) });
             try responses.put(slot.arena, each.key, try elicitResponse(slot, asked, answer));
         },
     };

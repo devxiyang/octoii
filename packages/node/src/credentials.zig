@@ -140,9 +140,9 @@ const Setting = struct {
 };
 
 test "a key set is kept in the provider's file, the person's alone, read before the environment's, and forgotten as removed" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     var environ: std.process.Environ.Map = .init(std.testing.allocator);

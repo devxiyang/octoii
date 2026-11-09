@@ -21,9 +21,9 @@ pub fn send(call: *Call, path: []const u8, body: ?[]const u8, accept: []const u8
     const key = try call.apiKey();
     const response = try http.send(call, .{
         .method = if (body == null) .GET else .POST,
-        .url = try std.fmt.allocPrint(call.arena, "{s}{s}", .{ call.baseUrl(openrouter.base_url), path }),
+        .url = try call.arena.print("{s}{s}", .{ call.baseUrl(openrouter.base_url), path }),
         .headers = &.{
-            .{ .name = "authorization", .value = try std.fmt.allocPrint(call.arena, "Bearer {s}", .{key}) },
+            .{ .name = "authorization", .value = try call.arena.print("Bearer {s}", .{key}) },
             .{ .name = "accept", .value = accept },
             .{ .name = "content-type", .value = "application/json" },
         },

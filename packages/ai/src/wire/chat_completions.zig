@@ -57,7 +57,7 @@ pub fn text(comptime Settings: type, comptime dialect: Dialect(Settings)) seam.T
 pub fn url(comptime Settings: type, dialect: Dialect(Settings), call: *Call) Error![]const u8 {
     const base = call.provider.settings.base_url orelse dialect.base_url orelse
         return call.failWith(.invalid_request, "A provider of a Chat Completions server names where the server is, its base_url", .{});
-    return std.fmt.allocPrint(call.arena, "{s}{s}", .{ base, dialect.path });
+    return call.arena.print("{s}{s}", .{ base, dialect.path });
 }
 
 /// The body `request` goes to `dialect`'s provider with for `model`: the model by its id, its messages and functions
@@ -131,7 +131,7 @@ const Source = struct {
 pub fn serverAuthorization(call: *Call) Error!?[]const u8 {
     return switch (try call.credential() orelse return null) {
         .none => null,
-        .api_key => |key| try std.fmt.allocPrint(call.arena, "Bearer {s}", .{key}),
+        .api_key => |key| try call.arena.print("Bearer {s}", .{key}),
         .oauth => call.failWith(.auth, "The provider {s} takes an API key or none, and the host's credentials hold a sign-in for it", .{call.provider.id}),
     };
 }
@@ -195,17 +195,17 @@ pub fn serverStreamFailure(arena: Allocator, given: std.json.Value) Allocator.Er
 }
 
 test "a server's failure is classified by its code, then its type, then its words" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const coded = serverDetails(a, "{\"error\":{\"message\":\"Bad key\",\"type\":\"invalid_request_error\",\"code\":\"invalid_api_key\"}}").?;
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const coded = serverDetails(arena, "{\"error\":{\"message\":\"Bad key\",\"type\":\"invalid_request_error\",\"code\":\"invalid_api_key\"}}").?;
     try std.testing.expectEqual(Kind.auth, coded.kind.?);
     try std.testing.expectEqualStrings("invalid_api_key", coded.code.?);
-    const worded = serverDetails(a, "{\"message\":\"the request exceeds the available context size\"}").?;
+    const worded = serverDetails(arena, "{\"message\":\"the request exceeds the available context size\"}").?;
     try std.testing.expectEqual(Kind.context_overflow, worded.kind.?);
-    const typed = serverDetails(a, "{\"error\":{\"message\":\"slow down\",\"type\":\"rate_limit_exceeded\",\"code\":429}}").?;
+    const typed = serverDetails(arena, "{\"error\":{\"message\":\"slow down\",\"type\":\"rate_limit_exceeded\",\"code\":429}}").?;
     try std.testing.expectEqual(Kind.rate_limit, typed.kind.?);
     try std.testing.expectEqualStrings("rate_limit_exceeded", typed.code.?);
-    const silent = try serverStreamFailure(a, .null);
+    const silent = try serverStreamFailure(arena, .null);
     try std.testing.expectEqualStrings("server", silent.code);
 }

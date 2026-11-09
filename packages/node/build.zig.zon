@@ -5,6 +5,7 @@
     .fingerprint = 0x195274483336c37d,
     .minimum_zig_version = "0.17.1",
     .dependencies = .{
+        .lint = .{ .path = "../lint" },
         .siphon = .{ .path = "../siphon" },
         .tunnel = .{
             .url = "git+https://github.com/octoii-works/octoii-tunnel#acf3fa7c48e1f2b823144e62ab0424217921f51c",

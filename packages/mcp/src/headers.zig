@@ -13,7 +13,7 @@ pub fn headerValue(arena: Allocator, value: []const u8) Allocator.Error![]const 
     if (isPlain(value)) return value;
     const encoder = std.base64.standard.Encoder;
     const encoded = try arena.alloc(u8, encoder.calcSize(value.len));
-    return std.fmt.allocPrint(arena, "=?base64?{s}?=", .{encoder.encode(encoded, value)});
+    return arena.print("=?base64?{s}?=", .{encoder.encode(encoded, value)});
 }
 
 /// A header's value as it was before `headerValue`: its base64 decoded where it is so encoded.
@@ -88,11 +88,11 @@ const Collector = struct {
     }
 
     fn annotation(collector: *Collector, name: Value, kind: ?Value, key: []const u8, path: []const []const u8) Allocator.Error!?[]const u8 {
-        if (name != .string or !isToken(name.string)) return try std.fmt.allocPrint(collector.arena, "x-mcp-header {s} of {s} is not a header name", .{ try foundation.json.encode(collector.arena, name), key });
+        if (name != .string or !isToken(name.string)) return try collector.arena.print("x-mcp-header {s} of {s} is not a header name", .{ try foundation.json.encode(collector.arena, name), key });
         const typed = if (kind) |given| given == .string and (std.mem.eql(u8, given.string, "string") or std.mem.eql(u8, given.string, "integer") or std.mem.eql(u8, given.string, "boolean")) else false;
-        if (!typed) return try std.fmt.allocPrint(collector.arena, "x-mcp-header {s} is on {s}, which is not a string, integer or boolean", .{ name.string, key });
+        if (!typed) return try collector.arena.print("x-mcp-header {s} is on {s}, which is not a string, integer or boolean", .{ name.string, key });
         for (collector.headers.items) |header| if (std.ascii.eqlIgnoreCase(header.name, name.string)) {
-            return try std.fmt.allocPrint(collector.arena, "x-mcp-header {s} appears twice", .{name.string});
+            return try collector.arena.print("x-mcp-header {s} appears twice", .{name.string});
         };
         try collector.headers.append(collector.arena, .{ .name = name.string, .path = path });
         return null;
@@ -142,10 +142,10 @@ pub fn paramHeaderValues(arena: Allocator, headers: []const ParamHeader, argumen
         const text: ?[]const u8 = switch (at) {
             .string => |string| try headerValue(arena, string),
             .bool => |flag| if (flag) "true" else "false",
-            .integer => |integer| try std.fmt.allocPrint(arena, "{d}", .{integer}),
+            .integer => |integer| try arena.print("{d}", .{integer}),
             else => null,
         };
-        if (text) |given| try values.append(arena, .{ .name = try std.fmt.allocPrint(arena, "Mcp-Param-{s}", .{header.name}), .value = given });
+        if (text) |given| try values.append(arena, .{ .name = try arena.print("Mcp-Param-{s}", .{header.name}), .value = given });
     }
     return values.items;
 }
@@ -155,27 +155,27 @@ fn parsed(arena: Allocator, text: []const u8) !Value {
 }
 
 test "a header's value is as it is where it is plain, else its UTF-8 as base64" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    try std.testing.expectEqualStrings("search the web", try headerValue(a, "search the web"));
-    try std.testing.expectEqualStrings("=?base64?IGxlYWRpbmc=?=", try headerValue(a, " leading"));
-    try std.testing.expectEqualStrings("=?base64?w6l0w6k=?=", try headerValue(a, "été"));
-    try std.testing.expectEqualStrings("=?base64?PT9iYXNlNjQ/eD89?=", try headerValue(a, "=?base64?x?="));
-    try std.testing.expectEqualStrings("été", try decodedValue(a, "=?base64?w6l0w6k=?="));
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    try std.testing.expectEqualStrings("search the web", try headerValue(arena, "search the web"));
+    try std.testing.expectEqualStrings("=?base64?IGxlYWRpbmc=?=", try headerValue(arena, " leading"));
+    try std.testing.expectEqualStrings("=?base64?w6l0w6k=?=", try headerValue(arena, "été"));
+    try std.testing.expectEqualStrings("=?base64?PT9iYXNlNjQ/eD89?=", try headerValue(arena, "=?base64?x?="));
+    try std.testing.expectEqualStrings("été", try decodedValue(arena, "=?base64?w6l0w6k=?="));
 }
 
 test "a tool's x-mcp-header annotations become its arguments' headers, and an invalid one is why the tool is left out" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const schema = try parsed(a,
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const schema = try parsed(arena,
         \\{"type":"object","properties":{"region":{"type":"string","x-mcp-header":"Region"},
         \\ "options":{"type":"object","properties":{"dry":{"type":"boolean","x-mcp-header":"Dry-Run"}}},"count":{"type":"integer","x-mcp-header":"Count"}}}
     );
-    const headers = (try paramHeaders(a, &schema)).headers;
+    const headers = (try paramHeaders(arena, &schema)).headers;
     try std.testing.expectEqual(@as(usize, 3), headers.len);
-    const values = try paramHeaderValues(a, headers, try parsed(a, "{\"region\":\"eu west\",\"options\":{\"dry\":true},\"count\":null}"));
+    const values = try paramHeaderValues(arena, headers, try parsed(arena, "{\"region\":\"eu west\",\"options\":{\"dry\":true},\"count\":null}"));
     try std.testing.expectEqual(@as(usize, 2), values.len);
     try std.testing.expectEqualStrings("Mcp-Param-Region", values[0].name);
     try std.testing.expectEqualStrings("eu west", values[0].value);
@@ -186,7 +186,7 @@ test "a tool's x-mcp-header annotations become its arguments' headers, and an in
         .{ "{\"properties\":{\"a\":{\"type\":\"string\",\"x-mcp-header\":\"A\"},\"b\":{\"type\":\"string\",\"x-mcp-header\":\"a\"}}}", "x-mcp-header a appears twice" },
         .{ "{\"properties\":{\"a\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"x-mcp-header\":\"A\"}}}}", "x-mcp-header is on a property not reached through properties alone" },
     }) |case| {
-        const given = try parsed(a, case[0]);
-        try std.testing.expectEqualStrings(case[1], (try paramHeaders(a, &given)).problem);
+        const given = try parsed(arena, case[0]);
+        try std.testing.expectEqualStrings(case[1], (try paramHeaders(arena, &given)).problem);
     }
 }

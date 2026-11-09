@@ -165,7 +165,7 @@ fn environmentOf(arena: Allocator, manifest: threads.Manifest, sandboxes: bool, 
     const writer = &out.writer;
     try writer.writeAll("<environment>\n");
     if (manifest.workspace) |folder| try writer.print("workspace: {s}\n", .{folder});
-    try writer.print("platform: {t} {t}\nshell: {s}\n", .{ builtin.os.tag, builtin.cpu.arch, if (builtin.os.tag == .windows) "powershell" else "bash" });
+    try writer.print("platform: {t} {t}\nshell: {s}\n", .{ builtin.target.os.tag, builtin.target.cpu.arch, if (builtin.target.os.tag == .windows) "powershell" else "bash" });
     try writer.print("permissions: {s}\n", .{permissionsOf(manifest.mode, sandboxes)});
     try writer.print("date: {d}-{d:0>2}-{d:0>2} (UTC)\n</environment>", .{ year_day.year, month_day.month.numeric(), month_day.day_index + 1 });
     return out.written();
@@ -187,7 +187,7 @@ fn permissionsOf(mode: threads.Mode, sandboxes: bool) []const u8 {
 /// through the file tools; and this thread's id.
 fn gatherThreads(gathering: *Gathering) !void {
     const folder = gathering.sources.table.host.machine.threads orelse return;
-    try gathering.add("threads", try std.fmt.allocPrint(gathering.arena, threads_told, .{ folder, gathering.tid }));
+    try gathering.add("threads", try gathering.arena.print(threads_told, .{ folder, gathering.tid }));
 }
 
 /// How the threads are laid out, as the model is told it: their folder, then this thread's id.
@@ -307,9 +307,9 @@ pub fn changes(arena: Allocator, told: []const log.Section, current: Told) !Told
 }
 
 test "the model is told each section new or changed, each no longer there, and the tools as a window begins alone" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const read: vocabulary.Tool = .{ .function = .{ .name = "read", .description = "Reads." } };
     const first = try changes(arena, &.{}, .{ .sections = &.{.{ .name = "base", .text = "b" }}, .tools = &.{read} });
     try std.testing.expectEqual(@as(usize, 1), first.tools.len);
@@ -326,9 +326,9 @@ test "the model is told each section new or changed, each no longer there, and t
 }
 
 test "a section is weighed against what the model was told last of it: told again where it changed back" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const entries = [_]log.System{
         .{ .id = "1", .request = "r1", .sections = &.{ .{ .name = "base", .text = "b" }, .{ .name = "instructions", .text = "v1" }, .{ .name = "old", .text = "o" } } },
         .{ .id = "2", .request = "r2", .sections = &.{ .{ .name = "instructions", .text = "v2" }, .{ .name = "old", .text = null } } },
@@ -343,9 +343,9 @@ test "a section is weighed against what the model was told last of it: told agai
 }
 
 test "the environment names the workspace, the platform and shell, and the day in UTC" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const text = try environmentOf(arena, .{ .workspace = "/work/app" }, true, 1_794_096_000_000);
     try std.testing.expect(std.mem.startsWith(u8, text, "<environment>\nworkspace: /work/app\nplatform: "));
     try std.testing.expect(std.mem.endsWith(u8, text, "date: 2026-11-08 (UTC)\n</environment>"));

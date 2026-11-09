@@ -134,7 +134,7 @@ fn globbed(pattern: []const u8, text: []const u8) bool {
 fn grantsPath(arena: Allocator, folder: []const u8) ![]const u8 {
     var digest: [std.crypto.hash.sha2.Sha256.digest_length]u8 = undefined;
     std.crypto.hash.sha2.Sha256.hash(folder, &digest, .{});
-    return std.fmt.allocPrint(arena, "{s}/{s}.json", .{ grants_folder, &std.fmt.bytesToHex(digest, .lower) });
+    return arena.print("{s}/{s}.json", .{ grants_folder, &std.fmt.bytesToHex(digest, .lower) });
 }
 
 /// What the person granted the project at `folder`: none where they granted it nothing, or where there is no project.

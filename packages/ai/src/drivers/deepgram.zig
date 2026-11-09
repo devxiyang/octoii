@@ -29,6 +29,6 @@ pub fn details(arena: Allocator, body: []const u8) ?http.Details {
     const said = foundation.json.decode(struct { err_code: ?[]const u8 = null, err_msg: ?[]const u8 = null, category: ?[]const u8 = null, message: ?[]const u8 = null, details: ?[]const u8 = null }, arena, body) catch return null;
     const code = said.err_code orelse said.category;
     const words = said.err_msg orelse said.message;
-    const message = if (words) |given| (if (said.details) |more| std.fmt.allocPrint(arena, "{s}: {s}", .{ given, more }) catch return null else given) else null;
+    const message = if (words) |given| (if (said.details) |more| arena.print("{s}: {s}", .{ given, more }) catch return null else given) else null;
     return .{ .kind = if (code) |given| kinds.get(given) else null, .message = message, .code = code };
 }

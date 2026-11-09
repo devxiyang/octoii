@@ -123,6 +123,7 @@ next_ask: i64 = 1,
 
 pub fn init(gpa: Allocator, io: Io, options: Options) Allocator.Error!*Server {
     const server = try gpa.create(Server);
+    errdefer gpa.destroy(server);
     server.* = .{ .gpa = gpa, .io = io, .options = options, .session_arena = .init(gpa) };
     return server;
 }
@@ -158,9 +159,9 @@ pub fn handle(server: *Server, peer: Peer, text: []const u8) void {
         defer server.lock.unlock(server.io);
         server.peer = peer;
     }
-    var scratch: std.heap.ArenaAllocator = .init(server.gpa);
-    defer scratch.deinit();
-    server.handled(scratch.allocator(), text) catch {};
+    var scratch_arena: std.heap.ArenaAllocator = .init(server.gpa);
+    defer scratch_arena.deinit();
+    server.handled(scratch_arena.allocator(), text) catch {};
 }
 
 /// The server as the in-process transport takes one.
@@ -199,9 +200,9 @@ const Kind = enum { tools, resources, prompts };
 
 /// A list's change, told to a session where it opened, and to each stateless subscription that asked for it.
 fn changed(server: *Server, kind: Kind) void {
-    var scratch: std.heap.ArenaAllocator = .init(server.gpa);
-    defer scratch.deinit();
-    const arena = scratch.allocator();
+    var scratch_arena: std.heap.ArenaAllocator = .init(server.gpa);
+    defer scratch_arena.deinit();
+    const arena = scratch_arena.allocator();
     const method = switch (kind) {
         inline else => |named| "notifications/" ++ @tagName(named) ++ "/list_changed",
     };
@@ -447,11 +448,9 @@ fn destroyAsk(gpa: Allocator, ask: *Ask) void {
 /// concurrently, it runs now, and nothing cancels it.
 fn startTask(server: *Server, request: jsonrpc.Request, era: protocol.Era, answers: ObjectMap) Allocator.Error!void {
     const running = try server.gpa.create(Running);
+    errdefer server.gpa.destroy(running);
     running.* = .{ .arena = .init(server.gpa), .era = era, .request = undefined, .answers = undefined };
-    errdefer {
-        running.arena.deinit();
-        server.gpa.destroy(running);
-    }
+    errdefer running.arena.deinit();
     const arena = running.arena.allocator();
     running.request = (try wire.copied(arena, .{ .request = request })).request;
     running.answers = (try foundation.json.toValue(arena, Value{ .object = answers })).object;
@@ -550,8 +549,9 @@ fn askClient(server: *Server, running: *Running, asked: Call.Asked) Allocator.Er
         return server.send(arena, .{ .result = .{ .id = running.request.id, .result = result } });
     }
     const kept = try server.gpa.create(Ask);
+    errdefer server.gpa.destroy(kept);
     kept.* = .{ .arena = .init(server.gpa), .id = 0, .request = undefined, .answers = undefined, .key = undefined };
-    errdefer destroyAsk(server.gpa, kept);
+    errdefer kept.arena.deinit();
     const kept_arena = kept.arena.allocator();
     kept.request = (try wire.copied(kept_arena, .{ .request = running.request })).request;
     kept.answers = (try foundation.json.toValue(kept_arena, Value{ .object = running.answers })).object;
@@ -613,7 +613,7 @@ fn reply(server: *Server, arena: Allocator, id: jsonrpc.Id, era: protocol.Era, r
 }
 
 fn refuse(server: *Server, arena: Allocator, id: jsonrpc.Id, code: i64, comptime text: []const u8, arguments: anytype) Allocator.Error!void {
-    try server.send(arena, .{ .failure = .{ .id = id, .@"error" = .{ .code = code, .message = try std.fmt.allocPrint(arena, text, arguments) } } });
+    try server.send(arena, .{ .failure = .{ .id = id, .@"error" = .{ .code = code, .message = try arena.print(text, arguments) } } });
 }
 
 fn sessionOpen(server: *Server) bool {

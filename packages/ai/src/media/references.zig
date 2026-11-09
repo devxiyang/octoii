@@ -51,7 +51,7 @@ fn typedData(call: *Call, kind: Kind, file: Referenced, what: []const u8, got: f
     const media_type = try checkedType(call, kind, file, what, got);
     var octoii = withoutRef(file.octoii);
     octoii.media_type = media_type;
-    return .{ .url = try std.fmt.allocPrint(call.arena, "data:{s};base64,{b64}", .{ media_type, got.bytes }), .octoii = octoii };
+    return .{ .url = try call.arena.print("data:{s};base64,{b64}", .{ media_type, got.bytes }), .octoii = octoii };
 }
 
 /// Audio read into base64: its data, what it is, and its `octoii` without the stored file's reference.
@@ -98,7 +98,7 @@ pub fn audioFormat(media_type: []const u8) []const u8 {
 /// The media type of audio a provider names by `format`, such as `audio/mpeg` for `mp3`: `audio/` and the format, else.
 pub fn audioMediaType(arena: Allocator, format: []const u8) Allocator.Error![]const u8 {
     const named = std.StaticStringMap([]const u8).initComptime(.{ .{ "mp3", "audio/mpeg" }, .{ "mpga", "audio/mpeg" }, .{ "m4a", "audio/mp4" } });
-    return named.get(format) orelse std.fmt.allocPrint(arena, "audio/{s}", .{format});
+    return named.get(format) orelse arena.print("audio/{s}", .{format});
 }
 
 /// The base64 of a data URL; null for an address or a data URL that is not base64.
@@ -123,7 +123,7 @@ fn inlineTyped(call: *Call, kind: Kind, file: Referenced, what: []const u8) Erro
     const media_type = try checkedType(call, kind, file, what, null);
     if (kind == .audio) {
         const base64 = dataUrlBase64(file.url.?) orelse return call.failWith(.invalid_request, "{s} is a data URL that is not base64", .{what});
-        return std.fmt.allocPrint(call.arena, "data:{s};base64,{s}", .{ media_type, base64 });
+        return call.arena.print("data:{s};base64,{s}", .{ media_type, base64 });
     }
     return switch (try files.typedInline(call.arena, typedFile(kind, file), media_type)) {
         .input_image => |image| image.image_url.?,

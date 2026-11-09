@@ -22,10 +22,10 @@ pending: ?Pending = null,
 const sign_in_ms = 10 * std.time.ms_per_min;
 
 /// A sign-in begun: its provider and the attempt its end needs, held in memory of their own, and when it began.
-const Pending = struct { arena_state: std.heap.ArenaAllocator, provider: []const u8, sign_in: ai.driver.SignIn, began_ms: i64 };
+const Pending = struct { arena_allocator: std.heap.ArenaAllocator, provider: []const u8, sign_in: ai.driver.SignIn, began_ms: i64 };
 
 pub fn deinit(providers: *Providers) void {
-    if (providers.pending) |*pending| pending.arena_state.deinit();
+    if (providers.pending) |*pending| pending.arena_allocator.deinit();
     providers.pending = null;
 }
 
@@ -40,8 +40,8 @@ fn take(providers: *Providers, now_ms: i64) ?Pending {
     const pending = providers.pending orelse return null;
     providers.pending = null;
     if (now_ms - pending.began_ms <= sign_in_ms) return pending;
-    var spent = pending.arena_state;
-    spent.deinit();
+    var arena_allocator = pending.arena_allocator;
+    arena_allocator.deinit();
     return null;
 }
 
@@ -131,20 +131,20 @@ const SignIn = struct {
     clients: *Clients,
     redirect: []const u8,
     /// What the attempt holds, and its provider, kept past the job where it begins.
-    attempt: std.heap.ArenaAllocator,
+    attempt_arena: std.heap.ArenaAllocator,
     provider: []const u8,
     kept: bool = false,
 
     pub fn of(_: Allocator, clients: *Clients, given: Given) !SignIn {
-        var attempt: std.heap.ArenaAllocator = .init(clients.runtime.allocator);
-        errdefer attempt.deinit();
-        const provider = try attempt.allocator().dupe(u8, given.provider);
-        return .{ .clients = clients, .redirect = given.redirect, .attempt = attempt, .provider = provider };
+        var attempt_arena: std.heap.ArenaAllocator = .init(clients.runtime.allocator);
+        errdefer attempt_arena.deinit();
+        const provider = try attempt_arena.allocator().dupe(u8, given.provider);
+        return .{ .clients = clients, .redirect = given.redirect, .attempt_arena = attempt_arena, .provider = provider };
     }
 
     pub fn run(work: *SignIn, _: Allocator, _: *Waits) anyerror!ai.Models.SignInStarted {
         const options: ai.driver.SignInOptions = .{ .redirect_uri = work.redirect, .agent_name_hint = "Octoii" };
-        return work.clients.models.signIn(work.attempt.allocator(), work.provider, options);
+        return work.clients.models.signIn(work.attempt_arena.allocator(), work.provider, options);
     }
 
     /// Keeps the sign-in begun waiting for the browser's return, in place of one begun before, and answers where the
@@ -155,13 +155,13 @@ const SignIn = struct {
             .failed => |failure| return connection.refuse(arena, id, "sign-in-failed", failure.message),
             .started => |begun| begun,
         };
-        work.clients.providers.keep(.{ .arena_state = work.attempt, .provider = work.provider, .sign_in = begun, .began_ms = work.clients.runtime.now() });
+        work.clients.providers.keep(.{ .arena_allocator = work.attempt_arena, .provider = work.provider, .sign_in = begun, .began_ms = work.clients.runtime.now() });
         work.kept = true;
         connection.answer(arena, id, .{ .url = begun.url }) catch |err| connection.refuseFailed(arena, id, err);
     }
 
     pub fn deinit(work: *SignIn) void {
-        if (!work.kept) work.attempt.deinit();
+        if (!work.kept) work.attempt_arena.deinit();
     }
 };
 
@@ -196,6 +196,6 @@ const FinishSignIn = struct {
     }
 
     pub fn deinit(work: *FinishSignIn) void {
-        work.pending.arena_state.deinit();
+        work.pending.arena_allocator.deinit();
     }
 };

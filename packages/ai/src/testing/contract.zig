@@ -22,26 +22,26 @@ pub fn problems(arena: Allocator, events: []const Event) Allocator.Error![]const
         const sequence = switch (event) {
             inline else => |given| given.sequence_number,
         };
-        if (sequence != index) try found.append(arena, try std.fmt.allocPrint(arena, "event {d} ({t}) has sequence_number {d}", .{ index, event, sequence }));
+        if (sequence != index) try found.append(arena, try arena.print("event {d} ({t}) has sequence_number {d}", .{ index, event, sequence }));
         const terminal = event == .completed or event == .incomplete or event == .failed;
-        if (terminal and index != events.len - 1) try found.append(arena, try std.fmt.allocPrint(arena, "event {d} ({t}) ends the response, and events follow it", .{ index, event }));
+        if (terminal and index != events.len - 1) try found.append(arena, try arena.print("event {d} ({t}) ends the response, and events follow it", .{ index, event }));
         if (event == .@"error" and (index + 2 != events.len or events[events.len - 1] != .failed)) {
-            try found.append(arena, try std.fmt.allocPrint(arena, "event {d} (error) does not come right before the response.failed that ends the stream", .{index}));
+            try found.append(arena, try arena.print("event {d} (error) does not come right before the response.failed that ends the stream", .{index}));
         }
         switch (event) {
             .output_item_added => |added| {
                 const entry = try items.getOrPut(arena, added.output_index);
                 if (entry.found_existing) {
-                    try found.append(arena, try std.fmt.allocPrint(arena, "event {d} adds output_index {d} a second time", .{ index, added.output_index }));
+                    try found.append(arena, try arena.print("event {d} adds output_index {d} a second time", .{ index, added.output_index }));
                 } else entry.value_ptr.* = .{ .added = added.item, .id = idOf(added.item) };
             },
             .output_item_done => |done| {
                 const state = items.getPtr(done.output_index) orelse {
-                    try found.append(arena, try std.fmt.allocPrint(arena, "event {d} ends output_index {d}, which was never added", .{ index, done.output_index }));
+                    try found.append(arena, try arena.print("event {d} ends output_index {d}, which was never added", .{ index, done.output_index }));
                     continue;
                 };
-                if (state.done) try found.append(arena, try std.fmt.allocPrint(arena, "event {d} ends output_index {d} a second time", .{ index, done.output_index }));
-                if (state.added != done.item) try found.append(arena, try std.fmt.allocPrint(arena, "event {d} ends a {t} item as a {t}", .{ index, state.added, done.item }));
+                if (state.done) try found.append(arena, try arena.print("event {d} ends output_index {d} a second time", .{ index, done.output_index }));
+                if (state.added != done.item) try found.append(arena, try arena.print("event {d} ends a {t} item as a {t}", .{ index, state.added, done.item }));
                 state.done = true;
             },
             else => try itemEvent(arena, &found, &items, &parts, event, index),
@@ -72,24 +72,24 @@ fn itemEvent(
             if (!@hasField(Given, "output_index") or !@hasField(Given, "item_id")) return;
             const state = items.get(given.output_index);
             if (state == null or state.?.done) {
-                return found.append(arena, try std.fmt.allocPrint(arena, "event {d} ({t}) streams output_index {d}, which is not open", .{ index, event, given.output_index }));
+                return found.append(arena, try arena.print("event {d} ({t}) streams output_index {d}, which is not open", .{ index, event, given.output_index }));
             }
             if (state.?.id) |id| if (!std.mem.eql(u8, id, given.item_id)) {
-                try found.append(arena, try std.fmt.allocPrint(arena, "event {d} names item {s}, and output_index {d} is {s}", .{ index, given.item_id, given.output_index, id }));
+                try found.append(arena, try arena.print("event {d} names item {s}, and output_index {d} is {s}", .{ index, given.item_id, given.output_index, id }));
             };
             const kind: ?[]const u8 = if (@hasField(Given, "content_index")) "content" else if (@hasField(Given, "summary_index")) "summary" else null;
             const named = kind orelse return;
             const part_index = if (@hasField(Given, "content_index")) given.content_index else given.summary_index;
-            const key = try std.fmt.allocPrint(arena, "{d}/{s}/{d}", .{ given.output_index, named, part_index });
+            const key = try arena.print("{d}/{s}/{d}", .{ given.output_index, named, part_index });
             const tag = @tagName(event);
             if (std.mem.endsWith(u8, tag, "_part_added")) {
-                if (parts.contains(key)) try found.append(arena, try std.fmt.allocPrint(arena, "event {d} begins part {s} a second time", .{ index, key }));
+                if (parts.contains(key)) try found.append(arena, try arena.print("event {d} begins part {s} a second time", .{ index, key }));
                 try parts.put(arena, key, .open);
             } else if (std.mem.endsWith(u8, tag, "_part_done")) {
-                if (parts.get(key) != .open) try found.append(arena, try std.fmt.allocPrint(arena, "event {d} ends part {s}, which is not open", .{ index, key }));
+                if (parts.get(key) != .open) try found.append(arena, try arena.print("event {d} ends part {s}, which is not open", .{ index, key }));
                 try parts.put(arena, key, .done);
             } else if (parts.get(key) != .open) {
-                try found.append(arena, try std.fmt.allocPrint(arena, "event {d} ({t}) streams part {s}, which is not open", .{ index, event, key }));
+                try found.append(arena, try arena.print("event {d} ({t}) streams part {s}, which is not open", .{ index, event, key }));
             }
         },
     }
@@ -110,10 +110,10 @@ fn end(arena: Allocator, found: *std.ArrayList([]const u8), items: *std.AutoArra
         .incomplete => .incomplete,
         else => .failed,
     };
-    if (response.status != status) try found.append(arena, try std.fmt.allocPrint(arena, "{t} carries a response whose status is {t}", .{ last, response.status }));
+    if (response.status != status) try found.append(arena, try arena.print("{t} carries a response whose status is {t}", .{ last, response.status }));
     if (last == .failed and (events.len < 2 or events[events.len - 2] != .@"error")) try found.append(arena, "response.failed does not follow an error");
     for (items.keys(), items.values()) |output_index, state| {
-        if (!state.done) try found.append(arena, try std.fmt.allocPrint(arena, "output_index {d} is never done", .{output_index}));
-        if (output_index >= items.count()) try found.append(arena, try std.fmt.allocPrint(arena, "output_index {d} leaves a gap", .{output_index}));
+        if (!state.done) try found.append(arena, try arena.print("output_index {d} is never done", .{output_index}));
+        if (output_index >= items.count()) try found.append(arena, try arena.print("output_index {d} leaves a gap", .{output_index}));
     }
 }

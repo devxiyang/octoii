@@ -216,7 +216,7 @@ const Refusal = struct {
 
     fn of(refusal: Refusal, comptime what: []const u8, arguments: anytype) Error {
         const call = refusal.call;
-        return call.failWith(.invalid_request, "The model {s} cannot take {s}: Google does not offer it", .{ try refusal.model.reference(call.arena), try std.fmt.allocPrint(call.arena, what, arguments) });
+        return call.failWith(.invalid_request, "The model {s} cannot take {s}: Google does not offer it", .{ try refusal.model.reference(call.arena), try call.arena.print(what, arguments) });
     }
 };
 
@@ -418,7 +418,7 @@ const Builder = struct {
     fn blockOf(builder: *Builder, part: InputContent) Error!Block {
         return switch (part) {
             .input_text => |text| .{ .text = .{ .text = text.text } },
-            .input_audio => |audio| .{ .audio = .{ .data = audio.input_audio.data orelse "", .mime_type = try std.fmt.allocPrint(builder.call.arena, "audio/{t}", .{audio.input_audio.format}) } },
+            .input_audio => |audio| .{ .audio = .{ .data = audio.input_audio.data orelse "", .mime_type = try builder.call.arena.print("audio/{t}", .{audio.input_audio.format}) } },
             .input_image => |image| builder.fileBlock(.{ .input_image = image }),
             .input_file => |file| builder.fileBlock(.{ .input_file = file }),
             .input_video => |video| builder.fileBlock(.{ .input_video = video }),
@@ -435,7 +435,7 @@ const Builder = struct {
             if (file != .input_file or pdf) return typedBlock(file, declared, .{ .uri = at });
             const fetched = try files.fetchInput(call, file);
             if (files.isText(fetched.media_type)) return .{ .text = .{ .text = try tags.fileText(call.arena, fetched.data, files.name(file)) } };
-            return typedBlock(file, fetched.media_type, .{ .data = try std.fmt.allocPrint(call.arena, "{b64}", .{fetched.data}) });
+            return typedBlock(file, fetched.media_type, .{ .data = try call.arena.print("{b64}", .{fetched.data}) });
         }
         const media_type = try files.mediaType(call.arena, file, null);
         const data = files.inlineBase64(file);
@@ -498,7 +498,7 @@ fn wireTools(call: *Call, tools: []const vocabulary.Tool) Error![]const Tool {
 /// Checks that a web search asks for Google's own search with no settings, as Google Search takes none.
 fn checkSearch(call: *Call, engine: ?vocabulary.tools.WebSearchEngine, settings: anytype, comptime passed: []const []const u8) Error!void {
     var named: std.ArrayList([]const u8) = .empty;
-    if (engine) |given| if (given != .auto and given != .native) try named.append(call.arena, try std.fmt.allocPrint(call.arena, "engine {t}", .{given}));
+    if (engine) |given| if (given != .auto and given != .native) try named.append(call.arena, try call.arena.print("engine {t}", .{given}));
     inline for (comptime std.meta.fieldNames(@TypeOf(settings))) |name| {
         const skipped = comptime for (passed) |each| {
             if (std.mem.eql(u8, each, name)) break true;

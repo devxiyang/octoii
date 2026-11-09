@@ -373,9 +373,9 @@ fn originsOf(arena: Allocator, old: []const []const u8, updated: []const []const
 }
 
 test "an edit finds its text exactly, then typographically, then line by line, and keeps the file's line endings" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const exact = (try edited(arena, "let a = 1;\r\nlet b = 2;\r\n", .{ .old = "let b = 2;\n", .new = "let b = 3;\nlet c = 4;\n" })).made;
     try std.testing.expectEqual(Tier.exact, exact.tier);
     try std.testing.expectEqualStrings("let a = 1;\r\nlet b = 3;\r\nlet c = 4;\r\n", exact.text);
@@ -392,9 +392,9 @@ test "an edit finds its text exactly, then typographically, then line by line, a
 }
 
 test "an edit refuses what it cannot make, and replaces every match only where asked" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     try std.testing.expectEqual(Refusal.empty, (try edited(arena, "x", .{ .old = "", .new = "y" })).refused);
     try std.testing.expectEqual(Refusal.same, (try edited(arena, "x", .{ .old = "x", .new = "x" })).refused);
     try std.testing.expectEqual(Refusal.not_found, (try edited(arena, "x", .{ .old = "z", .new = "y" })).refused);

@@ -30,14 +30,14 @@ pub fn encode(arena: Allocator, boundary: []const u8, fields: []const Field) All
         try out.appendSlice(arena, "\r\n");
     }
     try out.print(arena, "--{s}--\r\n", .{boundary});
-    return .{ .content_type = try std.fmt.allocPrint(arena, "multipart/form-data; boundary={s}", .{boundary}), .bytes = out.items };
+    return .{ .content_type = try arena.print("multipart/form-data; boundary={s}", .{boundary}), .bytes = out.items };
 }
 
 /// The fields of `body`, a form whose `Content-Type` is `content_type`; null where it is no form.
 pub fn parse(arena: Allocator, content_type: []const u8, body: []const u8) Allocator.Error!?[]const Field {
     const at = std.mem.indexOf(u8, content_type, "boundary=") orelse return null;
     const boundary = std.mem.trim(u8, content_type[at + "boundary=".len ..], "\" ");
-    const delimiter = try std.fmt.allocPrint(arena, "--{s}", .{boundary});
+    const delimiter = try arena.print("--{s}", .{boundary});
     var fields: std.ArrayList(Field) = .empty;
     var parts = std.mem.splitSequence(u8, body, delimiter);
     _ = parts.next();
@@ -79,12 +79,12 @@ fn quoted(line: []const u8, comptime key: []const u8) ?[]const u8 {
 }
 
 test "a form is read back as it was written" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const written = try encode(a, "xyz", &.{ .{ .name = "model", .value = "whisper-1" }, .{ .name = "file", .filename = "audio.mp3", .content_type = "audio/mpeg", .data = "ID3\r\nraw" } });
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const written = try encode(arena, "xyz", &.{ .{ .name = "model", .value = "whisper-1" }, .{ .name = "file", .filename = "audio.mp3", .content_type = "audio/mpeg", .data = "ID3\r\nraw" } });
     try std.testing.expectEqualStrings("multipart/form-data; boundary=xyz", written.content_type);
-    const read = (try parse(a, written.content_type, written.bytes)).?;
+    const read = (try parse(arena, written.content_type, written.bytes)).?;
     try std.testing.expectEqual(@as(usize, 2), read.len);
     try std.testing.expectEqualStrings("whisper-1", read[0].value.?);
     try std.testing.expectEqualStrings("audio.mp3", read[1].filename.?);

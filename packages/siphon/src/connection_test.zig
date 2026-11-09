@@ -45,7 +45,7 @@ const Client = struct {
     }
 
     fn sendf(client: Client, comptime text: []const u8, arguments: anytype) !void {
-        client.send(try std.fmt.allocPrint(client.arena, text, arguments));
+        client.send(try client.arena.print(text, arguments));
     }
 
     /// What the client was sent since it last looked, read as JSON.
@@ -97,9 +97,9 @@ fn streamed(arena: Allocator) !ai.testing.fake.Answer {
 }
 
 test "a thread made naming no folder works in the default one, made for it, and belongs to no project" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     const root = try tmp.dir.realPathFileAlloc(std.testing.io, ".", arena);
@@ -122,9 +122,9 @@ test "a thread made naming no folder works in the default one, made for it, and 
 }
 
 test "a client is greeted as its session, its methods answered by their ids, and a thread it follows sent as it goes" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{try streamed(arena)});
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
     var clock: testing.Clock = .{ .now_ms = 1_000 };
@@ -254,9 +254,9 @@ const FakeAccess = struct {
 };
 
 test "a client holding no session is not greeted, and one is asked for what its session's scopes open alone" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try Siphon.open(std.testing.allocator, .{ .io = std.testing.io, .clock = clock.clock() }, .{});
     defer siphon.close();
@@ -279,9 +279,9 @@ test "a client holding no session is not greeted, and one is asked for what its 
 }
 
 test "a client reads the host's access, makes a link no wider than its session, and revokes a session, whose clients are let go" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: FakeAccess = .{ .arena = arena };
     try fake.sessions.append(arena, .{ .id = "s1", .method = .cookie, .scopes = Access.all_scopes, .issued_at = 1_000, .expires_at = 2_000 });
     try fake.sessions.append(arena, .{ .id = "s2", .method = .bearer, .scopes = Access.all_scopes, .label = "phone", .issued_at = 1_000, .expires_at = 2_000 });
@@ -317,9 +317,9 @@ test "a client reads the host's access, makes a link no wider than its session, 
 }
 
 test "a client sets a provider's key and removes it, told how each provider is connected and what kind of credential it holds, never the key" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{});
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
     var held: testing.Credentials = .{ .arena = arena };
@@ -356,9 +356,9 @@ test "a client sets a provider's key and removes it, told how each provider is c
 }
 
 test "a client is told the models a thread may run with, each as the catalogue describes it" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{});
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
     var clock: testing.Clock = .{ .now_ms = 1_000 };
@@ -377,9 +377,9 @@ test "a client is told the models a thread may run with, each as the catalogue d
 }
 
 test "a client reads a thread's latest entries, back a page at a time to its start, and follows on from where the log ended" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
@@ -429,9 +429,9 @@ fn rowsOf(client: Client) ![]const [2][]const u8 {
 }
 
 test "a thread deleted is gone for the clients that watch the list, and followed no more by those that followed it" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
@@ -464,9 +464,9 @@ test "a thread deleted is gone for the clients that watch the list, and followed
 }
 
 test "a client watching the list of threads is answered with it, then sent a row of a thread as it changes, and no other" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
@@ -518,9 +518,9 @@ fn offsetsOf(client: Client, key: []const u8) ![]const i64 {
 }
 
 test "a client that follows a thread mid-stream is sent what streamed so far, from its start, then what streams after" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
@@ -565,9 +565,9 @@ const Holding = struct {
 };
 
 test "a thread followed is sent its state as its fibers change, though its log does not" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
@@ -622,9 +622,9 @@ fn stateOf(message: std.json.Value, key: []const u8) ?std.json.Value {
 }
 
 test "a thread followed is fed a page at a time while its client's outbox has room, each entry once, in order" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
@@ -650,7 +650,7 @@ test "a thread followed is fed a page at a time while its client's outbox has ro
                 try std.testing.expectEqual(@as(usize, 3000), next);
                 states += 1;
             } else if (std.mem.eql(u8, event, "entries")) for (field(message, &.{"entries"}).?.array.items) |entry| {
-                try std.testing.expectEqualStrings(try std.fmt.allocPrint(arena, "{d:0>6}", .{next}), entry.object.get("id").?.string);
+                try std.testing.expectEqualStrings(try arena.print("{d:0>6}", .{next}), entry.object.get("id").?.string);
                 next += 1;
             };
         }
@@ -663,14 +663,14 @@ test "a thread followed is fed a page at a time while its client's outbox has ro
 }
 
 test "a client is let go as Redis lets one go: at once past its outbox's hard bound, past its soft one after a while" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
     const tid = try threads.create(siphon.runtime, arena, .{}, "create");
-    const event = try std.fmt.allocPrint(arena, "{{\"delta\":\"{s}\"}}", .{try arena.alloc(u8, 1 << 20)});
+    const event = try arena.print("{{\"delta\":\"{s}\"}}", .{try arena.alloc(u8, 1 << 20)});
     @memset(event[10 .. event.len - 2], 'x');
     const slow: Client = try .open(siphon, arena);
     const stuck: Client = try .open(siphon, arena);
@@ -710,9 +710,9 @@ fn settingsSent(client: Client) ![]const std.json.Value {
 }
 
 test "a client watches the settings — the environment's and its device's — sets them as its scopes allow, and threads are made in the mode they name" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: FakeAccess = .{ .arena = arena };
     try fake.sessions.append(arena, .{ .id = "s1", .method = .cookie, .scopes = Access.all_scopes, .issued_at = 1_000, .expires_at = 2_000 });
     try fake.sessions.append(arena, .{ .id = "s2", .method = .cookie, .scopes = &.{.@"threads.read"}, .issued_at = 1_000, .expires_at = 2_000 });
@@ -783,7 +783,7 @@ const SigningIn = struct {
     var driver: ai.driver.Driver = .{ .id = "signing", .name = "Signing", .sign_in = begin };
 
     fn begin(call: *ai.driver.Call, options: ai.driver.SignInOptions) ai.failure.Error!ai.driver.SignIn {
-        const url = std.fmt.allocPrint(call.arena, "https://issuer.example/authorize?redirect_uri={s}", .{options.redirect_uri}) catch return error.OutOfMemory;
+        const url = call.arena.print("https://issuer.example/authorize?redirect_uri={s}", .{options.redirect_uri}) catch return error.OutOfMemory;
         return .{ .url = url, .attempt = call, .finish = finish };
     }
 
@@ -813,9 +813,9 @@ fn answerOf(siphon: *Siphon, client: Client, id: []const u8) !std.json.Value {
 }
 
 test "a client asks how a provider stands, lists the models again, and signs in to one in a browser, off the loop" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{});
     const providers = [_]ai.driver.Provider{
         .{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} },
@@ -874,7 +874,7 @@ fn namesOf(arena: Allocator, listed: std.json.Value) ![]const []const u8 {
     for (field(listed, &.{"entries"}).?.array.items) |entry| {
         const object = entry.object;
         const ignored = if (object.get("ignored").?.bool) " ignored" else "";
-        try out.append(arena, try std.fmt.allocPrint(arena, "{s} {s}{s}", .{ object.get("name").?.string, object.get("kind").?.string, ignored }));
+        try out.append(arena, try arena.print("{s} {s}{s}", .{ object.get("name").?.string, object.get("kind").?.string, ignored }));
     }
     return out.items;
 }
@@ -883,7 +883,7 @@ fn namesOf(arena: Allocator, listed: std.json.Value) ![]const []const u8 {
 fn foundOf(arena: Allocator, searched: std.json.Value) ![]const []const u8 {
     var out: std.ArrayList([]const u8) = .empty;
     for (field(searched, &.{"entries"}).?.array.items) |entry| {
-        try out.append(arena, try std.fmt.allocPrint(arena, "{s} {s}", .{ entry.object.get("path").?.string, entry.object.get("kind").?.string }));
+        try out.append(arena, try arena.print("{s} {s}", .{ entry.object.get("path").?.string, entry.object.get("kind").?.string }));
     }
     return out.items;
 }
@@ -895,9 +895,9 @@ const wide_png = testing.pngOf(64, 32);
 const one_pixel_png = "\x89PNG\x0d\x0a\x1a\x0a\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0aIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\x0d\x0a-\xb4\x00\x00\x00\x00IEND\xaeB`\x82";
 
 test "a client lists a folder of the machine, reads a page of a file, and finds the paths under a folder that match, off the loop" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const io = std.testing.io;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
@@ -1076,9 +1076,9 @@ const Told = struct {
 };
 
 test "a thread's terminals: opened in its folder and numbered, told with their titles, sized to their smallest view, gone as their programs end or they close" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     const workspace = try tmp.dir.realPathFileAlloc(std.testing.io, ".", arena);
@@ -1105,7 +1105,7 @@ test "a thread's terminals: opened in its folder and numbered, told with their t
     _ = try inbox.until(siphon, Told{ .arena = arena, .event = "terminal-screen", .rows = 24 }, Told.matches);
     try std.testing.expect(field(try inbox.answer(siphon, "4"), &.{"result"}).? == .object);
     try client.sendf("{{\"id\":\"5\",\"method\":\"terminals.write\",\"params\":{{\"terminal\":\"{s}\",\"data\":\"echo made-$((40+2)) in $(pwd)\\n\"}}}}", .{terminal});
-    _ = try inbox.until(siphon, Told{ .arena = arena, .event = "terminal-output", .holding = try std.fmt.allocPrint(arena, "made-42 in {s}", .{workspace}) }, Told.matches);
+    _ = try inbox.until(siphon, Told{ .arena = arena, .event = "terminal-output", .holding = try arena.print("made-42 in {s}", .{workspace}) }, Told.matches);
 
     // The title its program sets is told with it.
     try client.sendf("{{\"id\":\"6\",\"method\":\"terminals.write\",\"params\":{{\"terminal\":\"{s}\",\"data\":\"printf '\\\\033]2;building\\\\007'\\n\"}}}}", .{terminal});
@@ -1166,18 +1166,18 @@ fn gitIn(arena: Allocator, folder: []const u8, args: []const []const u8) !void {
 fn changedOf(arena: Allocator, answer: std.json.Value) ![]const []const u8 {
     var shown: std.ArrayList([]const u8) = .empty;
     for (field(answer, &.{ "result", "files" }).?.array.items) |file| {
-        const old = if (field(file, &.{"old_path"})) |from| try std.fmt.allocPrint(arena, " from {s}", .{from.string}) else "";
+        const old = if (field(file, &.{"old_path"})) |from| try arena.print(" from {s}", .{from.string}) else "";
         const added = if (field(file, &.{"additions"})) |count| count.integer else -1;
         const deleted = if (field(file, &.{"deletions"})) |count| count.integer else -1;
-        try shown.append(arena, try std.fmt.allocPrint(arena, "{s} {s}{s} +{d} -{d}", .{ field(file, &.{"status"}).?.string, field(file, &.{"path"}).?.string, old, added, deleted }));
+        try shown.append(arena, try arena.print("{s} {s}{s} +{d} -{d}", .{ field(file, &.{"status"}).?.string, field(file, &.{"path"}).?.string, old, added, deleted }));
     }
     return shown.items;
 }
 
 test "a client reads a repository's changes: not yet committed, a branch's against its base, or a commit's; a file's patch, its two versions, the branch's commits" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const io = std.testing.io;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
@@ -1306,9 +1306,9 @@ fn isFrameOf(page: []const u8, message: std.json.Value) bool {
 
 test "a thread's pages in the browser: opened, painted for those that follow them, clicked and typed into, a dialog answered, navigated and taken back, a page a page opens a page of the thread, one that closes itself gone" {
     const chromium = testing.chromium() orelse return error.SkipZigTest;
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     const root = try tmp.dir.realPathFileAlloc(std.testing.io, ".", arena);
@@ -1389,9 +1389,9 @@ test "a thread's pages in the browser: opened, painted for those that follow the
 }
 
 test "a thread a client makes belongs to the repository its workspace is in, and what the person granted a project is listed and taken back" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     try tmp.dir.createDirPath(std.testing.io, "repo/.git");

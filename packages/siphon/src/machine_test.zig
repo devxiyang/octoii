@@ -17,9 +17,9 @@ fn closeForTest(machine: Machine) void {
 }
 
 test "the folder a thread that names none works in is octoii under the home folder, made once and kept" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     const root = try tmp.dir.realPathFileAlloc(std.testing.io, ".", arena);
@@ -36,14 +36,14 @@ test "the folder a thread that names none works in is octoii under the home fold
 }
 
 test "a program runs to its end: its output taken whole, its errors kept, its code told" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
     const machine = try openForTest();
     defer closeForTest(machine);
     var waits: Waits = .{};
     defer waits.close();
     const program: Machine.Program = .{ .argv = &.{ "/bin/sh", "-c", "printf '%s' \"$GREETING\"; head -c 300000 /dev/zero | tr '\\0' x; echo oops >&2; exit 3" }, .cwd = "/", .variables = &.{.{ .name = "GREETING", .value = "hello" }} };
-    const ran = try machine.run(std.testing.io, arena_state.allocator(), &waits, program);
+    const ran = try machine.run(std.testing.io, arena_allocator.allocator(), &waits, program);
     try std.testing.expectEqual(Machine.Exit{ .code = 3 }, ran.ended);
     try std.testing.expectEqual(@as(usize, 300_005), ran.output.len);
     try std.testing.expect(std.mem.startsWith(u8, ran.output, "hellox"));
@@ -51,9 +51,9 @@ test "a program runs to its end: its output taken whole, its errors kept, its co
 }
 
 test "a program that writes more than is taken, runs past its time, or is cut off by a stop is ended; one the machine lacks is refused" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const io = std.testing.io;
     const machine = try openForTest();
     defer closeForTest(machine);

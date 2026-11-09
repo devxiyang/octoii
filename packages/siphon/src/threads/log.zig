@@ -412,9 +412,9 @@ pub fn headOf(arena: Allocator, line: []const u8) !Head {
 }
 
 test "an entry is one line of canonical JSON: its id and type first, its fields in whole words" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const end: TurnEnd = .{ .id = "019a", .outcome = .failed, .reason = "the model failed" };
     try std.testing.expectEqualStrings("{\"id\":\"019a\",\"type\":\"turn-end\",\"outcome\":\"failed\",\"reason\":\"the model failed\"}\n", try lineOf(arena, end));
     const head = try headOf(arena, "{\"id\":\"019b\",\"type\":\"reply\",\"response\":{}}");

@@ -5,6 +5,7 @@
     .fingerprint = 0x85016cfd0c072db5,
     .minimum_zig_version = "0.17.1",
     .dependencies = .{
+        .lint = .{ .path = "../lint" },
         .foundation = .{ .path = "../foundation" },
         .typebox = .{
             .url = "git+https://github.com/octoii-works/typebox#aa161a4072bb09fd0e909d062fcf608b99036c06",

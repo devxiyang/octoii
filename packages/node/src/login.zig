@@ -184,9 +184,9 @@ const Accounts = struct {
         while (true) {
             var request = http.receiveHead() catch return;
             var body_buffer: [512]u8 = undefined;
-            var arena_state: std.heap.ArenaAllocator = .init(testing.allocator);
-            defer arena_state.deinit();
-            const arena = arena_state.allocator();
+            var arena_allocator: std.heap.ArenaAllocator = .init(testing.allocator);
+            defer arena_allocator.deinit();
+            const arena = arena_allocator.allocator();
             // The head is the reader's till the body is read: its target kept first.
             const target = try arena.dupe(u8, request.head.target);
             const body = try (try request.readerExpectContinue(&body_buffer)).allocRemaining(arena, .limited(4096));
@@ -237,9 +237,9 @@ test "a machine shows its code, waits on its person, and is added at its address
     const identity = Identity.generate(testing.io);
     var told: [256]u8 = undefined;
     var out: Io.Writer = .fixed(&told);
-    var arena_state: std.heap.ArenaAllocator = .init(testing.allocator);
-    defer arena_state.deinit();
-    try testing.expectEqualStrings("https://k3x7mq2vtd7a.octoiitunnel.test", (try loginTo(&accounts, arena_state.allocator(), identity, &out)).added);
+    var arena_allocator: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena_allocator.deinit();
+    try testing.expectEqualStrings("https://k3x7mq2vtd7a.octoiitunnel.test", (try loginTo(&accounts, arena_allocator.allocator(), identity, &out)).added);
     try testing.expectEqualStrings("confirm ZQKH-RVTX at https://accounts.test/device\n", out.buffered());
     try testing.expect(accounts.key.?.eql(identity.publicKey()));
     try testing.expectEqual(2, accounts.polls);
@@ -251,15 +251,15 @@ test "a machine its person cancels is told so" {
     defer accounts.stop();
     var told: [256]u8 = undefined;
     var out: Io.Writer = .fixed(&told);
-    var arena_state: std.heap.ArenaAllocator = .init(testing.allocator);
-    defer arena_state.deinit();
-    try testing.expectEqual(Outcome{ .denied = null }, try loginTo(&accounts, arena_state.allocator(), Identity.generate(testing.io), &out));
+    var arena_allocator: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena_allocator.deinit();
+    try testing.expectEqual(Outcome{ .denied = null }, try loginTo(&accounts, arena_allocator.allocator(), Identity.generate(testing.io), &out));
 }
 
 test "the relay at a machine's address is a WebSocket at its host" {
-    var arena_state: std.heap.ArenaAllocator = .init(testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     try testing.expectEqualStrings("wss://k3x7mq2vtd7a.octoiitunnel.com", try relayAt(arena, "https://k3x7mq2vtd7a.octoiitunnel.com"));
     try testing.expectEqualStrings("ws://k3x7mq2vtd7a.localhost:8787", try relayAt(arena, "http://k3x7mq2vtd7a.localhost:8787"));
     for ([_][]const u8{ "ftp://octoiitunnel.com", "https://octoiitunnel.com/home", "https://octoiitunnel.com?x", "https://a@octoiitunnel.com", "octoiitunnel.com", "https:" }) |address| {

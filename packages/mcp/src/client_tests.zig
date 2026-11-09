@@ -34,7 +34,7 @@ const echo: server_.Tool = .{
     .call = struct {
         fn call(given: *ToolCall) server_.Error!server_.Outcome {
             const text = given.arguments.object.get("text").?.string;
-            return result(try std.fmt.allocPrint(given.arena, "{{\"content\":[{{\"type\":\"text\",\"text\":\"{s}\"}}],\"structuredContent\":{{\"echoed\":\"{s}\"}}}}", .{ text, text }));
+            return result(try given.arena.print("{{\"content\":[{{\"type\":\"text\",\"text\":\"{s}\"}}],\"structuredContent\":{{\"echoed\":\"{s}\"}}}}", .{ text, text }));
         }
     }.call,
 };
@@ -90,7 +90,7 @@ const greet: server_.Tool = .{
             ) orelse return .asked;
             const action = answer.object.get("action").?.string;
             const name = if (std.mem.eql(u8, action, "accept")) answer.object.get("content").?.object.get("name").?.string else action;
-            return result(try std.fmt.allocPrint(given.arena, "{{\"content\":[{{\"type\":\"text\",\"text\":\"Hello, {s}\"}}]}}", .{name}));
+            return result(try given.arena.print("{{\"content\":[{{\"type\":\"text\",\"text\":\"Hello, {s}\"}}]}}", .{name}));
         }
     }.call,
 };
@@ -105,7 +105,7 @@ const list_roots: server_.Tool = .{
                 if (index > 0) try uris.append(given.arena, ',');
                 try uris.appendSlice(given.arena, root.object.get("uri").?.string);
             }
-            return result(try std.fmt.allocPrint(given.arena, "{{\"content\":[{{\"type\":\"text\",\"text\":\"{s}\"}}]}}", .{uris.items}));
+            return result(try given.arena.print("{{\"content\":[{{\"type\":\"text\",\"text\":\"{s}\"}}]}}", .{uris.items}));
         }
     }.call,
 };
@@ -134,7 +134,7 @@ const Person = struct {
         person.asked += 1;
         return switch (request) {
             .url => .{ .accept = null },
-            .form => .{ .accept = try json(arena, try std.fmt.allocPrint(arena, "{{\"name\":\"{s}\"}}", .{person.name})) },
+            .form => .{ .accept = try json(arena, try arena.print("{{\"name\":\"{s}\"}}", .{person.name})) },
         };
     }
 };
@@ -145,15 +145,15 @@ const Connected = struct { fake: *FakeServer, client: *Client, pair: *memory.Pai
 /// A client of a fake server, connecting: the client, or the failure it could not connect with.
 const Connecting = struct { made: Client.Connected, fake: *FakeServer, pair: *memory.Pair, host: *TestHost, reports: *std.ArrayList([]const u8) };
 
-fn connecting(a: Allocator, options: server_.Options, given: Client.Options) !Connecting {
-    const host = try a.create(TestHost);
+fn connecting(arena: Allocator, options: server_.Options, given: Client.Options) !Connecting {
+    const host = try arena.create(TestHost);
     host.* = .{};
-    const fake = try a.create(FakeServer);
-    fake.* = .init(a, options);
-    const kept_host = try a.create(@import("transport.zig").Host);
+    const fake = try arena.create(FakeServer);
+    fake.* = .init(arena, options);
+    const kept_host = try arena.create(@import("transport.zig").Host);
     kept_host.* = host.host();
-    const pair = try memory.Pair.init(a, kept_host, fake.server());
-    const reports = try a.create(std.ArrayList([]const u8));
+    const pair = try memory.Pair.init(arena, kept_host, fake.server());
+    const reports = try arena.create(std.ArrayList([]const u8));
     reports.* = .empty;
     var with = given;
     with.host = host.host();
@@ -164,11 +164,11 @@ fn connecting(a: Allocator, options: server_.Options, given: Client.Options) !Co
             kept.append(std.testing.allocator, problem) catch {};
         }
     }.report };
-    return .{ .made = try Client.connect(a, a, with, pair.transport()), .fake = fake, .pair = pair, .host = host, .reports = reports };
+    return .{ .made = try Client.connect(arena, arena, with, pair.transport()), .fake = fake, .pair = pair, .host = host, .reports = reports };
 }
 
-fn connected(a: Allocator, options: server_.Options, given: Client.Options) !Connected {
-    const made = try connecting(a, options, given);
+fn connected(arena: Allocator, options: server_.Options, given: Client.Options) !Connected {
+    const made = try connecting(arena, options, given);
     return .{ .client = made.made.client, .fake = made.fake, .pair = made.pair, .host = made.host, .reports = made.reports };
 }
 
@@ -181,10 +181,10 @@ fn textOf(content: []const types.ContentBlock) []const u8 {
 }
 
 test "the client speaks the stateless protocol to a server that does, after server/discover" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const given = try connected(a, .{ .eras = &.{.modern}, .instructions = "Use it well.", .name = "modern" }, defaults());
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const given = try connected(arena, .{ .eras = &.{.modern}, .instructions = "Use it well.", .name = "modern" }, defaults());
     defer given.client.deinit();
     const server = given.client.server().?;
     try std.testing.expectEqual(.modern, server.era);
@@ -197,71 +197,71 @@ test "the client speaks the stateless protocol to a server that does, after serv
 }
 
 test "the client falls back to initialize for a server of the session-based protocol, and prefers the stateless one where both are spoken" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const legacy = try connected(a, .{ .eras = &.{.legacy} }, defaults());
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const legacy = try connected(arena, .{ .eras = &.{.legacy} }, defaults());
     defer legacy.client.deinit();
     try std.testing.expectEqual(.legacy, legacy.client.era().?);
     try std.testing.expectEqualStrings(protocol.legacy_versions[0], legacy.client.server().?.version);
     const methods = try legacy.fake.methods();
     try std.testing.expectEqualStrings("initialize", methods[1]);
     try std.testing.expectEqualStrings("notifications/initialized", methods[2]);
-    const both = try connected(a, .{}, defaults());
+    const both = try connected(arena, .{}, defaults());
     defer both.client.deinit();
     try std.testing.expectEqual(.modern, both.client.era().?);
-    const unknown_modern = try connected(a, .{ .versions = &.{"2099-01-01"} }, defaults());
+    const unknown_modern = try connected(arena, .{ .versions = &.{"2099-01-01"} }, defaults());
     defer unknown_modern.client.deinit();
     try std.testing.expectEqual(.legacy, unknown_modern.client.era().?);
 }
 
 test "the client refuses a server that speaks no version it knows" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const refused = (try connecting(a, .{ .eras = &.{.modern}, .versions = &.{"2099-01-01"} }, defaults())).made.failed;
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const refused = (try connecting(arena, .{ .eras = &.{.modern}, .versions = &.{"2099-01-01"} }, defaults())).made.failed;
     try std.testing.expectEqualStrings("The MCP server speaks 2099-01-01, none of which this client speaks", refused.protocol);
 }
 
 test "the client never declares sampling, and declares only the features it offers" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var with = defaults();
     with.elicitation = .{ .form = true };
     with.roots = &.{.{ .uri = "file:///work" }};
-    const given = try connected(a, .{ .eras = &.{.modern} }, with);
+    const given = try connected(arena, .{ .eras = &.{.modern} }, with);
     defer given.client.deinit();
-    try std.testing.expectEqualStrings("{\"elicitation\":{\"form\":{}},\"roots\":{}}", try @import("foundation").json.encode(a, given.fake.session.capabilities));
+    try std.testing.expectEqualStrings("{\"elicitation\":{\"form\":{}},\"roots\":{}}", try @import("foundation").json.encode(arena, given.fake.session.capabilities));
 }
 
 test "the client lists tools page by page, and calls one with its structured content checked against its output schema" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     for ([_]protocol.Era{ .modern, .legacy }) |era| {
-        const given = try connected(a, .{ .eras = &.{era}, .tools = &.{ echo, fail, wrong_shape }, .page_size = 1 }, defaults());
+        const given = try connected(arena, .{ .eras = &.{era}, .tools = &.{ echo, fail, wrong_shape }, .page_size = 1 }, defaults());
         defer given.client.deinit();
-        const tools = (try given.client.allTools(a, .{})).done;
+        const tools = (try given.client.allTools(arena, .{})).done;
         try std.testing.expectEqual(@as(usize, 3), tools.len);
         try std.testing.expectEqualStrings("wrong", tools[2].name);
-        const echoed = (try given.client.callTool(a, "echo", try std.json.parseFromSliceLeaky(Value, a, "{\"text\":\"hi\"}", .{}), .{})).done;
+        const echoed = (try given.client.callTool(arena, "echo", try std.json.parseFromSliceLeaky(Value, arena, "{\"text\":\"hi\"}", .{}), .{})).done;
         try std.testing.expectEqualStrings("hi", textOf(echoed.content));
-        const failed = (try given.client.callTool(a, "fail", null, .{})).done;
+        const failed = (try given.client.callTool(arena, "fail", null, .{})).done;
         try std.testing.expectEqual(true, failed.isError.?);
-        const wrong = (try given.client.callTool(a, "wrong", null, .{})).failed;
+        const wrong = (try given.client.callTool(arena, "wrong", null, .{})).failed;
         try std.testing.expect(std.mem.startsWith(u8, wrong.protocol, "The structured content of the MCP tool wrong does not match its output schema: /n must be number"));
     }
 }
 
 test "the client passes progress and log messages on, at the level it set" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     for ([_]protocol.Era{ .modern, .legacy }) |era| {
-        const given = try connected(a, .{ .eras = &.{era}, .tools = &.{progressing} }, defaults());
+        const given = try connected(arena, .{ .eras = &.{era}, .tools = &.{progressing} }, defaults());
         defer given.client.deinit();
-        _ = (try given.client.setLoggingLevel(a, .info)).done;
+        _ = (try given.client.setLoggingLevel(arena, .info)).done;
         var seen: std.ArrayList(types.Progress) = .empty;
         const Seen = struct {
             fn progressed(context: *anyopaque, progress: types.Progress) void {
@@ -270,25 +270,25 @@ test "the client passes progress and log messages on, at the level it set" {
             }
         };
         defer seen.deinit(std.testing.allocator);
-        const done = (try given.client.callTool(a, "progressing", null, .{ .progress = .{ .context = &seen, .progressed = Seen.progressed } })).done;
+        const done = (try given.client.callTool(arena, "progressing", null, .{ .progress = .{ .context = &seen, .progressed = Seen.progressed } })).done;
         try std.testing.expectEqualStrings("finished", textOf(done.content));
         try std.testing.expectEqual(@as(usize, 2), seen.items.len);
         try std.testing.expectEqualStrings("half", seen.items[0].message.?);
-        const event = (try given.client.nextEvent(a, 0)).?;
+        const event = (try given.client.nextEvent(arena, 0)).?;
         try std.testing.expectEqual(.info, event.log.level);
-        try std.testing.expectEqual(null, try given.client.nextEvent(a, 0));
+        try std.testing.expectEqual(null, try given.client.nextEvent(arena, 0));
     }
 }
 
 test "the client times a request out and cancels it, a progress notification starting the time again where asked" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     for ([_]protocol.Era{ .modern, .legacy }) |era| {
-        const given = try connected(a, .{ .eras = &.{era}, .tools = &.{slow} }, defaults());
+        const given = try connected(arena, .{ .eras = &.{era}, .tools = &.{slow} }, defaults());
         defer given.client.deinit();
         const started = given.host.clock_ms;
-        const failed = (try given.client.callTool(a, "slow", null, .{ .timeout_ms = 1000 })).failed;
+        const failed = (try given.client.callTool(arena, "slow", null, .{ .timeout_ms = 1000 })).failed;
         try std.testing.expectEqual(@as(u64, 1000), failed.timeout.timeout_ms);
         try std.testing.expectEqual(started + 1000, given.host.clock_ms);
         try std.testing.expectEqual(@as(usize, 1), given.fake.cancelled.items.len);
@@ -296,22 +296,22 @@ test "the client times a request out and cancels it, a progress notification sta
 }
 
 test "the client answers a form elicitation through the request's handler, checking the content against the form" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     for ([_]protocol.Era{ .modern, .legacy }) |era| {
         var with = defaults();
         with.elicitation = .{ .form = true, .url = true };
-        const given = try connected(a, .{ .eras = &.{era}, .tools = &.{greet} }, with);
+        const given = try connected(arena, .{ .eras = &.{era}, .tools = &.{greet} }, with);
         defer given.client.deinit();
         var person: Person = .{};
-        const greeted = (try given.client.callTool(a, "greet", null, .{ .elicit = person.handler() })).done;
+        const greeted = (try given.client.callTool(arena, "greet", null, .{ .elicit = person.handler() })).done;
         try std.testing.expectEqualStrings("Hello, Ada", textOf(greeted.content));
         try std.testing.expectEqual(@as(usize, 1), person.asked);
-        const declined = (try given.client.callTool(a, "greet", null, .{})).done;
+        const declined = (try given.client.callTool(arena, "greet", null, .{})).done;
         try std.testing.expectEqualStrings("Hello, decline", textOf(declined.content));
         var nobody: Person = .{ .name = "" };
-        const refused = try given.client.callTool(a, "greet", null, .{ .elicit = nobody.handler() });
+        const refused = try given.client.callTool(arena, "greet", null, .{ .elicit = nobody.handler() });
         switch (era) {
             .modern => try std.testing.expect(std.mem.startsWith(u8, refused.failed.invalid_answer, "The answer to the elicitation does not match its form")),
             .legacy => try std.testing.expect(std.mem.indexOf(u8, refused.failed.refused.message, "does not match its form") != null),
@@ -320,44 +320,44 @@ test "the client answers a form elicitation through the request's handler, check
 }
 
 test "the client gives its roots when asked, and never samples" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     for ([_]protocol.Era{ .modern, .legacy }) |era| {
         var with = defaults();
         with.roots = &.{ .{ .uri = "file:///one" }, .{ .uri = "file:///two" } };
-        const given = try connected(a, .{ .eras = &.{era}, .tools = &.{ list_roots, sample } }, with);
+        const given = try connected(arena, .{ .eras = &.{era}, .tools = &.{ list_roots, sample } }, with);
         defer given.client.deinit();
-        const roots = (try given.client.callTool(a, "roots", null, .{})).done;
+        const roots = (try given.client.callTool(arena, "roots", null, .{})).done;
         try std.testing.expectEqualStrings("file:///one,file:///two", textOf(roots.content));
-        const sampled = (try given.client.callTool(a, "sample", null, .{})).failed;
+        const sampled = (try given.client.callTool(arena, "sample", null, .{})).failed;
         try std.testing.expect(sampled.refused.code == protocol.codes.missing_required_client_capability or sampled.refused.code == -32601);
     }
 }
 
 test "the client hands a stateless server's questions back, and the request sent again with the answers goes on" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var with = defaults();
     with.elicitation = .{ .form = true };
-    const given = try connected(a, .{ .eras = &.{.modern}, .tools = &.{greet} }, with);
+    const given = try connected(arena, .{ .eras = &.{.modern}, .tools = &.{greet} }, with);
     defer given.client.deinit();
-    const handed = (try given.client.callTool(a, "greet", null, .{ .hand_back_input = true })).failed.input_required;
+    const handed = (try given.client.callTool(arena, "greet", null, .{ .hand_back_input = true })).failed.input_required;
     try std.testing.expectEqualStrings("tools/call", handed.method);
     try std.testing.expectEqualStrings("name", handed.input.requests[0].key);
-    const content = try std.json.parseFromSliceLeaky(Value, a, "{\"name\":\"Grace\"}", .{});
-    const answered = (try given.client.callTool(a, "greet", null, .{ .answered = .{ .required = handed.input, .answers = &.{.{ .key = "name", .answer = .{ .accept = content } }} } })).done;
+    const content = try std.json.parseFromSliceLeaky(Value, arena, "{\"name\":\"Grace\"}", .{});
+    const answered = (try given.client.callTool(arena, "greet", null, .{ .answered = .{ .required = handed.input, .answers = &.{.{ .key = "name", .answer = .{ .accept = content } }} } })).done;
     try std.testing.expectEqualStrings("Hello, Grace", textOf(answered.content));
 }
 
 test "the client reads resources and templates, gets prompts and completes arguments" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const prompt: server_.Prompt = .{ .definition = "{\"name\":\"review\",\"arguments\":[{\"name\":\"code\",\"required\":true}]}", .get = struct {
-        fn get(arena: Allocator, arguments: std.json.ObjectMap) Allocator.Error![]const u8 {
-            return std.fmt.allocPrint(arena, "{{\"messages\":[{{\"role\":\"user\",\"content\":{{\"type\":\"text\",\"text\":\"Review {s}\"}}}}]}}", .{arguments.get("code").?.string});
+        fn get(call_arena: Allocator, arguments: std.json.ObjectMap) Allocator.Error![]const u8 {
+            return call_arena.print("{{\"messages\":[{{\"role\":\"user\",\"content\":{{\"type\":\"text\",\"text\":\"Review {s}\"}}}}]}}", .{arguments.get("code").?.string});
         }
     }.get };
     const options: server_.Options = .{
@@ -373,95 +373,95 @@ test "the client reads resources and templates, gets prompts and completes argum
     for ([_]protocol.Era{ .modern, .legacy }) |era| {
         var with_era = options;
         with_era.eras = &.{era};
-        const given = try connected(a, with_era, defaults());
+        const given = try connected(arena, with_era, defaults());
         defer given.client.deinit();
-        try std.testing.expectEqualStrings("a", (try given.client.listResources(a, null, .{})).done.items[0].name);
-        try std.testing.expectEqualStrings("A", (try given.client.readResource(a, "file:///a.txt", .{})).done.contents[0].text.text);
-        try std.testing.expectEqualStrings("files", (try given.client.listResourceTemplates(a, null, .{})).done.items[0].name);
-        try std.testing.expectEqualStrings("review", (try given.client.listPrompts(a, null, .{})).done.items[0].name);
-        const got = (try given.client.getPrompt(a, "review", &.{.{ "code", "main.zig" }}, .{})).done;
+        try std.testing.expectEqualStrings("a", (try given.client.listResources(arena, null, .{})).done.items[0].name);
+        try std.testing.expectEqualStrings("A", (try given.client.readResource(arena, "file:///a.txt", .{})).done.contents[0].text.text);
+        try std.testing.expectEqualStrings("files", (try given.client.listResourceTemplates(arena, null, .{})).done.items[0].name);
+        try std.testing.expectEqualStrings("review", (try given.client.listPrompts(arena, null, .{})).done.items[0].name);
+        const got = (try given.client.getPrompt(arena, "review", &.{.{ "code", "main.zig" }}, .{})).done;
         try std.testing.expectEqualStrings("Review main.zig", got.messages[0].content.text.text);
-        const completed = (try given.client.complete(a, .{ .prompt = .{ .name = "review" } }, .{ "code", "py" }, &.{}, .{})).done;
+        const completed = (try given.client.complete(arena, .{ .prompt = .{ .name = "review" } }, .{ "code", "py" }, &.{}, .{})).done;
         try std.testing.expectEqual(@as(usize, 2), completed.values.len);
-        try std.testing.expectEqual(-32602, (try given.client.readResource(a, "file:///none", .{})).failed.refused.code);
+        try std.testing.expectEqual(-32602, (try given.client.readResource(arena, "file:///none", .{})).failed.refused.code);
     }
 }
 
 test "the client leaves out a tool whose x-mcp-header annotations are invalid, and reports it" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const invalid: server_.Tool = .{ .definition = "{\"name\":\"bad\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"number\",\"x-mcp-header\":\"A\"}}}}", .call = fail.call };
-    const given = try connected(a, .{ .tools = &.{ echo, invalid } }, defaults());
+    const given = try connected(arena, .{ .tools = &.{ echo, invalid } }, defaults());
     defer given.client.deinit();
     defer given.reports.deinit(std.testing.allocator);
-    const tools = (try given.client.allTools(a, .{})).done;
+    const tools = (try given.client.allTools(arena, .{})).done;
     try std.testing.expectEqual(@as(usize, 1), tools.len);
     try std.testing.expectEqualStrings("The MCP tool bad is left out: x-mcp-header A is on a, which is not a string, integer or boolean", given.reports.items[0]);
 }
 
 test "the client pings a session-based server, and a stateless one has no ping" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const legacy = try connected(a, .{ .eras = &.{.legacy} }, defaults());
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const legacy = try connected(arena, .{ .eras = &.{.legacy} }, defaults());
     defer legacy.client.deinit();
-    _ = (try legacy.client.ping(a, .{})).done;
-    const modern = try connected(a, .{ .eras = &.{.modern} }, defaults());
+    _ = (try legacy.client.ping(arena, .{})).done;
+    const modern = try connected(arena, .{ .eras = &.{.modern} }, defaults());
     defer modern.client.deinit();
-    try std.testing.expect(std.mem.startsWith(u8, (try modern.client.ping(a, .{})).failed.protocol, "ping is not part of the stateless protocol"));
+    try std.testing.expect(std.mem.startsWith(u8, (try modern.client.ping(arena, .{})).failed.protocol, "ping is not part of the stateless protocol"));
 }
 
 test "the client fails what waits once the server goes away, and is closed" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const leaving: server_.Tool = .{ .definition = "{\"name\":\"leave\",\"inputSchema\":{\"type\":\"object\"}}", .call = struct {
         fn call(given: *ToolCall) server_.Error!server_.Outcome {
             given.sink.close();
             return .waits;
         }
     }.call };
-    const given = try connected(a, .{ .tools = &.{leaving} }, defaults());
+    const given = try connected(arena, .{ .tools = &.{leaving} }, defaults());
     defer given.client.deinit();
-    const failed = (try given.client.callTool(a, "leave", null, .{})).failed;
+    const failed = (try given.client.callTool(arena, "leave", null, .{})).failed;
     try std.testing.expectEqualStrings("The MCP connection closed: the server closed the in-process channel", failed.connection_lost);
     try std.testing.expectEqual(.closed, given.client.currentState());
 }
 
 test "the client listens for list changes and resource updates, in either era" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     for ([_]protocol.Era{ .modern, .legacy }) |era| {
         const resource: server_.Resource = .{ .definition = "{\"uri\":\"file:///a\",\"name\":\"a\"}", .contents = "[]" };
-        const given = try connected(a, .{ .eras = &.{era}, .tools = &.{echo}, .resources = &.{resource} }, defaults());
+        const given = try connected(arena, .{ .eras = &.{era}, .tools = &.{echo}, .resources = &.{resource} }, defaults());
         defer given.client.deinit();
-        const subscription = (try given.client.listen(a, .{ .toolsListChanged = true, .resourceSubscriptions = &.{"file:///a"} })).done;
+        const subscription = (try given.client.listen(arena, .{ .toolsListChanged = true, .resourceSubscriptions = &.{"file:///a"} })).done;
         defer subscription.close();
         try std.testing.expect(subscription.acknowledged.toolsListChanged);
         try std.testing.expectEqualStrings("file:///a", subscription.acknowledged.resourceSubscriptions[0]);
         try given.fake.setTools(&.{ echo, fail });
-        try std.testing.expectEqual(.tools_list_changed, std.meta.activeTag((try subscription.next(a, 0)).?));
+        try std.testing.expectEqual(.tools_list_changed, std.meta.activeTag((try subscription.next(arena, 0)).?));
         try given.fake.resourceUpdated("file:///a");
-        try std.testing.expectEqualStrings("file:///a", (try subscription.next(a, 0)).?.resource_updated);
-        try std.testing.expectEqual(null, try subscription.next(a, 0));
+        try std.testing.expectEqualStrings("file:///a", (try subscription.next(arena, 0)).?.resource_updated);
+        try std.testing.expectEqual(null, try subscription.next(arena, 0));
         try std.testing.expectEqual(null, subscription.ended);
     }
 }
 
 test "the client learns that a stateless server ended a subscription, and closes one it no longer wants" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const given = try connected(a, .{ .eras = &.{.modern} }, defaults());
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const given = try connected(arena, .{ .eras = &.{.modern} }, defaults());
     defer given.client.deinit();
-    const ended = (try given.client.listen(a, .{ .toolsListChanged = true })).done;
+    const ended = (try given.client.listen(arena, .{ .toolsListChanged = true })).done;
     defer ended.close();
     try given.fake.endSubscriptions();
-    try std.testing.expectEqual(null, try ended.next(a, 0));
+    try std.testing.expectEqual(null, try ended.next(arena, 0));
     try std.testing.expectEqual(.server, ended.ended.?);
-    const closed = (try given.client.listen(a, .{ .toolsListChanged = true })).done;
+    const closed = (try given.client.listen(arena, .{ .toolsListChanged = true })).done;
     closed.close();
     try std.testing.expectEqual(@as(usize, 1), given.fake.cancelled.items.len);
 }

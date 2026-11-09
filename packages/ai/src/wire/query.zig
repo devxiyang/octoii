@@ -25,13 +25,13 @@ pub fn appendOptions(arena: Allocator, fields: *std.ArrayList(Field), options: ?
 }
 
 test "options are parameters of a query, a list's entries each one, and an object none" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const options = try std.json.parseFromSliceLeaky(std.json.Value, a, "{\"diarize\":true,\"tag\":[\"a\",\"b\"],\"utt_split\":0.8}", .{});
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const options = try std.json.parseFromSliceLeaky(std.json.Value, arena, "{\"diarize\":true,\"tag\":[\"a\",\"b\"],\"utt_split\":0.8}", .{});
     var fields: std.ArrayList(Field) = .empty;
-    try std.testing.expectEqual(null, try appendOptions(a, &fields, options.object));
-    try std.testing.expectEqualStrings("diarize=true&tag=a&tag=b&utt_split=0.8", try foundation.oauth.formEncoded(a, fields.items));
-    const nested = try std.json.parseFromSliceLeaky(std.json.Value, a, "{\"extra\":{\"a\":1}}", .{});
-    try std.testing.expectEqualStrings("extra", (try appendOptions(a, &fields, nested.object)).?);
+    try std.testing.expectEqual(null, try appendOptions(arena, &fields, options.object));
+    try std.testing.expectEqualStrings("diarize=true&tag=a&tag=b&utt_split=0.8", try foundation.oauth.formEncoded(arena, fields.items));
+    const nested = try std.json.parseFromSliceLeaky(std.json.Value, arena, "{\"extra\":{\"a\":1}}", .{});
+    try std.testing.expectEqualStrings("extra", (try appendOptions(arena, &fields, nested.object)).?);
 }

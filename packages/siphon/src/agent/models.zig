@@ -43,13 +43,13 @@ fn act(context: ?*anyopaque, request: *Request) anyerror!void {
     const rendered = try render(request.runtime, &arena, asked, if (served) |found| found.model else null);
     var stream = models.text(arena, rendered);
     defer stream.close();
-    var scratch: std.heap.ArenaAllocator = .init(request.runtime.allocator);
-    defer scratch.deinit();
+    var scratch_arena: std.heap.ArenaAllocator = .init(request.runtime.allocator);
+    defer scratch_arena.deinit();
     while (try stream.next()) |event| {
         // What streams is published on the thread, by the request it streams for, for those that follow it; the reply
         // comes whole after.
-        _ = scratch.reset(.retain_capacity);
-        const encoded = foundation.json.encode(scratch.allocator(), event) catch continue;
+        _ = scratch_arena.reset(.retain_capacity);
+        const encoded = foundation.json.encode(scratch_arena.allocator(), event) catch continue;
         request.publish(asked.thread, encoded) catch continue;
     }
     const response = stream.response() orelse return error.NoResponse;
@@ -117,7 +117,7 @@ fn imagesTold(arena: Allocator, item: *vocabulary.Item, model: []const u8) !void
 
 /// `parts`, each image told in words in its place, to `model`, which reads none.
 fn withoutImages(arena: Allocator, parts: []const vocabulary.content.InputContent, model: []const u8) ![]const vocabulary.content.InputContent {
-    const told: vocabulary.content.InputContent = .{ .input_text = .{ .text = try std.fmt.allocPrint(arena, "[an image, not shown: the model {s} reads no images]", .{model}) } };
+    const told: vocabulary.content.InputContent = .{ .input_text = .{ .text = try arena.print("[an image, not shown: the model {s} reads no images]", .{model}) } };
     const kept = try arena.dupe(vocabulary.content.InputContent, parts);
     for (kept) |*part| if (part.* == .input_image) {
         part.* = told;
@@ -193,7 +193,7 @@ pub const stopped_note = "The person stopped this turn here.";
 /// A compaction's recap as the model is sent it: a developer message after what it is told, which stands for the
 /// conversation before the window.
 fn recapMessageOf(arena: Allocator, recap: []const u8) !vocabulary.items.InputMessage {
-    return .{ .role = .developer, .content = .{ .text = try std.fmt.allocPrint(arena, "<recap>\n{s}\n</recap>", .{recap}) } };
+    return .{ .role = .developer, .content = .{ .text = try arena.print("<recap>\n{s}\n</recap>", .{recap}) } };
 }
 
 /// A system entry's sections as the model is sent them: a developer message, a part for each section, its text as the
@@ -201,7 +201,7 @@ fn recapMessageOf(arena: Allocator, recap: []const u8) !vocabulary.items.InputMe
 fn messageOf(arena: Allocator, sections: []const log.Section) !vocabulary.items.InputMessage {
     const parts = try arena.alloc(vocabulary.content.InputContent, sections.len);
     for (sections, parts) |section, *part| {
-        const text = section.text orelse try Tool.told(arena, .{ .text = "", .notes = &.{try std.fmt.allocPrint(arena, "removed: {s}", .{section.name})} });
+        const text = section.text orelse try Tool.told(arena, .{ .text = "", .notes = &.{try arena.print("removed: {s}", .{section.name})} });
         part.* = .{ .input_text = .{ .text = text } };
     }
     return .{ .role = .developer, .content = .{ .parts = parts } };

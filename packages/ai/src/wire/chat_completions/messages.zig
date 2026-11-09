@@ -288,7 +288,7 @@ const Conversation = struct {
             if (conversation.options.file_addresses and !text) return .{ .file = .{ .file = .{ .file_url = at, .filename = given.filename } } };
             const fetched = try files.fetchInput(call, file);
             if (files.isText(fetched.media_type)) return .{ .text = .{ .text = try tags.fileText(call.arena, fetched.data, name) } };
-            const url = try std.fmt.allocPrint(call.arena, "data:{s};base64,{b64}", .{ fetched.media_type, fetched.data });
+            const url = try call.arena.print("data:{s};base64,{b64}", .{ fetched.media_type, fetched.data });
             return .{ .file = .{ .file = .{ .file_data = url, .filename = given.filename } } };
         }
         const media_type = try files.mediaType(call.arena, file, null);

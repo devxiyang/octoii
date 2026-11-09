@@ -25,7 +25,7 @@ fn create(call: *Call, params: *const voices.VoiceCreateParams) Error![]const u8
 }
 
 fn delete(call: *Call, id: []const u8) Error!void {
-    const path = try std.fmt.allocPrint(call.arena, "/audio/voices/{f}", .{std.fmt.alt(std.Uri.Component{ .raw = id }, .formatEscaped)});
+    const path = try call.arena.print("/audio/voices/{f}", .{std.fmt.alt(std.Uri.Component{ .raw = id }, .formatEscaped)});
     const response = try media.send(call, .{ .method = .DELETE, .path = path, .accept = "application/json" });
     const removed = try media.jsonBody(struct { id: []const u8, deleted: bool }, call, response, "voice removed");
     if (!removed.deleted) return call.failWith(.invalid_response, "OpenAI answered that it did not remove the voice {s}", .{id});

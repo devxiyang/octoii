@@ -140,24 +140,24 @@ pub const Reader = struct {
     }
 };
 
-/// The events of `chunks`, each as its type, a space, its data and its id.
-fn eventsOf(allocator: Allocator, chunks: []const []const u8) ![]const []const u8 {
+/// The events of `chunks`, each as its type, a space, its data and its id, in `arena`.
+fn eventsOf(arena: Allocator, chunks: []const []const u8) ![]const []const u8 {
     var buffer: [64]u8 = undefined;
     var source: ChunkReader = .init(chunks, &buffer);
-    var reader = Reader.init(allocator, &source.reader);
+    var reader = Reader.init(arena, &source.reader);
     defer reader.deinit();
     var out: std.ArrayList([]const u8) = .empty;
     while (try reader.next()) |event| {
-        try out.append(allocator, try std.fmt.allocPrint(allocator, "{s} {s}{s}", .{ event.event, event.data, if (event.id) |id| id else "" }));
+        try out.append(arena, try arena.print("{s} {s}{s}", .{ event.event, event.data, if (event.id) |id| id else "" }));
     }
     return out.items;
 }
 
 test "events come as their blank lines arrive, whatever the reads split" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const events = try eventsOf(a, &.{ "\xEF\xBB\xBFevent: delta\nda", "ta: {\"a\":1}\r", "\n\r\n: a comment\ndata: one\ndata:two\n\n", "id: 7\nretry: 10\n\ndata: last" });
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const events = try eventsOf(arena, &.{ "\xEF\xBB\xBFevent: delta\nda", "ta: {\"a\":1}\r", "\n\r\n: a comment\ndata: one\ndata:two\n\n", "id: 7\nretry: 10\n\ndata: last" });
     try std.testing.expectEqual(@as(usize, 3), events.len);
     try std.testing.expectEqualStrings("delta {\"a\":1}", events[0]);
     try std.testing.expectEqualStrings("message one\ntwo", events[1]);
@@ -166,13 +166,13 @@ test "events come as their blank lines arrive, whatever the reads split" {
 }
 
 test "a carriage return alone ends a line, and a stream without data gives no event" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const events = try eventsOf(a, &.{"data: a\r\rdata: b\r\r"});
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const events = try eventsOf(arena, &.{"data: a\r\rdata: b\r\r"});
     try std.testing.expectEqual(@as(usize, 2), events.len);
     try std.testing.expectEqualStrings("message b", events[1]);
-    try std.testing.expectEqual(@as(usize, 0), (try eventsOf(a, &.{ ": keep-alive\n\n", "event: ping\n\n" })).len);
+    try std.testing.expectEqual(@as(usize, 0), (try eventsOf(arena, &.{ ": keep-alive\n\n", "event: ping\n\n" })).len);
 }
 
 /// Reads every event of a stream with `allocator`, then lets the reader go.

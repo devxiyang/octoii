@@ -72,7 +72,7 @@ pub const HttpServer = struct {
         if (!server.reachable) return error.Transport;
         if (server.token) |token| {
             const given = http.find(request.headers, "authorization") orelse "";
-            if (!std.mem.eql(u8, given, try std.fmt.allocPrint(server.arena, "Bearer {s}", .{token}))) {
+            if (!std.mem.eql(u8, given, try server.arena.print("Bearer {s}", .{token}))) {
                 return server.respond(401, &.{.{ .name = "www-authenticate", .value = "Bearer resource_metadata=\"https://mcp.example/.well-known/oauth-protected-resource/mcp\", scope=\"tools\"" }}, .{ .text = "Unauthorized" });
             }
         }
@@ -120,7 +120,7 @@ pub const HttpServer = struct {
             if (try headerRefusal(server.arena, request, message, given)) |refusal| return server.respond(400, &.{}, .{ .text = refusal });
         } else if (message == .request and std.mem.eql(u8, message.request.method, "initialize")) {
             server.fake.session = .{};
-            server.session_id = try std.fmt.allocPrint(server.arena, "session-{d}", .{server.next_session});
+            server.session_id = try server.arena.print("session-{d}", .{server.next_session});
             server.next_session += 1;
             session_header = server.session_id;
         } else if (!server.sessionOk(request)) {
@@ -142,7 +142,7 @@ pub const HttpServer = struct {
 
     fn newLog(server: *HttpServer, request: ?jsonrpc.Id) Allocator.Error!*Log {
         const log = try server.arena.create(Log);
-        log.* = .{ .id = try std.fmt.allocPrint(server.arena, "stream-{d}", .{server.logs.items.len + 1}), .request = request };
+        log.* = .{ .id = try server.arena.print("stream-{d}", .{server.logs.items.len + 1}), .request = request };
         try server.logs.append(server.arena, log);
         return log;
     }
@@ -159,7 +159,7 @@ pub const HttpServer = struct {
 
     fn streamedWith(server: *HttpServer, log: *Log, from: usize, primed: bool, extra: []const Header) Allocator.Error!http.Response {
         const reading = try server.arena.create(Reading);
-        const wait = server.requests.getLast().wait;
+        const wait = server.requests.last().?.wait;
         reading.* = .{
             .server = server,
             .log = log,
@@ -202,7 +202,7 @@ const Bound = struct {
     fn send(context: *anyopaque, message: []const u8) void {
         const bound: *Bound = @ptrCast(@alignCast(context));
         const log = bound.log;
-        const event = std.fmt.allocPrint(bound.server.arena, "id: {s}/{d}\ndata: {s}\n\n", .{ log.id, log.events.items.len, message }) catch return;
+        const event = bound.server.arena.print("id: {s}/{d}\ndata: {s}\n\n", .{ log.id, log.events.items.len, message }) catch return;
         log.events.append(bound.server.arena, event) catch return;
         const parsed = jsonrpc.parseOne(bound.server.arena, message) catch return;
         if (log.request) |id| if (parsed.answers()) |answered| if (answered.eql(id)) {
@@ -238,7 +238,7 @@ const Reading = struct {
         if (reading.pending.len == 0) {
             if (!reading.primed) {
                 reading.primed = true;
-                reading.pending = std.fmt.allocPrint(reading.server.arena, "id: {s}/-1\nretry: 10\ndata: \n\n", .{reading.log.id}) catch return error.ReadFailed;
+                reading.pending = reading.server.arena.print("id: {s}/-1\nretry: 10\ndata: \n\n", .{reading.log.id}) catch return error.ReadFailed;
             } else if (reading.breaks != null and reading.sent == reading.breaks.?) {
                 reading.failed = error.Transport;
                 return error.ReadFailed;
@@ -286,7 +286,7 @@ fn headerRefusal(arena: Allocator, request: http.Request, message: jsonrpc.Messa
     };
     const mismatch = struct {
         fn of(given_arena: Allocator, given_id: ?jsonrpc.Id, detail: []const u8) Allocator.Error![]const u8 {
-            return (jsonrpc.Message{ .failure = .{ .id = given_id, .@"error" = .{ .code = protocol.codes.header_mismatch, .message = try std.fmt.allocPrint(given_arena, "Header mismatch: {s}", .{detail}) } } }).encode(given_arena);
+            return (jsonrpc.Message{ .failure = .{ .id = given_id, .@"error" = .{ .code = protocol.codes.header_mismatch, .message = try given_arena.print("Header mismatch: {s}", .{detail}) } } }).encode(given_arena);
         }
     }.of;
     const given_version = http.find(request.headers, "mcp-protocol-version") orelse "";

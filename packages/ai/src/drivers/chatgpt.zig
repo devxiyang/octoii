@@ -73,7 +73,7 @@ fn text(call: *Call, model: *const Model, request: *const Request) Error!seam.Te
     try checkPlanScope(call);
     const response = try signed_in.send(call, sign_in.refresh, .{
         .method = .POST,
-        .url = try std.fmt.allocPrint(call.arena, "{s}/responses", .{call.baseUrl(base_url)}),
+        .url = try call.arena.print("{s}/responses", .{call.baseUrl(base_url)}),
         .headers = &.{ .{ .name = "accept", .value = "text/event-stream" }, .{ .name = "content-type", .value = "application/json" } },
         .body = try wireRequest(call.arena, model, request.*),
     });

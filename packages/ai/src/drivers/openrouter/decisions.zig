@@ -15,7 +15,7 @@ const media = @import("media.zig");
 /// The address the Decisions API stands under: `base_url` with its last segment, `v1`, as `alpha`.
 pub fn baseUrl(arena: std.mem.Allocator, base_url: []const u8) std.mem.Allocator.Error![]const u8 {
     const slash = std.mem.lastIndexOfScalar(u8, base_url, '/') orelse base_url.len;
-    return std.fmt.allocPrint(arena, "{s}/alpha", .{base_url[0..slash]});
+    return arena.print("{s}/alpha", .{base_url[0..slash]});
 }
 
 pub fn decide(call: *Call, model: *const Model, request: *const decisions.DecisionsRequest) Error!decisions.DecisionsResponse {
@@ -24,9 +24,9 @@ pub fn decide(call: *Call, model: *const Model, request: *const decisions.Decisi
     const key = try call.apiKey();
     const response = try http.send(call, .{
         .method = .POST,
-        .url = try std.fmt.allocPrint(call.arena, "{s}/decisions", .{try baseUrl(call.arena, call.baseUrl(openrouter.base_url))}),
+        .url = try call.arena.print("{s}/decisions", .{try baseUrl(call.arena, call.baseUrl(openrouter.base_url))}),
         .headers = &.{
-            .{ .name = "authorization", .value = try std.fmt.allocPrint(call.arena, "Bearer {s}", .{key}) },
+            .{ .name = "authorization", .value = try call.arena.print("Bearer {s}", .{key}) },
             .{ .name = "accept", .value = "application/json" },
             .{ .name = "content-type", .value = "application/json" },
         },

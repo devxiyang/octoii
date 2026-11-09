@@ -145,7 +145,7 @@ pub const Reader = struct {
         const key = try call.apiKey();
         const response = try http.send(call, .{
             .method = .POST,
-            .url = try std.fmt.allocPrint(call.arena, "{s}/interactions", .{call.baseUrl(base_url)}),
+            .url = try call.arena.print("{s}/interactions", .{call.baseUrl(base_url)}),
             .headers = &.{
                 .{ .name = "x-goog-api-key", .value = key },
                 .{ .name = "accept", .value = "text/event-stream" },
@@ -229,7 +229,7 @@ pub const Reader = struct {
         const failed = std.mem.eql(u8, status, "failed");
         if (failed) if (first) |given| return call.fail(try streamFailure(call.arena, given, data));
         const kind: Kind = if (failed or std.mem.eql(u8, status, "cancelled")) .server else .invalid_response;
-        const why = if (first) |given| (if (given.message) |message| try std.fmt.allocPrint(call.arena, ": {s}", .{message}) else "") else "";
+        const why = if (first) |given| (if (given.message) |message| try call.arena.print(": {s}", .{message}) else "") else "";
         var failure = try Failure.format(call.arena, kind, "The interaction ended {s}{s}", .{ if (status.len == 0) "without a status" else status, why });
         failure.body = data;
         return call.fail(failure);
@@ -371,14 +371,14 @@ pub fn streamFailure(arena: Allocator, given: WireError, body: []const u8) Alloc
 }
 
 test "Google's codes are classified by its table, an image blocked as content_filter, and an invalid request by its words" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    try std.testing.expectEqual(Kind.content_filter, (try kindOf(a, "image_safety", null)).?);
-    try std.testing.expectEqual(Kind.context_overflow, (try kindOf(a, "invalid_request", "The input token count (1200000) exceeds the maximum")).?);
-    try std.testing.expectEqual(Kind.payload_too_large, (try kindOf(a, "invalid_request", "Request payload size exceeds the limit")).?);
-    try std.testing.expectEqual(Kind.invalid_request, (try kindOf(a, "invalid_request", "bad")).?);
-    try std.testing.expectEqual(null, try kindOf(a, "something_new", "bad"));
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    try std.testing.expectEqual(Kind.content_filter, (try kindOf(arena, "image_safety", null)).?);
+    try std.testing.expectEqual(Kind.context_overflow, (try kindOf(arena, "invalid_request", "The input token count (1200000) exceeds the maximum")).?);
+    try std.testing.expectEqual(Kind.payload_too_large, (try kindOf(arena, "invalid_request", "Request payload size exceeds the limit")).?);
+    try std.testing.expectEqual(Kind.invalid_request, (try kindOf(arena, "invalid_request", "bad")).?);
+    try std.testing.expectEqual(null, try kindOf(arena, "something_new", "bad"));
     try std.testing.expectEqualStrings("safety", codeOf(.{ .code = "errors/safety" }).?);
     try std.testing.expectEqualStrings("safety", codeOf(.{ .code = "safety" }).?);
     try std.testing.expectEqual(@as(i64, 1_793_275_200), createdSeconds("2026-10-29T12:00:00Z", 0));

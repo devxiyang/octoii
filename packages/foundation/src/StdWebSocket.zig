@@ -91,6 +91,7 @@ fn connect(context: *anyopaque, opening: websocket.Opening) (websocket.Error || 
         std_websocket.client.connection_pool.release(connection, io);
         return err;
     };
+    errdefer gpa.destroy(open);
     open.* = .{ .owner = std_websocket, .connection = connection };
     open.reading = io.concurrent(readAll, .{open}) catch null;
     return .{ .context = open, .vtable = &.{ .send = send, .receive = receive, .close = close, .deinit = release } };
@@ -305,13 +306,13 @@ test "a socket opens with the handshake, sends and receives, answers a ping, and
     const url = try std.fmt.bufPrint(&url_buffer, "ws://127.0.0.1:{d}/listen", .{server.socket.address.getPort()});
     const socket = try std_websocket.connector().connect(.{ .url = url, .headers = &.{.{ .name = "authorization", .value = "Token t" }} });
     defer socket.deinit();
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     try socket.send(.{ .text = "hello" });
-    try std.testing.expectEqualStrings("HELLO", (try socket.receive(a, 5000)).message.text);
+    try std.testing.expectEqualStrings("HELLO", (try socket.receive(arena, 5000)).message.text);
     try socket.send(.{ .text = "bye" });
-    try std.testing.expectEqual(.closed, std.meta.activeTag(try socket.receive(a, 5000)));
+    try std.testing.expectEqual(.closed, std.meta.activeTag(try socket.receive(arena, 5000)));
 }
 
 test "a receive says so where nothing comes within its wait, and ends closed once the socket is closed" {
@@ -327,9 +328,9 @@ test "a receive says so where nothing comes within its wait, and ends closed onc
     const url = try std.fmt.bufPrint(&url_buffer, "ws://127.0.0.1:{d}/", .{server.socket.address.getPort()});
     const socket = try std_websocket.connector().connect(.{ .url = url });
     defer socket.deinit();
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    try std.testing.expectEqual(.quiet, std.meta.activeTag(try socket.receive(arena_state.allocator(), 50)));
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    try std.testing.expectEqual(.quiet, std.meta.activeTag(try socket.receive(arena_allocator.allocator(), 50)));
     socket.close();
-    try std.testing.expectEqual(.closed, std.meta.activeTag(try socket.receive(arena_state.allocator(), 50)));
+    try std.testing.expectEqual(.closed, std.meta.activeTag(try socket.receive(arena_allocator.allocator(), 50)));
 }

@@ -48,9 +48,9 @@ fn openOver(clock: *testing.Clock, providers: []const ai.driver.Provider) !*Siph
 }
 
 test "a turn asks its model through ai, the request rendered from the log, and keeps the reply as it came" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{ try reply(arena, "Hi"), try reply(arena, "Again") });
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
     var clock: testing.Clock = .{ .now_ms = 1_000 };
@@ -84,9 +84,9 @@ test "a turn the person stopped is told to its model where it ended: its reply a
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const tid = try threads.create(siphon.runtime, arena, .{ .title = "Test", .model = "fake/m" }, "create");
     try @import("log_test.zig").writeSegments(siphon, arena, try threads.pathOf(arena, tid), &.{
         \\{"id":"1","type":"input","delivery_id":"d1","actor":"person","message":{"role":"user","content":"write a story"}}
@@ -105,9 +105,9 @@ test "a turn the person stopped is told to its model where it ended: its reply a
 }
 
 test "a failure that may pass is asked again once its wait passes; one that cannot fails the turn" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{ failure(.rate_limit), try reply(arena, "Hi"), failure(.invalid_request) });
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
     var clock: testing.Clock = .{ .now_ms = 1_000 };
@@ -154,9 +154,9 @@ fn expectKinds(siphon: *Siphon, arena: Allocator, tid: []const u8, expected: []c
 }
 
 test "a window too full for its model is recapped before its model is asked, and a new window begins with the recap" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     // A model that takes little past what a window keeps free; the first reply says its request took more.
     var small = model;
     small.context_length = compaction.reserve_tokens + 2_000;
@@ -193,9 +193,9 @@ test "a window too full for its model is recapped before its model is asked, and
 }
 
 test "a request its provider refuses as too long is asked again in a recapped window, once for one request" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{ try reply(arena, "Hi"), failure(.context_overflow), try reply(arena, "They said hello."), failure(.context_overflow) });
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
     var clock: testing.Clock = .{ .now_ms = 1_000 };
@@ -221,9 +221,9 @@ test "a request its provider refuses as too long is asked again in a recapped wi
 }
 
 test "the person compacts a thread's window in the background, once at a time, and is shown what fills it" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{ try reply(arena, "Hi"), try reply(arena, "Fine."), try reply(arena, "They said hello.") });
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
     var clock: testing.Clock = .{ .now_ms = 1_000 };

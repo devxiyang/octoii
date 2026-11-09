@@ -178,9 +178,9 @@ fn noise(x: u32, y: u32) [4]u8 {
 }
 
 test "an image is kept where it fits its bounds and its format is one they keep, else fitted and written again" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const bounds: Bounds = .{ .width_max = 1568, .height_max = 1568, .pixels_max = 1_150_000, .bytes_max = 3_750_000 };
     try std.testing.expectEqual(Size{ .width = 1568, .height = 522 }, sizeWithin(3000, 1000, bounds));
     try std.testing.expectEqual(Size{ .width = 1072, .height = 1072 }, sizeWithin(2000, 2000, bounds));

@@ -35,9 +35,9 @@ test "a log is read a page at a time, each line once and in order, across its se
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const thread = try threads.pathOf(arena, try threads.create(siphon.runtime, arena, .{}, "create"));
     const unbegun = try log.readFrom(siphon.runtime.volume, &arena, thread, null, 300);
     try std.testing.expect(unbegun.cursor == null and !unbegun.more);
@@ -49,7 +49,7 @@ test "a log is read a page at a time, each line once and in order, across its se
     while (true) : (pages += 1) {
         const read = try log.readFrom(siphon.runtime.volume, &arena, thread, cursor, 300);
         for (read.lines) |line| {
-            try std.testing.expectEqualStrings(try std.fmt.allocPrint(arena, "{d:0>6}", .{next}), (try log.headOf(arena, line)).id);
+            try std.testing.expectEqualStrings(try arena.print("{d:0>6}", .{next}), (try log.headOf(arena, line)).id);
             next += 1;
         }
         cursor = read.cursor;
@@ -72,9 +72,9 @@ test "a log is read back a page at a time, from its end or from an entry, across
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const tid = try threads.create(siphon.runtime, arena, .{}, "create");
     const thread = try threads.pathOf(arena, tid);
     try writeSegments(siphon, arena, thread, &.{ try linesOf(arena, 0, 100, 2000), try linesOf(arena, 100, 200, 2000), try linesOf(arena, 200, 250, 2000) });
@@ -100,16 +100,16 @@ test "a log is read back a page at a time, from its end or from an entry, across
 /// That `lines` hold the entries of the ids `first` to `end`, in order.
 fn expectIds(arena: Allocator, lines: []const []const u8, first: usize, end: usize) !void {
     try std.testing.expectEqual(end - first, lines.len);
-    for (lines, first..) |line, number| try std.testing.expectEqualStrings(try std.fmt.allocPrint(arena, "{d:0>6}", .{number}), (try log.headOf(arena, line)).id);
+    for (lines, first..) |line, number| try std.testing.expectEqualStrings(try arena.print("{d:0>6}", .{number}), (try log.headOf(arena, line)).id);
 }
 
 test "a reader stands at a segment's start, its end, or where a line starts, and nowhere else" {
     var clock: testing.Clock = .{ .now_ms = 1_000 };
     const siphon = try testing.open(&clock, .memory);
     defer siphon.close();
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const thread = try threads.pathOf(arena, try threads.create(siphon.runtime, arena, .{}, "create"));
     const lines = try linesOf(arena, 0, 3, 10);
     try writeSegments(siphon, arena, thread, &.{lines});

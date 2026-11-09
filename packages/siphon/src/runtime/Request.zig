@@ -17,7 +17,7 @@ const log = std.log.scoped(.siphon);
 
 runtime: *Runtime,
 /// What the request holds, freed with it once its task is done.
-arena_state: std.heap.ArenaAllocator,
+arena_allocator: std.heap.ArenaAllocator,
 /// The fiber that asked: its process's path, and the commit that started that process, which the answer names.
 process: []const u8,
 started: u64,
@@ -46,37 +46,37 @@ pub const failed_name = "failed";
 /// which its handler may have acted — for the fiber that asked to decide.
 pub const interrupted_name = "interrupted";
 
-/// The request the event `made` tells of, held in an arena of its own.
+/// The request the event `made` tells of, arena in an arena of its own.
 pub fn init(runtime: *Runtime, made: *const h.beak_event, handler: Handler) Allocator.Error!*Request {
-    var arena_state: std.heap.ArenaAllocator = .init(runtime.allocator);
-    errdefer arena_state.deinit();
-    const held = arena_state.allocator();
-    const request = try held.create(Request);
+    var arena_allocator: std.heap.ArenaAllocator = .init(runtime.allocator);
+    errdefer arena_allocator.deinit();
+    const request_arena = arena_allocator.allocator();
+    const request = try request_arena.create(Request);
     request.* = .{
         .runtime = runtime,
-        .arena_state = undefined,
-        .process = try held.dupe(u8, beak.slice(made.process)),
+        .arena_allocator = undefined,
+        .process = try request_arena.dupe(u8, beak.slice(made.process)),
         .started = made.started,
-        .key = try held.dupe(u8, beak.slice(made.key)),
-        .name = try held.dupe(u8, beak.slice(made.name)),
-        .payload = try held.dupe(u8, beak.slice(made.bytes)),
+        .key = try request_arena.dupe(u8, beak.slice(made.key)),
+        .name = try request_arena.dupe(u8, beak.slice(made.name)),
+        .payload = try request_arena.dupe(u8, beak.slice(made.bytes)),
         .handler = handler,
         .task = .{ .runtime = runtime },
     };
-    request.arena_state = arena_state;
+    request.arena_allocator = arena_allocator;
     return request;
 }
 
 /// Frees the request, its task done.
 pub fn deinit(request: *Request) void {
     request.task.deinit();
-    var arena_state = request.arena_state;
-    arena_state.deinit();
+    var arena_allocator = request.arena_allocator;
+    arena_allocator.deinit();
 }
 
 /// Memory that lasts as long as the request.
 pub fn arena(request: *Request) Allocator {
-    return request.arena_state.allocator();
+    return request.arena_allocator.allocator();
 }
 
 /// Answers the request with `value`, as JSON: its fiber has it once this returns. A request has one answer.

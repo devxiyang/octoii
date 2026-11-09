@@ -32,7 +32,7 @@ pub fn send(call: *Call, refresh: Refresh, request: foundation.http.Request) Err
 
 fn sendWith(call: *Call, request: foundation.http.Request, access: []const u8) Error!foundation.http.Response {
     var headers: std.ArrayList(foundation.http.Header) = .empty;
-    try headers.append(call.arena, .{ .name = "authorization", .value = try std.fmt.allocPrint(call.arena, "Bearer {s}", .{access}) });
+    try headers.append(call.arena, .{ .name = "authorization", .value = try call.arena.print("Bearer {s}", .{access}) });
     try headers.appendSlice(call.arena, request.headers);
     var sent = request;
     sent.headers = headers.items;

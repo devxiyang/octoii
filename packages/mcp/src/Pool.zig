@@ -98,6 +98,7 @@ pub fn lease(pool: *Pool, arena: Allocator, key: []const u8, maker: Maker) Alloc
         client.deinit();
         return err;
     };
+    errdefer pool.gpa.destroy(held);
     // The entry's hold, and the lease's.
     held.* = .{ .client = client, .holds = 2 };
     pool.lock.lockUncancelable(io);
@@ -287,9 +288,9 @@ fn testOptions(host: transport_.Host) Client.Options {
 }
 
 test "a server is connected once, as it is first asked for, and its client shared by every lease after" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var test_host: TestHost = .{};
     const host = test_host.host();
     var fakes: Fakes = .{ .arena = arena, .host = &host };
@@ -309,9 +310,9 @@ test "a server is connected once, as it is first asked for, and its client share
 }
 
 test "a server that went away is connected again as it is next asked for, and one that cannot start says why" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var test_host: TestHost = .{};
     const host = test_host.host();
     var fakes: Fakes = .{ .arena = arena, .host = &host };
@@ -332,9 +333,9 @@ test "a server that went away is connected again as it is next asked for, and on
 }
 
 test "what stands is leased without starting what does not: a key never connected, or whose server went away, has none" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var test_host: TestHost = .{};
     const host = test_host.host();
     var fakes: Fakes = .{ .arena = arena, .host = &host };
@@ -353,9 +354,9 @@ test "what stands is leased without starting what does not: a key never connecte
 }
 
 test "a client of a key its source no longer names is closed once its last lease is given back, another source's kept" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var test_host: TestHost = .{};
     const host = test_host.host();
     var fakes: Fakes = .{ .arena = arena, .host = &host };
@@ -391,9 +392,9 @@ fn endedAt(host: transport_.Host, fake: *server_.FakeServer) !i64 {
 }
 
 test "a client no lease held for the idle time is closed and connected anew as next asked for; one leased is kept" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     // The sweep sleeps on the host's io, as a host's does, so its waits take their time.
     const host: transport_.Host = .{ .io = std.testing.io };
     var fakes: Fakes = .{ .arena = arena, .host = &host };

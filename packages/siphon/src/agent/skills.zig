@@ -206,9 +206,9 @@ fn unescaped(arena: Allocator, quoted: []const u8) ![]const u8 {
 }
 
 fn expectMatter(text: []const u8, name: ?[]const u8, description: ?[]const u8) !void {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const matter = (try frontMatterOf(arena_state.allocator(), text)).?;
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const matter = (try frontMatterOf(arena_allocator.allocator(), text)).?;
     if (name) |expected| try std.testing.expectEqualStrings(expected, matter.name.?) else try std.testing.expect(matter.name == null);
     if (description) |expected| try std.testing.expectEqualStrings(expected, matter.description.?) else try std.testing.expect(matter.description == null);
 }
@@ -226,19 +226,19 @@ test "a skill's front matter gives its name and what it is for, as plain, quoted
 }
 
 test "a file that begins with no front matter, or never ends it, has none" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     try std.testing.expect(try frontMatterOf(arena, "# PDF\nname: pdf\n") == null);
     try std.testing.expect(try frontMatterOf(arena, "---\nname: pdf\n") == null);
 }
 
 test "skills are told by their names and files, then what each is for" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
     const listed = [_]Skill{ .{ .name = "a", .path = "/s/a/SKILL.md", .description = "Does a." }, .{ .name = "b", .path = "/s/b/SKILL.md", .description = "Does b." } };
     try std.testing.expectEqualStrings(
         "<skill name=\"a\" path=\"/s/a/SKILL.md\">\nDoes a.\n</skill>\n<skill name=\"b\" path=\"/s/b/SKILL.md\">\nDoes b.\n</skill>",
-        try told(arena_state.allocator(), &listed),
+        try told(arena_allocator.allocator(), &listed),
     );
 }

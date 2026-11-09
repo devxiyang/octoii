@@ -150,10 +150,10 @@ pub fn messageOf(value: Value) ?Message {
 }
 
 test "messages are read with their shape checked, one or a batch, and written back" {
-    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena_state.deinit();
-    const a = arena_state.allocator();
-    const batch = try parse(a,
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const batch = try parse(arena,
         \\[{"jsonrpc":"2.0","id":1,"method":"tools/list"},{"jsonrpc":"2.0","method":"notifications/initialized"},
         \\ {"jsonrpc":"2.0","id":"a","result":{"tools":[]}},{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Parse error"}}]
     );
@@ -162,8 +162,8 @@ test "messages are read with their shape checked, one or a batch, and written ba
     try std.testing.expectEqual(.notification, std.meta.activeTag(batch[1]));
     try std.testing.expect(batch[2].answers().?.eql(.{ .string = "a" }));
     try std.testing.expectEqual(null, batch[3].failure.id);
-    try std.testing.expectEqualStrings("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}", try batch[0].encode(a));
-    try std.testing.expectEqualStrings("{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32700,\"message\":\"Parse error\"}}", try batch[3].encode(a));
+    try std.testing.expectEqualStrings("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}", try batch[0].encode(arena));
+    try std.testing.expectEqualStrings("{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32700,\"message\":\"Parse error\"}}", try batch[3].encode(arena));
     for ([_][]const u8{
         "{\"jsonrpc\":\"1.0\",\"id\":1,\"method\":\"x\"}",
         "{\"jsonrpc\":\"2.0\",\"id\":1.5,\"method\":\"x\"}",
@@ -171,5 +171,5 @@ test "messages are read with their shape checked, one or a batch, and written ba
         "{\"jsonrpc\":\"2.0\",\"method\":\"x\",\"params\":3}",
         "[]",
         "not json",
-    }) |text| try std.testing.expectError(error.NotJsonRpc, parse(a, text));
+    }) |text| try std.testing.expectError(error.NotJsonRpc, parse(arena, text));
 }

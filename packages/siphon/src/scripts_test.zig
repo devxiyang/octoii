@@ -35,7 +35,7 @@ const Adder = struct {
         const adder: *Adder = @ptrCast(@alignCast(context.?));
         _ = adder.asked.fetchAdd(1, .monotonic);
         const numbers = try foundation.json.decode(Numbers, given.arena, given.arguments);
-        return .{ .text = try std.fmt.allocPrint(given.arena, "{d}", .{numbers.a + numbers.b}) };
+        return .{ .text = try given.arena.print("{d}", .{numbers.a + numbers.b}) };
     }
 };
 
@@ -43,9 +43,9 @@ const executing = testing.executing;
 const toldOutputs = testing.toldOutputs;
 
 test "a script calls its tools at once and in turn, each made and settled under its call, and its call's result is what it wrote, then what it returned" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const code =
         \\const [a, b] = await Promise.all([tools.add({ a: 1, b: 2 }), tools.add({ a: 3, b: 4 })]);
         \\console.log("sums", a, b);
@@ -76,9 +76,9 @@ test "a script calls its tools at once and in turn, each made and settled under 
 }
 
 test "a call its tool could not do is thrown into the script, and what the script throws is its call's error" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     const refusing =
         \\try {
         \\  await tools.add({ a: "one" });
@@ -111,9 +111,9 @@ test "a call its tool could not do is thrown into the script, and what the scrip
 }
 
 test "a script cut off by the host's end goes on from its log, the calls it settled never made again" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     const place = try std.fs.path.join(arena, &.{ ".zig-cache", "tmp", &tmp.sub_path, "volume" });
@@ -159,9 +159,9 @@ test "a script cut off by the host's end goes on from its log, the calls it sett
 }
 
 test "a stop ends a script once the calls it made ended, each settled, its call stopped and the turn with it" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{try streamed(arena, &.{try executing(arena, "c1", "await Promise.all([tools.deploy({}), tools.deploy({})]);")})});
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(testing.model)} }};
     var clock: testing.Clock = .{ .now_ms = 1_000 };
@@ -200,9 +200,9 @@ const Holding = struct {
 };
 
 test "a script's step shows in its thread's state as the request it is, which says no more than its name" {
-    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
     var fake: ai.testing.Fake = .init(arena, &.{try streamed(arena, &.{try executing(arena, "c1", "return 1;")})});
     const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(testing.model)} }};
     var clock: testing.Clock = .{ .now_ms = 1_000 };

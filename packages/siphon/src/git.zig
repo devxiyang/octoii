@@ -311,7 +311,7 @@ pub const File = struct { path: []const u8, old_path: ?[]const u8 = null, status
 /// one untracked as all its lines gained.
 pub fn patchOf(git: Git, folder: []const u8, comparison: Comparison, file: File, context: u32) ![]const u8 {
     const root = try git.rootOf(folder) orelse return error.NotARepository;
-    const unified = try std.fmt.allocPrint(git.arena, "-U{d}", .{context});
+    const unified = try git.arena.print("-U{d}", .{context});
     if (file.status == .untracked) {
         const args = [_][]const u8{ "diff", "--no-index", "--no-color", "--no-ext-diff", unified, "--", "/dev/null", file.path };
         const ran = try git.run(root, &args);
@@ -363,7 +363,7 @@ pub fn commitsOf(git: Git, folder: []const u8, base: ?[]const u8) !struct { comm
     try checkRef(from);
     const parted = std.mem.trimEnd(u8, try git.output(root, &.{ "merge-base", from, "HEAD" }), "\n");
     const range = try std.mem.concat(git.arena, u8, &.{ parted, "..HEAD" });
-    const limit = try std.fmt.allocPrint(git.arena, "--max-count={d}", .{commits_max + 1});
+    const limit = try git.arena.print("--max-count={d}", .{commits_max + 1});
     const told = try git.output(root, &.{ "log", "-z", "--format=%H%x1f%ct%x1f%s", limit, range });
     var commits: std.ArrayList(Commit) = .empty;
     var records = std.mem.tokenizeScalar(u8, told, 0);

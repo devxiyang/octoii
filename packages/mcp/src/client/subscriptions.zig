@@ -106,10 +106,10 @@ pub const Subscription = struct {
 
     fn unsubscribe(subscription: *Subscription) void {
         if (subscription.client.currentState() != .connected) return;
-        var scratch: std.heap.ArenaAllocator = .init(subscription.client.gpa);
-        defer scratch.deinit();
+        var scratch_arena: std.heap.ArenaAllocator = .init(subscription.client.gpa);
+        defer scratch_arena.deinit();
         for (subscription.acknowledged.resourceSubscriptions) |uri| {
-            var slot: Slot = .{ .arena = scratch.allocator() };
+            var slot: Slot = .{ .arena = scratch_arena.allocator() };
             var params: ObjectMap = .empty;
             params.put(slot.arena, "uri", .{ .string = uri }) catch return;
             _ = requests.request(subscription.client, &slot, "resources/unsubscribe", params, .{}) catch {};
@@ -120,11 +120,9 @@ pub const Subscription = struct {
 /// Opens a subscription to the changes `filter` asks for.
 pub fn listen(client: *Client, slot: *Slot, filter: types.SubscriptionFilter) Error!*Subscription {
     const subscription = try client.gpa.create(Subscription);
+    errdefer client.gpa.destroy(subscription);
     subscription.* = .{ .client = client, .arena = .init(client.gpa), .acknowledged = .{}, .exchange = null, .id = 0 };
-    errdefer {
-        subscription.arena.deinit();
-        client.gpa.destroy(subscription);
-    }
+    errdefer subscription.arena.deinit();
     if (client.era() == .legacy) try listenApart(client, slot, subscription, filter) else try listenModern(client, slot, subscription, filter);
     return subscription;
 }
