@@ -20,6 +20,22 @@ const system = @import("system.zig");
 /// The name of a model's request.
 pub const model_request = "model";
 
+/// Lists the providers' models again, and fetches the catalogue where the host gives its address, off the loop, as a job
+/// of the runtime's started from the loop: a listing or a fetch that fails keeps what was there.
+pub fn relist(runtime: *Runtime, models: *ai.Models) void {
+    runtime.spawn(.{ .context = models, .run = relisting, .finish = relisted, .drop = relisted }) catch |err| {
+        std.log.scoped(.siphon).warn("the models are not listed again: {s}", .{@errorName(err)});
+    };
+}
+
+fn relisting(context: *anyopaque, _: *runtime_.Waits) void {
+    const models: *ai.Models = @ptrCast(@alignCast(context));
+    models.refresh() catch |err| std.log.scoped(.siphon).warn("the models are not listed again: {s}", .{@errorName(err)});
+}
+
+/// What a listing leaves behind: nothing, the directory changed in place.
+fn relisted(_: *anyopaque) void {}
+
 /// What a model's request asks: what follows the window the log of the thread `thread`, by its id, ends in, its
 /// conversation up to the entry `until`, of `model`; or, where `instruction` is given, what it asks after them — a
 /// recap of the window up to its cut, a title for the thread — answered in words, no tool called.

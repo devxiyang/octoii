@@ -388,8 +388,22 @@ export type Entry = Static<typeof EntrySchema>;
 export const ConnectsSchema = Type.Union([Type.Literal("api_key"), Type.Literal("sign_in"), Type.Literal("server")]);
 export type Connects = Static<typeof ConnectsSchema>;
 
-/** A provider: its id and its name, how it is connected, and the kind of credential the node keeps for it — `api_key`, `oauth` or `none` — none where it keeps none, never the credential. */
-export const ProviderSchema = Type.Object({ id: Type.String(), name: Type.String(), connects: ConnectsSchema, credential: Type.Optional(Type.String()) });
+/** An account the person added of one of the node's providers: the provider it is another of, by its id, and the name it was given. */
+export const AddedSchema = Type.Object({ of: Type.String(), name: Type.String() });
+export type Added = Static<typeof AddedSchema>;
+
+/**
+ * A provider: its id and its name, how it is connected, and the kind of credential the node keeps for it — `api_key`,
+ * `oauth` or `none` — none where it keeps none, never the credential; and, for an account the person added, which
+ * provider's it is and its own name.
+ */
+export const ProviderSchema = Type.Object({
+	id: Type.String(),
+	name: Type.String(),
+	connects: ConnectsSchema,
+	credential: Type.Optional(Type.String()),
+	account: Type.Optional(AddedSchema),
+});
 export type Provider = Static<typeof ProviderSchema>;
 
 /** How a provider stands, as it was asked: whether a request may reach it, who it is connected as, and what is wrong. */
@@ -713,6 +727,12 @@ export const METHODS = {
 	"providers.finish-sign-in": { params: Type.Object({ redirect: Type.String() }), result: Type.Object({ provider: Type.String() }) },
 	"credentials.set": { params: Type.Object({ provider: Type.String(), api_key: Type.String() }), result: Nothing },
 	"credentials.remove": { params: Type.Object({ provider: Type.String() }), result: Nothing },
+	"accounts.add": {
+		params: Type.Object({ provider: Type.String(), name: Type.String(), operation: Type.String() }),
+		result: Type.Object({ account: Type.String() }),
+	},
+	"accounts.rename": { params: Type.Object({ account: Type.String(), name: Type.String() }), result: Nothing },
+	"accounts.remove": { params: Type.Object({ account: Type.String() }), result: Nothing },
 	"models.list": { params: Nothing, result: Type.Object({ models: Type.Array(ModelSchema) }) },
 	"models.refresh": { params: Nothing, result: Nothing },
 	"files.list": {

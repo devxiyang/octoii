@@ -1,5 +1,6 @@
 //! A played agent gateway, for the node's tests: it talks on the descriptors 3 and 4 as the gateway does, each start
-//! written down in its state folder, and answers each `http` request by its path — its head, 200 as an event stream,
+//! written down in its state folder — made where it is not — with the logins folder it was given, and answers each
+//! `http` request by its path — its head, 200 as an event stream,
 //! then its method and path, and its headers and body, back as two pieces of its body, and its result; at `/hang`, its
 //! head and a piece, then nothing more, a `notifications/cancelled` written down; at `/exit`, its head, then its end,
 //! with 3. Its input's end ends it.
@@ -13,7 +14,9 @@ pub fn main(init: std.process.Init) !void {
     const args = try init.minimal.args.toSlice(arena);
     if (args.len < 3 or !std.mem.eql(u8, args[1], "--state")) return error.NoState;
     const state = args[2];
-    try writeDown(init.io, arena, state, "starts", "started\n");
+    const logins = if (args.len == 5 and std.mem.eql(u8, args[3], "--logins")) args[4] else "none";
+    try std.Io.Dir.cwd().createDirPath(init.io, state);
+    try writeDown(init.io, arena, state, "starts", try std.fmt.allocPrint(arena, "started, logins {s}\n", .{logins}));
     var input_buffer: [1 << 20]u8 = undefined;
     var input = channelEnd(3).readerStreaming(init.io, &input_buffer);
     var output_buffer: [4096]u8 = undefined;

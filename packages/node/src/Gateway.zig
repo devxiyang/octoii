@@ -5,7 +5,10 @@
 //! request, and what answers it comes back by its id — `http/head`, its status and headers; an `http/body` for each
 //! piece of its body as it comes; then the request's result, its end, or its error, where no response could be made. A
 //! response let go before its end cancels its request. Every other address goes to the rest of the network. Once
-//! started, the gateway stays up as the browser does; its agents reclaim what of them stands idle themselves.
+//! started, the gateway stays up as the browser does; its agents reclaim what of them stands idle themselves. An
+//! account the person added of an agent's has a gateway of its own, which keeps the account's logins apart from the
+//! person's own, and what lasts beside them: `gateway://claude/accounts/{id}/v1/messages` is `/claude/v1/messages` on
+//! the gateway of the account `id`.
 const Gateway = @This();
 
 const std = @import("std");
@@ -30,8 +33,8 @@ state: []const u8,
 rest: transport.Http,
 /// One start at a time.
 lock: Io.Mutex = .init,
-/// The gateway as it runs, held by the node; none before the first request.
-running: ?*Running = null,
+/// The gateways running, each held by the node, by the account each answers for: the empty name for the person's own.
+running: std.StringArrayHashMapUnmanaged(*Running) = .empty,
 /// The id of the request sent last.
 sent: std.atomic.Value(i64) = .init(0),
 
@@ -51,10 +54,13 @@ pub fn init(gpa: Allocator, options: Options) Gateway {
     return .{ .gpa = gpa, .io = options.io, .machine = options.machine, .program = options.program, .state = options.state, .rest = options.rest };
 }
 
-/// Lets the gateway go: stopped once the last response open on it is let go too.
+/// Lets the gateways go: each stopped once the last response open on it is let go too.
 pub fn deinit(gateway: *Gateway) void {
-    if (gateway.running) |running| running.release();
-    gateway.running = null;
+    for (gateway.running.keys(), gateway.running.values()) |account, running| {
+        running.release();
+        gateway.gpa.free(account);
+    }
+    gateway.running.deinit(gateway.gpa);
 }
 
 pub fn http(gateway: *Gateway) transport.Http {
@@ -80,32 +86,49 @@ const Running = struct {
     }
 };
 
-/// The gateway running, held for a request: started where it is not yet, or ended; null where it could not be, why
-/// logged.
-fn held(gateway: *Gateway) Allocator.Error!?*Running {
+/// The gateway of `account` running, held for a request: started where it is not yet, or ended; null where it could not
+/// be, why logged.
+fn held(gateway: *Gateway, account: []const u8) Allocator.Error!?*Running {
     gateway.lock.lockUncancelable(gateway.io);
     defer gateway.lock.unlock(gateway.io);
-    if (gateway.running) |running| {
+    if (gateway.running.get(account)) |running| {
         if (!running.lines.isClosed()) return running.hold();
-        gateway.running = null;
-        running.release();
+        const ended = gateway.running.fetchSwapRemove(account).?;
+        gateway.gpa.free(ended.key);
+        ended.value.release();
     }
-    const running = try gateway.started() orelse return null;
-    gateway.running = running;
+    try gateway.running.ensureUnusedCapacity(gateway.gpa, 1);
+    const key = try gateway.gpa.dupe(u8, account);
+    errdefer gateway.gpa.free(key);
+    const running = try gateway.started(account) orelse {
+        gateway.gpa.free(key);
+        return null;
+    };
+    gateway.running.putAssumeCapacity(key, running);
     return running.hold();
 }
 
-/// The gateway started on the machine, talked to on its channel; null where it could not be, why logged.
-fn started(gateway: *Gateway) Allocator.Error!?*Running {
+/// The gateway of `account` started on the machine, talked to on its channel; null where it could not be, why logged.
+/// An added account's keeps what lasts in `accounts/{id}` of the gateway's folder, and the agents' logins of the
+/// account in its `logins`.
+fn started(gateway: *Gateway, account: []const u8) Allocator.Error!?*Running {
     var scratch_arena: std.heap.ArenaAllocator = .init(gateway.gpa);
     defer scratch_arena.deinit();
-    const coprocess = switch (try Coprocess.start(gateway.gpa, scratch_arena.allocator(), .{
+    const arena = scratch_arena.allocator();
+    var argv: std.ArrayList([]const u8) = .empty;
+    if (account.len == 0) {
+        try argv.appendSlice(arena, &.{ gateway.program, "--state", gateway.state });
+    } else {
+        const state = try std.fs.path.join(arena, &.{ gateway.state, "accounts", account });
+        try argv.appendSlice(arena, &.{ gateway.program, "--state", state, "--logins", try std.fs.path.join(arena, &.{ state, "logins" }) });
+    }
+    const coprocess = switch (try Coprocess.start(gateway.gpa, arena, .{
         .io = gateway.io,
         .machine = gateway.machine,
-        .argv = &.{ gateway.program, "--state", gateway.state },
+        .argv = argv.items,
         .cwd = gateway.state,
         .channel = .{ .input = 3, .output = 4 },
-        .name = "the agent gateway",
+        .name = if (account.len == 0) "the agent gateway" else try arena.print("the agent gateway of the account {s}", .{account}),
     })) {
         .coprocess => |coprocess| coprocess,
         .failed => |why| {
@@ -143,7 +166,13 @@ fn relatedOf(message: jsonrpc.Message) ?jsonrpc.Id {
 fn send(context: *anyopaque, request: transport.Request) transport.SendError!transport.Response {
     const gateway: *Gateway = @ptrCast(@alignCast(context));
     if (!std.mem.startsWith(u8, request.url, scheme)) return gateway.rest.send(request);
-    const running = try gateway.held() orelse return error.Transport;
+    var scratch_arena: std.heap.ArenaAllocator = .init(gateway.gpa);
+    defer scratch_arena.deinit();
+    const at = try addressed(scratch_arena.allocator(), request.url) orelse {
+        log.warn("no gateway answers at {s}", .{request.url});
+        return error.Transport;
+    };
+    const running = try gateway.held(at.account) orelse return error.Transport;
     errdefer running.release();
     const exchange = try gateway.gpa.create(Exchange);
     errdefer gateway.gpa.destroy(exchange);
@@ -152,15 +181,35 @@ fn send(context: *anyopaque, request: transport.Request) transport.SendError!tra
     errdefer exchange.arena.deinit();
     const arena = exchange.arena.allocator();
     exchange.reader = .{ .vtable = &.{ .stream = Exchange.stream }, .buffer = try arena.alloc(u8, 16 * 1024), .seek = 0, .end = 0 };
-    exchange.sent = try gateway.carry(running, request) orelse return error.Transport;
+    exchange.sent = try gateway.carry(running, request, at.path) orelse return error.Transport;
     errdefer exchange.end();
     const head = try exchange.headOf(arena, if (request.wait) |wait| wait.head_ms else null);
     return .{ .status = head.status, .headers = head.headers, .body = &exchange.reader, .context = exchange, .vtable = &.{ .failure = Exchange.failure, .close = Exchange.close } };
 }
 
-/// Sends `request` to the gateway as the channel carries it: its exchange; null where it could not be written, why
-/// logged. What it is written in is let go once it is.
-fn carry(gateway: *Gateway, running: *Running, request: transport.Request) Allocator.Error!?Lines.Exchange {
+/// Where a request at the gateway's address goes: the account whose gateway answers it — the empty name for the
+/// person's own — and its path on that gateway.
+const Addressed = struct { account: []const u8, path: []const u8 };
+
+/// `gateway://claude/v1/messages` is `/claude/v1/messages` on the person's own gateway, and
+/// `gateway://claude/accounts/{id}/v1/messages` on the gateway of the account `id`, in `arena`; null for an address no
+/// gateway answers.
+fn addressed(arena: Allocator, url: []const u8) Allocator.Error!?Addressed {
+    const path = url[scheme.len - 1 ..];
+    const agent_end = std.mem.indexOfScalarPos(u8, path, 1, '/') orelse return .{ .account = "", .path = path };
+    const marker = "/accounts/";
+    if (!std.mem.startsWith(u8, path[agent_end..], marker)) return .{ .account = "", .path = path };
+    const tail = path[agent_end + marker.len ..];
+    const id_end = std.mem.indexOfScalar(u8, tail, '/') orelse return null;
+    const account = tail[0..id_end];
+    if (account.len == 0) return null;
+    for (account) |byte| if (!std.ascii.isAlphanumeric(byte) and byte != '-') return null;
+    return .{ .account = account, .path = try std.mem.concat(arena, u8, &.{ path[0..agent_end], tail[id_end..] }) };
+}
+
+/// Sends `request` to the gateway at `path` as the channel carries it: its exchange; null where it could not be
+/// written, why logged. What it is written in is let go once it is.
+fn carry(gateway: *Gateway, running: *Running, request: transport.Request, path: []const u8) Allocator.Error!?Lines.Exchange {
     var scratch_arena: std.heap.ArenaAllocator = .init(gateway.gpa);
     defer scratch_arena.deinit();
     const arena = scratch_arena.allocator();
@@ -172,8 +221,7 @@ fn carry(gateway: *Gateway, running: *Running, request: transport.Request) Alloc
     }
     var params: std.json.ObjectMap = .empty;
     try params.put(arena, "method", .{ .string = @tagName(request.method) });
-    // `gateway://claude/v1/messages` is the path `/claude/v1/messages` on the gateway.
-    try params.put(arena, "path", .{ .string = request.url[scheme.len - 1 ..] });
+    try params.put(arena, "path", .{ .string = path });
     try params.put(arena, "headers", .{ .array = headers });
     if (request.body) |body| try params.put(arena, "body", .{ .string = body });
     const id: jsonrpc.Id = .{ .number = gateway.sent.fetchAdd(1, .monotonic) + 1 };
@@ -425,7 +473,7 @@ test "a request at the gateway's address is carried to it on its channel, and it
         try std.testing.expectEqualStrings("POST /claude/v1/messages\ncontent-type: application/json\n\n{\"model\":\"claude-haiku-5-5\"}", body);
     }
     // Both went to the one gateway, started as the first went.
-    try std.testing.expectEqualStrings("started\n", try played.writtenDown(arena, "starts"));
+    try std.testing.expectEqualStrings("started, logins none\n", try played.writtenDown(arena, "starts"));
 }
 
 test "a response let go before its end cancels its request at the gateway" {
@@ -463,7 +511,28 @@ test "a gateway that ended breaks off its response, and the next request starts 
     const again = try played.send("gateway://claude/v1/models");
     defer again.close();
     try std.testing.expectEqualStrings("POST /claude/v1/models\n", (try again.body.allocRemaining(arena, .unlimited))[0..23]);
-    try std.testing.expectEqualStrings("started\nstarted\n", try played.writtenDown(arena, "starts"));
+    try std.testing.expectEqualStrings("started, logins none\nstarted, logins none\n", try played.writtenDown(arena, "starts"));
+}
+
+test "an added account's requests go to a gateway of its own, which keeps the account's logins apart" {
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var played: Played = undefined;
+    try played.open(arena, null);
+    defer played.close();
+    const own = try played.send("gateway://claude/v1/models");
+    defer own.close();
+    _ = try own.body.allocRemaining(arena, .unlimited);
+    const work = try played.send("gateway://claude/accounts/01a1c11e-f9f4-7a31/v1/models");
+    defer work.close();
+    try std.testing.expectEqualStrings("POST /claude/v1/models\n", (try work.body.allocRemaining(arena, .unlimited))[0..23]);
+    const logins = try std.fs.path.join(arena, &.{ played.state, "accounts", "01a1c11e-f9f4-7a31", "logins" });
+    try std.testing.expectEqualStrings(try arena.print("started, logins {s}\n", .{logins}), try played.writtenDown(arena, "accounts/01a1c11e-f9f4-7a31/starts"));
+    try std.testing.expectEqualStrings("started, logins none\n", try played.writtenDown(arena, "starts"));
+    std.testing.log_level = .err;
+    defer std.testing.log_level = .warn;
+    try std.testing.expectError(error.Transport, played.send("gateway://claude/accounts/../v1/models"));
 }
 
 test "every other address goes to the rest of the network, and a gateway that cannot start fails as the network does" {

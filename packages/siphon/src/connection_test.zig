@@ -355,6 +355,68 @@ test "a client sets a provider's key and removes it, told how each provider is c
     try client.close();
 }
 
+/// The providers a client was told of last, each as listed: its id, its name, and the provider it is another account of.
+fn providersOf(client: Client) ![]const [3][]const u8 {
+    var out: std.ArrayList([3][]const u8) = .empty;
+    for (try client.taken()) |message| {
+        const listed = field(message, &.{ "result", "providers" }) orelse continue;
+        out.clearRetainingCapacity();
+        for (listed.array.items) |each| {
+            const of = if (each.object.get("account")) |account| account.object.get("of").?.string else "";
+            try out.append(client.arena, .{ each.object.get("id").?.string, each.object.get("name").?.string, of });
+        }
+    }
+    return out.items;
+}
+
+test "a client adds an account of the host's provider, which the models reach by its id, and renames and removes it" {
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var fake: ai.testing.Fake = .init(arena, &.{});
+    const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
+    var held: testing.Credentials = .{ .arena = arena };
+    var clock: testing.Clock = .{ .now_ms = 1_000 };
+    const siphon = try Siphon.open(std.testing.allocator, .{ .io = std.testing.io, .clock = clock.clock(), .credentials = held.credentials() }, .{ .providers = &providers });
+    defer siphon.close();
+    const client: Client = try .open(siphon, arena);
+    client.send("{\"id\":\"1\",\"method\":\"hello\",\"params\":{\"protocol\":1}}");
+    client.send("{\"id\":\"2\",\"method\":\"accounts.add\",\"params\":{\"provider\":\"fake\",\"name\":\" Work \",\"operation\":\"add-1\"}}");
+    client.send("{\"id\":\"3\",\"method\":\"accounts.add\",\"params\":{\"provider\":\"fake\",\"name\":\"Work\",\"operation\":\"add-1\"}}");
+    client.send("{\"id\":\"4\",\"method\":\"accounts.add\",\"params\":{\"provider\":\"nobody\",\"name\":\"Work\",\"operation\":\"add-2\"}}");
+    client.send("{\"id\":\"5\",\"method\":\"accounts.add\",\"params\":{\"provider\":\"fake\",\"name\":\"  \",\"operation\":\"add-3\"}}");
+    _ = try siphon.runtime.pump();
+    const answers = try client.taken();
+    const added = field(answers[1], &.{ "result", "account" }).?.string;
+    try std.testing.expectEqualStrings(added, field(answers[2], &.{ "result", "account" }).?.string);
+    try std.testing.expectEqualStrings("unknown-provider", field(answers[3], &.{ "error", "code" }).?.string);
+    try std.testing.expectEqualStrings("invalid", field(answers[4], &.{ "error", "code" }).?.string);
+    try std.testing.expect(siphon.models.provider(added) != null);
+
+    client.send("{\"id\":\"6\",\"method\":\"providers.list\"}");
+    _ = try siphon.runtime.pump();
+    const listed = try providersOf(client);
+    try std.testing.expectEqual(@as(usize, 2), listed.len);
+    try std.testing.expectEqualStrings(added, listed[1][0]);
+    try std.testing.expectEqualStrings("Fake · Work", listed[1][1]);
+    try std.testing.expectEqualStrings("fake", listed[1][2]);
+
+    try client.sendf("{{\"id\":\"7\",\"method\":\"accounts.rename\",\"params\":{{\"account\":\"{s}\",\"name\":\"Home\"}}}}", .{added});
+    client.send("{\"id\":\"8\",\"method\":\"providers.list\"}");
+    _ = try siphon.runtime.pump();
+    try std.testing.expectEqualStrings("Fake · Home", (try providersOf(client))[1][1]);
+
+    try client.sendf("{{\"id\":\"9\",\"method\":\"accounts.remove\",\"params\":{{\"account\":\"{s}\"}}}}", .{added});
+    try client.sendf("{{\"id\":\"10\",\"method\":\"accounts.remove\",\"params\":{{\"account\":\"{s}\"}}}}", .{added});
+    client.send("{\"id\":\"11\",\"method\":\"providers.list\"}");
+    _ = try siphon.runtime.pump();
+    const after = try client.taken();
+    try std.testing.expectEqualStrings("no-such-account", field(after[1], &.{ "error", "code" }).?.string);
+    try std.testing.expectEqual(@as(usize, 1), field(after[2], &.{ "result", "providers" }).?.array.items.len);
+    try std.testing.expect(siphon.models.provider(added) == null);
+    try client.close();
+}
+
 test "a client is told the models a thread may run with, each as the catalogue describes it" {
     var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
     defer arena_allocator.deinit();

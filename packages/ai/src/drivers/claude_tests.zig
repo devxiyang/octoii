@@ -39,8 +39,8 @@ const Gateway = struct {
             return answered(gateway, 204, "");
         }
         try gateway.asked.append(gateway.arena, try gateway.arena.print("{s}{s}", .{ request.url, if (keyed) " keyed" else "" }));
-        if (std.mem.eql(u8, request.url, claude.base_url ++ "/models")) return answered(gateway, 200, gateway.listing orelse return error.Transport);
-        if (std.mem.eql(u8, request.url, claude.base_url ++ "/account")) {
+        if (std.mem.endsWith(u8, request.url, "/v1/models")) return answered(gateway, 200, gateway.listing orelse return error.Transport);
+        if (std.mem.endsWith(u8, request.url, "/v1/account")) {
             if (gateway.account) |account| return answered(gateway, 200, account);
             return answered(gateway, 401, "{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"Claude Code is not signed in on this computer: run `claude` and sign in.\"}}");
         }
@@ -132,4 +132,20 @@ test "a request names its conversation to the gateway, and an ended conversation
     try std.testing.expectEqualStrings("01a1c112-3830-78f7-9a37-442a361894eb", gateway.conversation.?);
     try models.forget(arena, "01a1c112-3830-78f7-9a37-442a361894eb");
     try std.testing.expectEqualStrings("DELETE " ++ claude.base_url ++ "/conversations/01a1c112-3830-78f7-9a37-442a361894eb", gateway.asked.items[gateway.asked.items.len - 1]);
+}
+
+test "an account the person added is reached at its own address on the gateway" {
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const settings = try claude.driver.instance.?(arena, "01a1c11e-f9f4-7a31-8479-6c80a9b3dc03", .{});
+    try std.testing.expectEqualStrings("gateway://claude/accounts/01a1c11e-f9f4-7a31-8479-6c80a9b3dc03/v1", settings.base_url.?);
+    var gateway: Gateway = .{ .arena = arena, .listing = opus_and_sonnet, .account = "{\"email\":\"work@example.com\"}" };
+    const test_host = try arena.create(TestHost);
+    test_host.* = .{};
+    const providers = try arena.dupe(seam.Provider, &.{.{ .id = "01a1c11e-f9f4-7a31-8479-6c80a9b3dc03", .name = "Claude · Work", .driver = &claude.driver, .settings = settings }});
+    const models = try Models.init(arena, .{ .providers = providers, .host = test_host.host(gateway.network()) });
+    try models.refresh();
+    try std.testing.expect((try models.status(arena, "01a1c11e-f9f4-7a31-8479-6c80a9b3dc03")).connected);
+    try std.testing.expectEqualStrings("gateway://claude/accounts/01a1c11e-f9f4-7a31-8479-6c80a9b3dc03/v1/account", gateway.asked.items[gateway.asked.items.len - 1]);
 }

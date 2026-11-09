@@ -3,7 +3,8 @@
 //! tools acting. It needs no credential of its own: the person signs in to Claude Code itself. Its models are those
 //! Claude Code offers, as the gateway lists them; what they use is the person's plan's, so they cost nothing here.
 //! Each request names its conversation, by which the gateway keeps the conversation's session of Claude Code, and lets
-//! it go once the conversation ended.
+//! it go once the conversation ended. An account the person added is another login of Claude Code's, kept apart by the
+//! gateway under the account's id, at `gateway://claude/accounts/{id}/v1`.
 const std = @import("std");
 const foundation = @import("foundation");
 const vocabulary = @import("vocabulary");
@@ -19,7 +20,12 @@ const anthropic = @import("anthropic.zig");
 /// Where the agent gateway answers for Claude, on the host's channel to it.
 pub const base_url = "gateway://claude/v1";
 
-pub const driver: seam.Driver = .{ .id = "claude", .name = "Claude", .text = text, .list = list, .status = status, .forget = forget };
+pub const driver: seam.Driver = .{ .id = "claude", .name = "Claude", .text = text, .list = list, .status = status, .forget = forget, .instance = instance };
+
+/// An added account, at its own address on the gateway.
+fn instance(arena: std.mem.Allocator, account: []const u8, base: seam.Settings) std.mem.Allocator.Error!seam.Settings {
+    return .{ .base_url = try arena.print("gateway://claude/accounts/{f}/v1", .{std.fmt.alt(std.Uri.Component{ .raw = account }, .formatEscaped)}), .headers = base.headers };
+}
 
 /// The header that names the conversation a request is of: its `prompt_cache_key`.
 pub const conversation_header = "conversation-id";

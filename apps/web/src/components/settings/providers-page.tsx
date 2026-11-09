@@ -1,9 +1,11 @@
 /**
- * Providers: on the left, each of the node's providers, how it is connected and whether it holds what it needs; on the
- * right, the one chosen — how it stands, as it is asked, and what connects it: a key to give and to forget; a sign-in in
- * a browser, finished as the browser comes back to the node, or from the address another device's browser ended at;
- * or a server of the person's, which needs nothing. The models listed again on asking; the list read anew after each
- * change, and as the window is focused again, as the person comes back from a sign-in.
+ * Providers: on the left, each of the node's providers, how it is connected and whether it holds what it needs, each
+ * account the person added of one right after it; on the right, the one chosen — how it stands, as it is asked, and
+ * what connects it: a key to give and to forget; a sign-in in a browser, finished as the browser comes back to the
+ * node, or from the address another device's browser ended at; or a server of the person's, which needs nothing — and
+ * another account of it to add, or, for an account added, its name to change and the account to remove. The models
+ * listed again on asking; the list read anew after each change, and as the window is focused again, as the person comes
+ * back from a sign-in.
  */
 import { type FormEvent, type ReactNode, useState, useTransition } from "react";
 import { Tabs } from "@base-ui/react/tabs";
@@ -31,6 +33,12 @@ function standing(provider: Provider): string {
 		case "server":
 			return "A server of yours";
 	}
+}
+
+/** The providers in the node's order, each account the person added right after the provider it is another of. */
+function ordered(providers: readonly Provider[]): readonly Provider[] {
+	const added = providers.filter((each) => each.account !== undefined);
+	return providers.filter((each) => each.account === undefined).flatMap((each) => [each, ...added.filter((account) => account.account?.of === each.id)]);
 }
 
 /** The page: the providers, read anew after each change; the sign-in this page was opened to finish, where it was. */
@@ -61,7 +69,7 @@ function ProviderList(props: {
 }): ReactNode {
 	const client = useClient();
 	const [refreshing, startRefreshing] = useTransition();
-	const providers = useRead("providers.list", {})?.providers ?? [];
+	const providers = ordered(useRead("providers.list", {})?.providers ?? []);
 	const shown = providers.find((each) => each.id === props.chosen) ?? providers[0];
 	const refresh = (): void =>
 		startRefreshing(async () => {
@@ -97,7 +105,8 @@ function ProviderList(props: {
 								key={each.id}
 								value={each.id}
 								data-connected={each.credential === undefined ? undefined : ""}
-								className="group/provider flex items-start gap-2.5 border-b border-border/40 px-4 py-3 text-left outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-inset data-active:bg-accent/70"
+								data-account={each.account === undefined ? undefined : ""}
+								className="group/provider flex items-start gap-2.5 border-b border-border/40 px-4 py-3 text-left outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-inset data-account:pl-8 data-active:bg-accent/70"
 							>
 								<span className="mt-0.5">
 									<Monogram name={each.name} size="md" />
@@ -112,7 +121,7 @@ function ProviderList(props: {
 					</Tabs.List>
 					{providers.map((each) => (
 						<Tabs.Panel key={each.id} value={each.id} className="min-w-0 outline-none">
-							<ProviderDetails provider={each} onChanged={props.onChanged} />
+							<ProviderDetails provider={each} onChanged={props.onChanged} onChoose={props.onChoose} />
 						</Tabs.Panel>
 					))}
 				</Tabs.Root>
@@ -134,8 +143,8 @@ function SignInOutcome(props: { readonly finishing: Finishing; readonly provider
 	);
 }
 
-/** The chosen provider: how it stands, as it is asked, then what connects it. */
-function ProviderDetails(props: { readonly provider: Provider; readonly onChanged: () => void }): ReactNode {
+/** The chosen provider: how it stands, as it is asked, then what connects it, and its accounts. */
+function ProviderDetails(props: { readonly provider: Provider; readonly onChanged: () => void; readonly onChoose: (provider: string) => void }): ReactNode {
 	const { provider } = props;
 	const status = useRead("providers.status", { provider: provider.id });
 	const [refused, setRefused] = useState<string | undefined>(undefined);
@@ -159,8 +168,87 @@ function ProviderDetails(props: { readonly provider: Provider; readonly onChange
 			{provider.connects === "server" ? (
 				<Row title="Server" description="Runs on this computer and needs no key: its models are listed as it answers." />
 			) : null}
+			{provider.account === undefined ? (
+				<AddAccount
+					provider={provider}
+					onAdded={(id) => {
+						props.onChanged();
+						props.onChoose(id);
+					}}
+					onFailed={failed}
+				/>
+			) : (
+				<AccountDetails provider={provider} onChanged={props.onChanged} onFailed={failed} />
+			)}
 			{refused === undefined ? null : <p className="px-3.5 py-3 text-xs text-error-foreground">{refused}</p>}
 		</div>
+	);
+}
+
+/** Another account of a provider to add, by the name the person gives it: a second sign-in, login or key of it. */
+function AddAccount(props: { readonly provider: Provider; readonly onAdded: (id: string) => void; readonly onFailed: (error: unknown) => void }): ReactNode {
+	const client = useClient();
+	const { provider } = props;
+	const [name, setName] = useState("");
+	const add = (event: FormEvent): void => {
+		event.preventDefault();
+		if (name.trim() === "") return;
+		client.addAccount(provider.id, name.trim()).then(props.onAdded, props.onFailed);
+		setName("");
+	};
+	return (
+		<Row title="Another account" description={`Another sign-in, login or key of ${provider.name}, its models told apart by its name.`}>
+			<form onSubmit={add} className="flex items-center gap-2">
+				<Field label={`The name of another ${provider.name} account`} placeholder="Name, such as Work" value={name} onValueChange={setName} className="w-48" />
+				<Button type="submit" size="sm" variant="outline" disabled={name.trim() === ""}>
+					Add
+				</Button>
+			</form>
+		</Row>
+	);
+}
+
+/** An account the person added: its name to change, and the account to remove, its sign-in or key forgotten with it. */
+function AccountDetails(props: { readonly provider: Provider; readonly onChanged: () => void; readonly onFailed: (error: unknown) => void }): ReactNode {
+	const client = useClient();
+	const { provider } = props;
+	const [name, setName] = useState(provider.account?.name ?? "");
+	const [removing, setRemoving] = useState(false);
+	const rename = (event: FormEvent): void => {
+		event.preventDefault();
+		if (name.trim() === "" || name.trim() === provider.account?.name) return;
+		client.renameAccount(provider.id, name.trim()).then(props.onChanged, props.onFailed);
+	};
+	return (
+		<>
+			<Row title="Name" description="How its models are told apart from the other accounts'.">
+				<form onSubmit={rename} className="flex items-center gap-2">
+					<Field label="The account's name" placeholder="Name" value={name} onValueChange={setName} className="w-48" />
+					<Button type="submit" size="sm" variant="outline" disabled={name.trim() === "" || name.trim() === provider.account?.name}>
+						Rename
+					</Button>
+				</form>
+			</Row>
+			<Row
+				title="Remove the account"
+				description={removing ? "Its sign-in or key is forgotten with it; threads on its models ask for another." : "Its models go with it."}
+			>
+				{removing ? (
+					<div className="flex items-center gap-2">
+						<Button size="sm" variant="ghost-muted" onClick={() => setRemoving(false)}>
+							Cancel
+						</Button>
+						<Button size="sm" variant="destructive" onClick={() => void client.removeAccount(provider.id).then(props.onChanged, props.onFailed)}>
+							Remove
+						</Button>
+					</div>
+				) : (
+					<Button size="sm" variant="outline" onClick={() => setRemoving(true)}>
+						Remove…
+					</Button>
+				)}
+			</Row>
+		</>
 	);
 }
 

@@ -1,6 +1,7 @@
 //! Siphon: Octoii's runtime, on Beak, linked through `beak.h` — put together as `Siphon` from its parts, each on those
-//! below it: the binding to Beak, images fitted, the shell's language read, text, the runtime, the threads, the machine a thread works on, the script engine, the tools,
-//! the agent, and the protocol its clients speak.
+//! below it: the binding to Beak, images fitted, the shell's language read, text, the runtime, operations done once,
+//! the threads, the settings, the accounts of the providers, the machine a thread works on, the script engine, the
+//! tools, the agent, and the protocol its clients speak.
 const std = @import("std");
 pub const Siphon = @import("Siphon.zig");
 pub const beak = @import("beak.zig");
@@ -10,6 +11,8 @@ pub const text = @import("text.zig");
 pub const runtime = @import("runtime.zig");
 pub const threads = @import("threads.zig");
 pub const settings = @import("settings.zig");
+pub const operations = @import("operations.zig");
+pub const Accounts = @import("accounts.zig");
 pub const Machine = @import("machine.zig");
 pub const Git = @import("git.zig");
 pub const Browser = @import("browser.zig");
@@ -24,7 +27,7 @@ pub const foundation = @import("foundation");
 
 test {
     // Every public declaration of Siphon's own is compiled, used by a test or not.
-    inline for (.{ Siphon, beak, image, shell, text, runtime, threads, settings, Machine, script, tools, agent, protocol, testing }) |namespace| {
+    inline for (.{ Siphon, beak, image, shell, text, runtime, operations, threads, settings, Accounts, Machine, script, tools, agent, protocol, testing }) |namespace| {
         std.testing.refAllDecls(namespace);
     }
     _ = image;

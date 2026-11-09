@@ -4,11 +4,12 @@
 //! Siphon put together, the package's root, the test host and the tests — may import anything.
 const std = @import("std");
 
-/// The parts, each on those before it alone: the binding to Beak; images fitted, the shell's language read and text, on none; the runtime, Siphon's kernel; the threads; the
-/// settings a person sets; the machine a thread works on; the threads' terminals on it; the repositories on it, as git
-/// tells of them; the browser of the threads' pages; the script engine, on none of them; the tools; the agent; the
-/// protocol its clients speak.
-const Part = enum { beak, image, shell, text, runtime, threads, settings, machine, terminals, git, browser, script, tools, agent, protocol };
+/// The parts, each on those before it alone: the binding to Beak; images fitted, the shell's language read and text, on
+/// none; the runtime, Siphon's kernel; operations done once; the threads; the settings a person sets; the accounts of
+/// the providers; the machine a thread works on; the threads' terminals on it; the repositories on it, as git tells of
+/// them; the browser of the threads' pages; the script engine, on none of them; the tools; the agent; the protocol its
+/// clients speak.
+const Part = enum { beak, image, shell, text, runtime, operations, threads, settings, accounts, machine, terminals, git, browser, script, tools, agent, protocol };
 
 /// The part a path under `src/` belongs to; null for what is at its top, which may import anything.
 fn partOf(path: []const u8) ?Part {

@@ -20,11 +20,14 @@ const agent = @import("agent.zig");
 const protocol = @import("protocol.zig");
 const Terminals = @import("terminals.zig");
 const Browser = @import("browser.zig");
+const Accounts = @import("accounts.zig");
 
 allocator: Allocator,
 runtime: *Runtime,
 /// The models the threads' turns ask, through the host's network and secrets, their ids minted from the volume.
 models: *ai.Models,
+/// The accounts the person added of the host's providers, which the models reach besides the host's.
+accounts: Accounts,
 /// The tools a thread's model may call: Siphon's own, built in — the coding tools, scripts, questions to the person and,
 /// where there is a browser, its pages — and the MCP servers'.
 tools: tools_.Table,
@@ -119,7 +122,9 @@ pub fn open(allocator: Allocator, host: Host, options: Options) !*Siphon {
     errdefer allocator.destroy(siphon);
     const runtime = try Runtime.open(allocator, .{ .io = host.io, .clock = host.clock, .device = host.device }, .{ .budget = options.budget });
     errdefer runtime.close();
-    const models = try ai.Models.init(allocator, .{ .providers = options.providers, .catalogue = if (options.catalogue) |given| .{ .url = given.url, .store = given.store } else null, .host = .{
+    var accounts: Accounts = .init(allocator, options.providers);
+    errdefer accounts.deinit();
+    const models = try ai.Models.init(allocator, .{ .providers = try accounts.providers(runtime.volume), .catalogue = if (options.catalogue) |given| .{ .url = given.url, .store = given.store } else null, .host = .{
         .io = host.io,
         .http = host.http,
         .credentials = host.credentials orelse agent.models.no_credentials,
@@ -143,12 +148,13 @@ pub fn open(allocator: Allocator, host: Host, options: Options) !*Siphon {
         .allocator = allocator,
         .runtime = runtime,
         .models = models,
+        .accounts = accounts,
         .tools = .init(runtime, .{ .machine = machine, .outputs = host.outputs, .mcp = host.mcp }),
         .sources = .{ .table = &siphon.tools, .models = models, .instructions = host.instructions, .skills = host.skills },
         .terminals = .{ .allocator = allocator, .runtime = runtime, .machine = machine },
         .browser = .{ .allocator = allocator, .runtime = runtime, .machine = machine, .program = host.browser, .profile = host.browser_profile },
         .turns = .{ .models = models, .table = &siphon.tools },
-        .clients = .init(runtime, models, .{ .credentials = host.credentials, .access = host.access, .sign_in_redirect = host.sign_in_redirect, .machine = machine, .terminals = &siphon.terminals, .browser = &siphon.browser, .servers = &siphon.tools.servers }),
+        .clients = .init(runtime, models, .{ .credentials = host.credentials, .access = host.access, .sign_in_redirect = host.sign_in_redirect, .machine = machine, .terminals = &siphon.terminals, .browser = &siphon.browser, .servers = &siphon.tools.servers, .accounts = &siphon.accounts }),
     };
     errdefer siphon.tools.deinit();
     siphon.terminals.listener = siphon.clients.terminalsListener();
@@ -181,17 +187,10 @@ pub fn refreshModels(siphon: *Siphon) void {
 
 fn startRefresh(context: *anyopaque) void {
     const siphon: *Siphon = @ptrCast(@alignCast(context));
-    siphon.runtime.spawn(.{ .context = siphon.models, .run = refreshing, .finish = leftUnrefreshed, .drop = leftUnrefreshed }) catch |err| {
-        std.log.scoped(.siphon).warn("the models are not listed again: {s}", .{@errorName(err)});
-    };
+    agent.models.relist(siphon.runtime, siphon.models);
 }
 
-fn refreshing(context: *anyopaque, _: *Waits) void {
-    const models: *ai.Models = @ptrCast(@alignCast(context));
-    models.refresh() catch |err| std.log.scoped(.siphon).warn("the models are not listed again: {s}", .{@errorName(err)});
-}
-
-/// What a refresh leaves behind: nothing, its directory changed in place.
+/// What a refresh not begun leaves behind: nothing.
 fn leftUnrefreshed(_: *anyopaque) void {}
 
 /// The bytes of a file kept for a thread's messages, as `ai` reads it as a message is sent.
@@ -236,5 +235,6 @@ pub fn close(siphon: *Siphon) void {
     siphon.runtime.close();
     siphon.tools.deinit();
     siphon.models.deinit();
+    siphon.accounts.deinit();
     siphon.allocator.destroy(siphon);
 }

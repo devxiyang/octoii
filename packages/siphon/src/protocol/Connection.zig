@@ -354,6 +354,8 @@ fn refusalOf(err: anyerror) Refusal {
         error.NotSignedInTo => .{ .code = "invalid", .told = "The provider is not signed in to: it takes a key, or none." },
         error.NoSignInReturn => .{ .code = "unavailable", .told = "The host takes no sign-in back." },
         error.NoSignIn => .{ .code = "no-sign-in", .told = "No sign-in waits for its end: begin one." },
+        error.NoSuchAccount => .{ .code = "no-such-account", .told = "No account the person added has that id." },
+        error.InvalidName => .{ .code = "invalid", .told = "An account's name is words of 1 to 64 bytes." },
         // The host's access.
         error.NoAccess => .{ .code = "unavailable", .told = "The host keeps no access." },
         error.WiderThanSession => .{ .code = "forbidden", .told = "A link grants no more than the session that makes it." },
@@ -528,6 +530,9 @@ const methods = [_]Method{
     method("providers.finish-sign-in", .@"providers.manage", Providers.finishSignIn),
     method("credentials.set", .@"providers.manage", credentialsSet),
     method("credentials.remove", .@"providers.manage", credentialsRemove),
+    method("accounts.add", .@"providers.manage", Providers.addAccount),
+    method("accounts.rename", .@"providers.manage", Providers.renameAccount),
+    method("accounts.remove", .@"providers.manage", Providers.removeAccount),
     method("models.list", .@"threads.read", modelsList),
     method("models.refresh", .@"threads.read", Providers.refresh),
     method("files.list", .@"files.read", files.list),

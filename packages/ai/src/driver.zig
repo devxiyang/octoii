@@ -50,6 +50,9 @@ pub const Driver = struct {
     sign_in: ?SignInCall = null,
     /// Lets go of what the provider keeps of a conversation that ended, for a driver whose provider keeps one.
     forget: ?ForgetCall = null,
+    /// The settings an account the person added of a provider is reached with, for a driver whose accounts are reached
+    /// apart; none, the provider's own.
+    instance: ?InstanceCall = null,
 
     /// The kinds of the calls it serves.
     pub fn kinds(driver: *const Driver, arena: Allocator) Allocator.Error![]const Kind {
@@ -73,6 +76,10 @@ pub const StatusCall = *const fn (call: *Call) Error!Status;
 
 /// A driver's letting go of a conversation that ended, by the key its requests named it with: their `prompt_cache_key`.
 pub const ForgetCall = *const fn (call: *Call, conversation: []const u8) Error!void;
+
+/// The settings the account `account` — its id — that a person added of a provider of `base` is reached with, in
+/// `arena`.
+pub const InstanceCall = *const fn (arena: Allocator, account: []const u8, base: Settings) Allocator.Error!Settings;
 
 /// How a provider stands: whether a request may reach it now, who it is connected as, and what is wrong.
 pub const Status = struct {

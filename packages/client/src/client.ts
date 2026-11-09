@@ -86,6 +86,12 @@ export type Client = {
 	refreshModels(): Promise<void>;
 	setKey(provider: string, key: string): Promise<void>;
 	removeKey(provider: string): Promise<void>;
+	/** Adds an account of the node's provider `provider`, named `name`: the id it is a provider by. */
+	addAccount(provider: string, name: string): Promise<string>;
+	/** Gives the account `account` the name `name`. */
+	renameAccount(account: string, name: string): Promise<void>;
+	/** Removes the account `account`, and the credential the node kept for it. */
+	removeAccount(account: string): Promise<void>;
 	/** The models a thread may run with. */
 	models(): Promise<readonly Model[]>;
 	/** Opens a terminal for the thread, at the size of the view that opens it: its id, the thread's terminals told first. */
@@ -194,6 +200,13 @@ export function createClient(options: ClientOptions): Client {
 		},
 		removeKey: async (provider) => {
 			await connection.call("credentials.remove", { provider });
+		},
+		addAccount: async (provider, name) => (await connection.callOpen("accounts.add", { provider, name, operation: options.randomUUID() })).account,
+		renameAccount: async (account, name) => {
+			await connection.call("accounts.rename", { account, name });
+		},
+		removeAccount: async (account) => {
+			await connection.call("accounts.remove", { account });
 		},
 		models: async () => (await connection.call("models.list", {})).models,
 		openTerminal: async (thread, size) => (await connection.call("terminals.open", { thread, ...size })).terminal,

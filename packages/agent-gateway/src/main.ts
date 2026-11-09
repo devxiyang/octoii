@@ -2,7 +2,9 @@
  * The gateway as a program the node runs: its channel on the descriptors 3 and 4 the node gives it — what the gateway
  * or an agent prints goes to its standard output and error, which the node keeps apart — the agents behind it, and its
  * end with the channel's. `--state <folder>` names where it keeps what lasts — each agent's positions and the folder
- * it works in — and `--claude <path>` the person's own `claude`, else the one on its path.
+ * it works in — and `--claude <path>` the person's own `claude`, else the one on its path. `--logins <folder>` names
+ * where the agents keep the logins of the account the gateway answers for, one the person added: Claude Code's
+ * configuration in its `claude`; without it, the agents are signed in as the person signed them in.
  *
  * Claude Code runs with the variables the gateway was given, but those that would change whose account it uses or what
  * it does on its own: a key or token for Anthropic's API, its own simple mode, effort and tool timeout; and what would
@@ -59,6 +61,11 @@ function claudeOf(): string | undefined {
 	return argument("claude") ?? Bun.which("claude") ?? undefined;
 }
 
+/** `text` as a shell takes it as one word. */
+function quoted(text: string): string {
+	return `'${text.replaceAll("'", "'\\''")}'`;
+}
+
 /** Claude Code's sessions in `folder`, as the SDK finds and removes them. */
 function sessionsIn(folder: string): Sessions {
 	return {
@@ -76,17 +83,22 @@ function environmentOf(): Record<string, string> {
 
 async function main(): Promise<void> {
 	const state = argument("state");
-	const claude = claudeOf();
+	const claude = claudeOf() ?? "claude";
+	const logins = argument("logins");
 	if (state === undefined) throw new Error("the gateway is run with --state <folder>");
 	const folder = join(state, "claude", "work");
 	await mkdir(folder, { recursive: true });
+	// An added account's Claude Code keeps its configuration, and its login, apart; the SDK reads it from the gateway's.
+	const configuration = logins === undefined ? undefined : join(logins, "claude");
+	if (configuration !== undefined) process.env["CLAUDE_CONFIG_DIR"] = configuration;
 	const agents = {
 		claude: new Claude({
-			claude: claude ?? "claude",
+			claude,
 			folder,
 			positions: await Positions.open(join(state, "claude", "positions.jsonl")),
 			run: query,
 			environment: environmentOf(),
+			signIn: configuration === undefined ? claude : `CLAUDE_CONFIG_DIR=${quoted(configuration)} ${claude}`,
 			idleMs: IDLE_MS,
 			holds: await Holds.open(join(state, "claude", "holds.jsonl")),
 			sessions: sessionsIn(folder),

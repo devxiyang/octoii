@@ -59,7 +59,8 @@ function decodedOf(escaped: string): string | undefined {
 async function account(claude: Claude): Promise<Response> {
 	try {
 		const signed = await claude.account();
-		if (signed === undefined) return errorResponse("authentication_error", "Claude Code is not signed in on this computer: run `claude` and sign in.");
+		if (signed === undefined)
+			return errorResponse("authentication_error", `Claude Code is not signed in on this computer: run \`${claude.signIn}\` in a terminal and sign in.`);
 		return Response.json({ email: signed.email, organization: signed.organization ?? null, subscription_type: signed.subscriptionType ?? null });
 	} catch (error) {
 		return errorResponse("api_error", error instanceof Error ? error.message : String(error));

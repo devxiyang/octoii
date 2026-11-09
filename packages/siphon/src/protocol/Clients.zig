@@ -20,6 +20,7 @@ const Terminals = @import("../terminals.zig");
 const terminals_ = @import("terminals.zig");
 const Browser = @import("../browser.zig");
 const Servers = @import("../tools.zig").Servers;
+const Accounts = @import("../accounts.zig");
 const pages = @import("pages.zig");
 
 const log = std.log.scoped(.siphon);
@@ -40,6 +41,8 @@ terminals: *Terminals,
 browser: *Browser,
 /// The MCP servers the threads use, which clients are shown.
 servers: *Servers,
+/// The accounts the person added of the host's providers.
+accounts: *Accounts,
 /// The clients connected, each let go of by the loop once its client is gone.
 connections: std.ArrayList(*Connection) = .empty,
 
@@ -54,6 +57,7 @@ pub const Host = struct {
     terminals: *Terminals,
     browser: *Browser,
     servers: *Servers,
+    accounts: *Accounts,
 };
 
 /// The clients of `runtime`, telling of `models` and of what `host` gives.
@@ -68,6 +72,7 @@ pub fn init(runtime: *Runtime, models: *ai.Models, host: Host) Clients {
         .terminals = host.terminals,
         .browser = host.browser,
         .servers = host.servers,
+        .accounts = host.accounts,
     };
 }
 

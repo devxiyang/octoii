@@ -196,6 +196,7 @@ function claudeOf(
 		holds: kept.holds ?? emptyHolds,
 		sessions: kept.folder ?? new Folder(),
 		now: () => kept.now ?? 0,
+		signIn: "claude",
 	});
 }
 
@@ -469,7 +470,7 @@ describe("Claude through Claude Code", () => {
 		const signedOut = claudeOf(positions, []);
 		const nobody = await handlerOf({ claude: signedOut })(new Request("http://gateway/claude/v1/account"));
 		expect(nobody.status).toBe(401);
-		expect(await nobody.json()).toMatchObject({ error: { type: "authentication_error" } });
+		expect(await nobody.json()).toMatchObject({ error: { type: "authentication_error", message: expect.stringContaining("run `claude` in a terminal") } });
 		signedIn.close();
 		signedOut.close();
 	});

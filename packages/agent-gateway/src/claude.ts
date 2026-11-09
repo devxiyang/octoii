@@ -48,6 +48,8 @@ export type ClaudeOptions = {
 	readonly sessions: Sessions;
 	/** The time, in milliseconds since the epoch, as `Date.now` tells it. */
 	readonly now: () => number;
+	/** The command a person signs Claude Code in with, for the account the gateway answers for. */
+	readonly signIn: string;
 };
 
 /** Claude Code's sessions in the gateway's folder: whether one is there, its removal, and those there, each with when it last changed. */
@@ -150,6 +152,11 @@ export class Claude {
 			throw error;
 		});
 		return this.#models;
+	}
+
+	/** The command a person signs Claude Code in with, for the account the gateway answers for. */
+	get signIn(): string {
+		return this.#options.signIn;
 	}
 
 	/** Who Claude Code is signed in as now, asked of a process started for it: none where it is signed in as nobody. */

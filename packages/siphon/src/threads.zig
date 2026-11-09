@@ -3,8 +3,7 @@
 //! `system.process:main`, under which its turn runs — annotated with its status, which its fiber changes in the commits
 //! that start and settle its turns. A thread is named by its id wherever it is asked for; its directory's path is this
 //! module's to make. The operations here change threads, each checked as it is made and committed when it returns,
-//! durable as it is; one that makes or adds to a thread is done once for its operation's id, as an idempotency key is,
-//! its record kept a day in `siphon.operations/`.
+//! durable as it is; one that makes or adds to a thread is done once for its operation's id.
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const foundation = @import("foundation");
@@ -15,6 +14,7 @@ const runtime_ = @import("runtime.zig");
 const Runtime = runtime_.Runtime;
 const Phase = runtime_.Phase;
 const Changes = runtime_.Changes;
+const operations = @import("operations.zig");
 pub const log = @import("threads/log.zig");
 pub const Window = @import("threads/Window.zig");
 pub const stored = @import("threads/stored.zig");
@@ -30,15 +30,6 @@ pub const turn_program = "siphon.turn";
 /// The program of the fiber that compacts a thread's window, and its key, beside the thread's main fiber.
 pub const compact_program = "siphon.compact";
 pub const compact_key = "compact";
-
-/// How long an operation's id is kept, so one sent again within it is answered, not done again.
-pub const operation_retention_ms = 24 * std.time.ms_per_hour;
-
-/// The directory of the operations done in the last day, each a file by its id.
-const operations = "siphon.operations";
-
-/// What an operation did, as its record holds it: its method, the thread it was done on, and what it gave.
-const Done = struct { method: []const u8, thread: []const u8, result: []const u8 };
 
 /// What a thread runs with and how it is shown, as its `thread.json` holds it.
 pub const Manifest = struct {
@@ -310,12 +301,12 @@ pub fn idOf(thread: []const u8) []const u8 {
 /// Makes a thread of `manifest`, its main fiber started; its id. Made again under the same `operation` within a day,
 /// it is the thread already made.
 pub fn create(runtime: *Runtime, arena: Allocator, manifest: Manifest, operation: []const u8) ![]const u8 {
-    if (try doneBefore(runtime, arena, operation, "threads.create", null)) |done| return done.thread;
+    if (try operations.before(runtime, arena, operation, "threads.create", null)) |done| return done.thread;
     const time = runtime.now();
     const tid = try arena.dupe(u8, &try runtime.volume.mint(time));
     var changes: Changes = .{ .arena = arena };
     try made(&changes, runtime, tid, manifest);
-    try recordDone(&changes, operation, .{ .method = "threads.create", .thread = tid, .result = tid }, time);
+    try operations.record(&changes, operation, .{ .method = "threads.create", .thread = tid, .result = tid }, time);
     _ = try runtime.commit(&changes);
     return tid;
 }
@@ -395,13 +386,13 @@ const snooze_name = "siphon.snooze";
 pub fn deliver(runtime: *Runtime, arena: Allocator, tid: []const u8, input: Input, operation: []const u8) ![]const u8 {
     const thread = try pathOf(arena, tid);
     if (try runtime.volume.stat(&arena, thread) == null) return error.NoSuchThread;
-    if (try doneBefore(runtime, arena, operation, "threads.deliver", tid)) |done| return done.result;
+    if (try operations.before(runtime, arena, operation, "threads.deliver", tid)) |done| return done.result;
     const time = runtime.now();
     const id = try arena.dupe(u8, &try runtime.volume.mint(time));
     var changes: Changes = .{ .arena = arena };
     try inboxed(&changes, thread, id, input, operation);
     try revived(&changes, runtime, arena, thread);
-    try recordDone(&changes, operation, .{ .method = "threads.deliver", .thread = tid, .result = id }, time);
+    try operations.record(&changes, operation, .{ .method = "threads.deliver", .thread = tid, .result = id }, time);
     _ = try runtime.commit(&changes);
     return id;
 }
@@ -427,26 +418,6 @@ pub fn lostTurn(volume: beak.Volume, arena: *const Allocator, thread: []const u8
     if (!std.mem.eql(u8, status, @tagName(Status.running))) return null;
     const began_with = beak.annotationOf(entry, began_with_annotation) orelse return null;
     return try foundation.json.decode(log.Address, arena.*, began_with);
-}
-
-/// What the operation `operation` did, where it was done within the last day; null where it was not. One done as
-/// another method, or on another thread than `tid` where one is named, is refused: an id names one operation.
-fn doneBefore(runtime: *Runtime, arena: Allocator, operation: []const u8, method: []const u8, tid: ?[]const u8) !?Done {
-    if (operation.len == 0 or std.mem.indexOfAny(u8, operation, "/\x00") != null) return error.InvalidOperation;
-    const path = try beak.join(arena, operations, operation);
-    if (try runtime.volume.stat(&arena, path) == null) return null;
-    const done = try foundation.json.decode(Done, arena, try runtime.volume.readAll(&arena, path));
-    const same_thread = if (tid) |named| std.mem.eql(u8, done.thread, named) else true;
-    if (!std.mem.eql(u8, done.method, method) or !same_thread) return error.OperationReused;
-    return done;
-}
-
-/// The record of the operation `operation`, which did `done`, kept a day from `time`, with the commit of `changes`.
-fn recordDone(changes: *Changes, operation: []const u8, done: Done, time: i64) !void {
-    const path = try beak.join(changes.arena, operations, operation);
-    try changes.mkdir(operations);
-    try changes.write(path, try foundation.json.encode(changes.arena, done));
-    try changes.expire(path, time + operation_retention_ms);
 }
 
 /// Takes back the input `id` while it waits in the inbox of the thread `tid` — who it replies to told so — whether it
