@@ -36,6 +36,8 @@ terminals: Terminals,
 browser: Browser,
 /// The clients of the protocol, which follow the threads and read the machine's files.
 clients: protocol.Clients,
+/// What the threads' turns ask and call.
+turns: agent.turn.Turns,
 
 pub const Device = Runtime.Device;
 
@@ -145,6 +147,7 @@ pub fn open(allocator: Allocator, host: Host, options: Options) !*Siphon {
         .sources = .{ .table = &siphon.tools, .models = models, .instructions = host.instructions, .skills = host.skills },
         .terminals = .{ .allocator = allocator, .runtime = runtime, .machine = machine },
         .browser = .{ .allocator = allocator, .runtime = runtime, .machine = machine, .program = host.browser, .profile = host.browser_profile },
+        .turns = .{ .models = models, .table = &siphon.tools },
         .clients = .init(runtime, models, .{ .credentials = host.credentials, .access = host.access, .sign_in_redirect = host.sign_in_redirect, .machine = machine, .terminals = &siphon.terminals, .browser = &siphon.browser, .servers = &siphon.tools.servers }),
     };
     errdefer siphon.tools.deinit();
@@ -162,7 +165,7 @@ pub fn open(allocator: Allocator, host: Host, options: Options) !*Siphon {
     try agent.thread.register(runtime);
     try agent.title.register(runtime);
     try agent.delegate.register(runtime, &siphon.tools);
-    try agent.turn.register(runtime, models);
+    try agent.turn.register(runtime, &siphon.turns);
     try agent.compacting.register(runtime);
     try agent.models.register(runtime, models);
     try agent.review.register(runtime, models);

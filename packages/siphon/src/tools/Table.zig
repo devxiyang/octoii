@@ -66,6 +66,19 @@ pub fn accessOf(table: *const Table, arena: Allocator, name: []const u8, workspa
     return .{ .action = .tool, .resources = resources, .save = resources };
 }
 
+/// Whether a call of `name` with `arguments` runs at once with the reply's other calls that do, as readers share what a
+/// writer takes alone: one of an own tool that acts on nothing, or whose call reads alone — a command line of programs
+/// that read alone — and does not run alone; never a server's, which may act on anything.
+pub fn runsAtOnce(table: *const Table, arena: Allocator, name: []const u8, workspace: ?[]const u8, arguments: []const u8) !bool {
+    const tool = table.named(name) orelse return !namesServerTool(name);
+    if (tool.alone) return false;
+    const read = tool.access orelse return true;
+    const base: ?paths.Base = if (workspace) |folder| .{ .workspace = folder, .home = table.host.machine.home } else null;
+    // A call whose arguments cannot be read runs alone: it is refused as it runs, before acting.
+    const access = read(arena, base, arguments) catch return false;
+    return access.reads_alone;
+}
+
 /// Whether a call of `name` may act on the machine: an own tool that says what its call does, or any server's.
 pub fn mayAct(table: *const Table, name: []const u8) bool {
     const tool = table.named(name) orelse return namesServerTool(name);

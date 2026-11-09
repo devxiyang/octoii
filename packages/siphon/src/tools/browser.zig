@@ -39,6 +39,7 @@ const all = [_]Tool{
         .description = "Takes a page of the thread's in the browser to an address, back or forward an entry of its history, loads it again, or closes it; with `new`, or where the thread has none, opens a page at the address. The person sees the pages beside the chat. Waits till the page loads, then gives its id, title and address, or the browser's words for why it could not go there.",
         .parameters = typebox.of(NavigateArguments),
         .work = .{ .task = navigate },
+        .alone = true,
     },
     .{
         .name = "browser_snapshot",
@@ -51,12 +52,14 @@ const all = [_]Tool{
         .description = "Acts on a page as a person does, on an element by its ref from the snapshot, or at `x`, `y` in its CSS pixels: click (`button`, `clicks`), hover, type (`text`, at the caret of the element focused, `clear` replacing what is there, `submit` pressing Enter after), press (`key` as the DOM names it — Enter, Tab, ArrowDown, a — with `modifiers`, to what has the focus), select (`values` of a <select>, by value or label), scroll (`delta_x`, `delta_y` in pixels over the element or the page's middle), dialog (answers the dialog that holds the page: `accept`, `text` for a prompt). Waits for a navigation it begins, then gives the page's title and address.",
         .parameters = typebox.of(ActArguments),
         .work = .{ .task = act },
+        .alone = true,
     },
     .{
         .name = "browser_evaluate",
         .description = "Runs a JavaScript expression in a page, as its own script, awaiting a promise it gives: its value as JSON, or the error it threw.",
         .parameters = typebox.of(EvaluateArguments),
         .work = .{ .task = evaluate },
+        .alone = true,
     },
     .{
         .name = "browser_wait",

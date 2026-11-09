@@ -19,6 +19,7 @@ const log = threads.log;
 const Window = threads.Window;
 const tools = @import("../tools.zig");
 const Tool = tools.Tool;
+const Table = tools.Table;
 const calls = tools.calls;
 const system = @import("system.zig");
 const compaction = @import("compaction.zig");
@@ -26,9 +27,12 @@ const compacting = @import("compacting.zig");
 const h = beak.h;
 const models_ = @import("models.zig");
 
-/// Registers the program of a thread's turns, which ask `models`.
-pub fn register(runtime: *Runtime, models: *ai.Models) !void {
-    try runtime.register(.{ .kind = threads.turn_program, .stop_handler = true, .context = models, .phase = turnPhase });
+/// What a thread's turns ask and call: the models, and the tools' table, which says which calls of a reply run at once.
+pub const Turns = struct { models: *ai.Models, table: *Table };
+
+/// Registers the program of a thread's turns, which ask and call as `turns` says.
+pub fn register(runtime: *Runtime, turns: *Turns) !void {
+    try runtime.register(.{ .kind = threads.turn_program, .stop_handler = true, .context = turns, .phase = turnPhase });
 }
 
 /// How many times a turn asks again after its model failed in a way that may pass, before the turn fails.
@@ -55,16 +59,17 @@ const Checkpoint = union(enum) {
     }
 };
 
-/// The calls of the reply at `reply` running: each a fiber keyed by its id in `calls`, in the order the model made
-/// them, those before `collected` with their results appended.
-const Calling = struct { reply: log.Address, calls: []const []const u8, collected: u32 };
+/// The calls of the reply at `reply` running a batch at a time: each a fiber keyed by its id in `calls`, in the order the
+/// model made them, those before `started` started and those before `collected` with their results appended.
+const Calling = struct { reply: log.Address, calls: []const []const u8, collected: u32, started: u32 };
 
 /// A turn: asks its model, appends the reply, runs its calls, and asks again till a reply calls nothing; asks again
 /// after a failure that may pass, and when its request was cut off; compacts its window before a request it is too
 /// full for, or one its provider refused as too long; its stop handler keeps what had come of the reply, answers what
 /// was not run as stopped, and has every call that runs end as its own stop handler ends it.
 fn turnPhase(context: ?*anyopaque, phase: *Phase) anyerror!void {
-    const models: *ai.Models = @ptrCast(@alignCast(context.?));
+    const turns: *Turns = @ptrCast(@alignCast(context.?));
+    const models = turns.models;
     const thread = threads.threadOf(phase.path);
     switch (try Checkpoint.of(phase)) {
         .asking => |asking| {
@@ -73,16 +78,16 @@ fn turnPhase(context: ?*anyopaque, phase: *Phase) anyerror!void {
             if (!asking.compacted and try isFull(models, phase, thread, window)) return compact(phase, thread);
             return ask(phase, thread, window, asking.attempt, asking.compacted);
         },
-        .asked => |asked| return answered(phase, thread, asked.key, asked.attempt, asked.compacted),
+        .asked => |asked| return answered(phase, turns.table, thread, asked.key, asked.attempt, asked.compacted),
         .compacting => return compactionEnded(phase, thread),
-        .calling => |calling| return called(phase, thread, calling),
+        .calling => |calling| return called(phase, turns.table, thread, calling),
     }
 }
 
 /// The model's answer to the request of `key`: its reply appended once, whole, and the calls it made started; asked
 /// again where it was cut off, or failed in a way that may pass; the window compacted where its provider refused the
 /// request as too long, once for one request.
-fn answered(phase: *Phase, thread: []const u8, key: []const u8, attempt: u32, compacted: bool) !void {
+fn answered(phase: *Phase, table: *Table, thread: []const u8, key: []const u8, attempt: u32, compacted: bool) !void {
     const answer = try phase.mailOf(key) orelse return phase.waitForMail(Phase.kept, key);
     try phase.take(key);
     if (answer.interrupted()) {
@@ -117,7 +122,7 @@ fn answered(phase: *Phase, thread: []const u8, key: []const u8, attempt: u32, co
         return phase.stopped(null);
     }
     if (made.len == 0) return phase.done(null);
-    return startCalls(phase, at, made);
+    return startCalls(phase, table, thread, at, made);
 }
 
 /// The window the log of the thread at `thread` ends in.
@@ -164,33 +169,57 @@ fn keepFailure(phase: *Phase, thread: []const u8, key: []const u8, payload: []co
     _ = try writer.append(log.Failure{ .id = try phase.mint(), .request = key, .response = try foundation.json.Raw.of(phase.arena, payload) });
 }
 
-/// Starts every call of the reply at `reply` at once, each a fiber of its own keyed by an id minted for it, and sleeps
-/// until the first ends.
-fn startCalls(phase: *Phase, reply: log.Address, made: []const vocabulary.items.FunctionCall) !void {
+/// Starts the calls of the reply at `reply` a batch at a time — the first now — each a fiber of its own keyed by an id
+/// minted for it, and sleeps until the first ends.
+fn startCalls(phase: *Phase, table: *Table, thread: []const u8, reply: log.Address, made: []const vocabulary.items.FunctionCall) !void {
     const keys = try phase.arena.alloc([]const u8, made.len);
-    for (made, keys) |call, *key| {
-        key.* = try phase.mint();
-        try calls.start(phase, key.*, call);
-    }
-    const at: Checkpoint = .{ .calling = .{ .reply = reply, .calls = keys, .collected = 0 } };
+    for (keys) |*key| key.* = try phase.mint();
+    const started = try startBatch(phase, table, thread, made, keys, 0);
+    const at: Checkpoint = .{ .calling = .{ .reply = reply, .calls = keys, .collected = 0, .started = started } };
     return phase.waitForExit(at, try beak.childPath(phase.arena, phase.path, keys[0]));
 }
 
+/// Starts the calls of `made` from the `from`th on that run together, keyed by `keys`, in the order the model made them,
+/// as readers share what a writer takes alone: as many that run at once as come one after another — calls that read
+/// alone, or each work apart — or the one that runs alone, which may act on what the others read. Where the next batch
+/// begins.
+fn startBatch(phase: *Phase, table: *Table, thread: []const u8, made: []const vocabulary.items.FunctionCall, keys: []const []const u8, from: usize) !u32 {
+    const workspace = (try threads.manifestOf(phase.runtime.volume, &phase.arena, thread)).workspace;
+    var end = from;
+    while (end < made.len) : (end += 1) {
+        if (!try table.runsAtOnce(phase.arena, made[end].name, workspace, made[end].arguments)) {
+            if (end == from) end += 1;
+            break;
+        }
+    }
+    for (made[from..end], keys[from..end]) |call, key| try calls.start(phase, key, call);
+    return @intCast(end);
+}
+
 /// The calls of a reply that ended, their results appended in the order the model made the calls, and they reaped,
-/// from the first not yet collected on; one still running is slept on. Once every call has its result, the model is
-/// asked again — or, under a stop, which reaches every call that runs, the turn ends stopped.
-fn called(phase: *Phase, thread: []const u8, calling: Calling) !void {
+/// from the first not yet collected on; one still running is slept on, and once a batch is collected the next starts.
+/// Once every call has its result, the model is asked again — or, under a stop, which reaches every call that runs,
+/// the turn ends stopped, the calls it came before answered so, never run.
+fn called(phase: *Phase, table: *Table, thread: []const u8, calling: Calling) !void {
     const made = try log.callsOf(phase.arena, try log.lineAt(phase.runtime.volume, &phase.arena, thread, calling.reply));
     var writer: log.Writer = try .init(phase, thread);
     var collected = calling.collected;
-    while (collected < calling.calls.len) : (collected += 1) {
+    while (collected < calling.started) : (collected += 1) {
         const key = calling.calls[collected];
         _ = try calls.settle(&writer, key, null, made[collected].call_id) orelse {
-            const at: Checkpoint = .{ .calling = .{ .reply = calling.reply, .calls = calling.calls, .collected = collected } };
+            const at: Checkpoint = .{ .calling = .{ .reply = calling.reply, .calls = calling.calls, .collected = collected, .started = calling.started } };
             return phase.waitForExit(at, try beak.childPath(phase.arena, phase.path, key));
         };
     }
-    if (phase.stop_handler) return phase.stopped(null);
+    if (phase.stop_handler) {
+        for (made[calling.started..]) |call| try writer.appendResult(null, null, call.call_id, try Tool.stoppedBefore(phase.arena));
+        return phase.stopped(null);
+    }
+    if (calling.started < calling.calls.len) {
+        const started = try startBatch(phase, table, thread, made, calling.calls, calling.started);
+        const at: Checkpoint = .{ .calling = .{ .reply = calling.reply, .calls = calling.calls, .collected = collected, .started = started } };
+        return phase.waitForExit(at, try beak.childPath(phase.arena, phase.path, calling.calls[collected]));
+    }
     // What the person sent while the calls ran steers the turn: taken in after their results, as the next step begins.
     _ = try threads.takeInputs(&writer);
     // The model is asked on what this phase commits: the results and what the person sent, once they are in the log.

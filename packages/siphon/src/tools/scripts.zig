@@ -48,6 +48,8 @@ pub const execute: Tool = .{
     ,
     .parameters = typebox.of(Arguments),
     .work = .{ .program = script_program },
+    // Its calls may act, each weighed as it is made: it runs alone, as no call of its can be told apart before.
+    .alone = true,
 };
 
 /// Runs scripts on `runtime`, each given the tools of `table`, and adds the `execute` tool to it.

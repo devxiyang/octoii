@@ -143,6 +143,7 @@ const base =
     \\- Each <skill> is a file of instructions for one kind of task, told by its name and what it is for: before a task of that kind, read its file and follow it.
     \\- A <recap> stands for the conversation before it, which grew too long to keep: carry on from where it says the work stands, and read again any file you need as it is now.
     \\- Prefer the file tools to the shell for reading, writing and searching files.
+    \\- Make the calls that do not wait on one another in one reply: those that only read run at once; one that may change something runs alone, after the calls before it and before those after, in the order you made them.
     \\- Keep a change in the structure, naming and style of the code around it.
     \\- Take changes you did not make for the person's work: look before you overwrite or delete them, and ask before what cannot be undone.
     \\- Say plainly what you found and what you did, naming files by their paths.

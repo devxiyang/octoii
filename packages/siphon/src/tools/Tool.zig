@@ -27,6 +27,10 @@ parameters: []const u8,
 /// thread's paths start, none where the thread has no workspace; none for a tool that acts on nothing — its call goes
 /// ahead in every mode, and a run of it cut off runs again.
 access: ?*const fn (arena: Allocator, base: ?Machine.paths.Base, arguments: []const u8) anyerror!Access = null,
+/// Whether its calls run alone — after the reply's calls before them ended, and before those after begin — though they
+/// say nothing of what they do to the machine, as a script's, whose calls may act, and a page's actions do. One that
+/// says what its call does runs alone where the call may act; any other runs at once with its neighbours that do.
+alone: bool = false,
 context: ?*anyopaque = null,
 work: Work,
 /// Whether a thread of `manifest` is offered it; none, every thread is.

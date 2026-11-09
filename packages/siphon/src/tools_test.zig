@@ -42,6 +42,8 @@ fn add(_: ?*anyopaque, run: *const tools.Tool.Run) anyerror!tools.Tool.Output {
 /// say before it ends — so calls run one after another never meet.
 const Meeting = struct {
     arrived: std.atomic.Value(u32) = .init(0),
+    /// How many met and went.
+    ended: std.atomic.Value(u32) = .init(0),
     expected: u32,
 
     fn tool(meeting: *Meeting) @import("tools.zig").Tool {
@@ -64,7 +66,29 @@ const Meeting = struct {
             try io.sleep(.fromMilliseconds(10), .awake);
         } else return .{ .outcome = .refused, .text = "never met" };
         try io.sleep(.fromMilliseconds(lingering.linger_ms), .awake);
+        _ = meeting.ended.fetchAdd(1, .acq_rel);
         return .{ .text = "met" };
+    }
+};
+
+/// A tool that may act, which tells whether every call of `meeting` had ended as it began: whether it ran alone.
+const Lone = struct {
+    meeting: *Meeting,
+    alone: std.atomic.Value(bool) = .init(false),
+
+    fn tool(lone: *Lone) tools.Tool {
+        return .{ .name = "lone", .description = "Acts alone.", .parameters = "{\"type\":\"object\"}", .access = acts, .context = lone, .work = .{ .task = run } };
+    }
+
+    fn acts(arena: Allocator, _: ?@import("machine.zig").paths.Base, _: []const u8) anyerror!tools.Tool.Access {
+        const resources = try arena.dupe([]const u8, &.{"lone"});
+        return .{ .action = .tool, .resources = resources, .save = resources };
+    }
+
+    fn run(context: ?*anyopaque, _: *const tools.Tool.Run) anyerror!tools.Tool.Output {
+        const lone: *Lone = @ptrCast(@alignCast(context.?));
+        lone.alone.store(lone.meeting.ended.load(.acquire) == lone.meeting.expected, .release);
+        return .{ .text = "done" };
     }
 };
 
@@ -504,7 +528,7 @@ test "a sub-thread of the thread's is given more to do by its id, keeping what i
     try std.testing.expect(std.mem.indexOf(u8, try foundation.json.encode(arena, fake.requests.items[4].input), "The docs build.") != null);
 }
 
-test "a stop reaches every call that runs, answers each stopped, and the turn ends stopped" {
+test "a stop reaches the call that runs, answers the calls it came before stopped, never run, and the turn ends stopped" {
     var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
     defer arena_allocator.deinit();
     const arena = arena_allocator.allocator();
@@ -517,7 +541,8 @@ test "a stop reaches every call that runs, answers each stopped, and the turn en
     try siphon.tools.add(slow.tool());
     const tid = try threads.create(siphon.runtime, arena, .{ .title = "Test", .model = "fake/m", .mode = .@"full-access" }, "create");
     _ = try threads.deliver(siphon.runtime, arena, tid, said("deploy twice"), "op-1");
-    try testing.pumpUntil(siphon, &slow, Slow.bothBegun);
+    // Calls that may act run one at a time: the second never begins before the stop.
+    try testing.pumpUntil(siphon, &slow, Slow.hasBegun);
     try threads.stop(siphon.runtime, arena, tid, "person");
     try std.testing.expectEqual(threads.Status.stopped, (try testing.pumpUntilSettled(siphon, arena, tid)).status);
     try expectEntries(siphon, arena, tid, &.{ "system", "input", "reply", "result stopped", "result stopped", "turn-end" });
@@ -638,4 +663,25 @@ test "a thread whose main fiber ended takes what is delivered next: started agai
     _ = try threads.deliver(siphon.runtime, arena, tid, said("again"), "op-2");
     try std.testing.expectEqual(threads.Status.replied, (try testing.pumpUntilSettled(siphon, arena, tid)).status);
     try expectEntries(siphon, arena, tid, &.{ "system", "input", "reply", "result interrupted", "turn-end", "input", "reply", "turn-end" });
+}
+
+test "the calls of a reply that read alone run at once, and one that may act runs alone, after them" {
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var fake: ai.testing.Fake = .init(arena, &.{ try streamed(arena, &.{ call("c1", "meet", "{}"), call("c2", "meet", "{}"), call("c3", "lone", "{}") }), try message(arena, "done") });
+    const providers = [_]ai.driver.Provider{.{ .id = "fake", .name = "Fake", .driver = fake.bound(), .models = &.{ai.facts.asFacts(model)} }};
+    var clock: testing.Clock = .{ .now_ms = 1_000 };
+    const siphon = try openOver(&clock, .memory, &providers);
+    defer siphon.close();
+    // The meetings meet only where both run at once; the lone call tells whether both had ended as it began.
+    var meeting: Meeting = .{ .expected = 2 };
+    var lone: Lone = .{ .meeting = &meeting };
+    try siphon.tools.add(meeting.tool());
+    try siphon.tools.add(lone.tool());
+    const tid = try threads.create(siphon.runtime, arena, .{ .title = "Test", .model = "fake/m", .mode = .@"full-access" }, "create");
+    _ = try threads.deliver(siphon.runtime, arena, tid, said("meet, then act"), "op-1");
+    try std.testing.expectEqual(threads.Status.replied, (try testing.pumpUntilSettled(siphon, arena, tid)).status);
+    try expectEntries(siphon, arena, tid, &.{ "system", "input", "reply", "result ok", "result ok", "result ok", "reply", "turn-end" });
+    try std.testing.expect(lone.alone.load(.acquire));
 }
