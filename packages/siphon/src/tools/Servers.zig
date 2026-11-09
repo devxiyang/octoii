@@ -18,8 +18,6 @@ const Value = std.json.Value;
 const mcp = @import("mcp");
 const runtime_ = @import("../runtime.zig");
 const Runtime = runtime_.Runtime;
-const beak = @import("../beak.zig");
-const h = beak.h;
 const threads = @import("../threads.zig");
 const log = threads.log;
 const Tool = @import("Tool.zig");
@@ -99,19 +97,22 @@ pub fn configured(servers: *Servers, arena: Allocator, tid: []const u8) !Configu
 /// project's `.mcp.json` names, in the project's folder, where the person trusts them — each standing for one of its
 /// name the person's names.
 pub fn configuredAt(servers: *Servers, arena: Allocator, place: Place) !Configured {
-    const runtime = servers.runtime;
     var found: Gathered = .{ .arena = arena };
-    if (servers.host.mcp) |path| {
-        try found.sources.append(arena, path);
-        if (try readOnMachine(servers.host.machine.handle, arena, path)) |text| try found.add(try parsed(arena, path, text, servers.host.machine.home orelse "/"));
-    }
-    const base: Machine.paths.Base = .{ .workspace = place.workspace orelse return found.done(), .home = servers.host.machine.home };
-    const machine = Machine.open(servers.host.machine, .{ .base = base }) catch |err| switch (err) {
-        error.NoMachine => return found.done(),
+    const home = servers.host.machine.home;
+    const machine = Machine.open(servers.host.machine, .{ .base = .{ .workspace = place.workspace orelse Machine.root, .home = home } }) catch |err| switch (err) {
+        error.NoMachine => {
+            if (servers.host.mcp) |path| try found.sources.append(arena, path);
+            return found.done();
+        },
         else => return err,
     };
     defer machine.close();
-    try found.addProject(runtime, machine, place.project orelse return found.done());
+    if (servers.host.mcp) |path| {
+        try found.sources.append(arena, path);
+        if (try machine.readAll(&arena, path, configuration_bytes_max)) |text| try found.add(try parsed(arena, path, text, home orelse Machine.root));
+    }
+    if (place.workspace == null) return found.done();
+    try found.addProject(servers.runtime, machine, place.project orelse return found.done());
     return found.done();
 }
 
@@ -255,26 +256,6 @@ fn keyOf(arena: Allocator, server: Server) Allocator.Error![]const u8 {
 /// byte no path holds.
 fn prefixOf(arena: Allocator, source: []const u8) Allocator.Error![]const u8 {
     return std.mem.concat(arena, u8, &.{ source, "\x00" });
-}
-
-/// The bytes of the file at `path` on the host's machine, through Beak; null where there is none.
-fn readOnMachine(handle: ?h.beak_handle, arena: Allocator, path: []const u8) !?[]const u8 {
-    const machine = handle orelse return null;
-    var namespace: h.beak_handle = 0;
-    try beak.check(h.beak_namespace_open(&namespace));
-    defer _ = h.beak_close(namespace);
-    var file_system = std.mem.zeroes(h.beak_file_system);
-    file_system.type = h.BEAK_FILE_SYSTEM_MACHINE;
-    file_system.handle = machine;
-    file_system.path = beak.bytes(std.fs.path.dirname(path) orelse "/");
-    try beak.check(h.beak_namespace_mount(namespace, beak.bytes(""), &file_system, false));
-    defer _ = h.beak_namespace_unmount(namespace, beak.bytes(""));
-    const allocator = beak.outputs(&arena);
-    var bytes: h.beak_bytes = undefined;
-    const status = h.beak_namespace_read(namespace, beak.bytes(std.fs.path.basename(path)), 0, configuration_bytes_max, &allocator, &bytes);
-    if (status == h.BEAK_NOT_FOUND) return null;
-    try beak.check(status);
-    return beak.slice(bytes);
 }
 
 /// The most of a configuration read.

@@ -131,6 +131,11 @@ pub fn readAll(machine: Machine, arena: *const Allocator, given: []const u8, len
     return beak.slice(bytes);
 }
 
+/// Writes `bytes` as the whole of the file `given` names.
+pub fn writeAll(machine: Machine, arena: Allocator, given: []const u8, bytes: []const u8) !void {
+    try beak.check(h.beak_namespace_write(machine.namespace, beak.bytes(try machine.pathOf(arena, given)), beak.bytes(bytes)));
+}
+
 /// Whether the place `given` names anything — a file, a folder or a link.
 pub fn exists(machine: Machine, arena: Allocator, given: []const u8) !bool {
     var stat: h.beak_stat = undefined;

@@ -16,8 +16,6 @@ const Waits = runtime_.Waits;
 const threads = @import("../threads.zig");
 const log = threads.log;
 const Machine = @import("../machine.zig");
-const beak = @import("../beak.zig");
-const h = beak.h;
 
 name: []const u8,
 description: []const u8,
@@ -178,22 +176,18 @@ pub fn bounded(host: *const Host, arena: Allocator, key: []const u8, text: []con
     return told(arena, .{ .text = text[0..end], .notes = &.{note} });
 }
 
-/// Keeps `bytes` as the file `name` of the host's outputs folder, through Beak on the machine: its path; none where the
-/// host keeps no outputs.
+/// Keeps `bytes` as the file `name` of the host's outputs folder, on the machine: its path; none where the host keeps no
+/// outputs.
 fn keep(host: *const Host, arena: Allocator, name: []const u8, bytes: []const u8) !?[]const u8 {
     const folder = host.outputs orelse return null;
-    const machine = host.machine.handle orelse return null;
-    var namespace: h.beak_handle = 0;
-    try beak.check(h.beak_namespace_open(&namespace));
-    defer _ = h.beak_close(namespace);
-    var file_system = std.mem.zeroes(h.beak_file_system);
-    file_system.type = h.BEAK_FILE_SYSTEM_MACHINE;
-    file_system.handle = machine;
-    file_system.path = beak.bytes(folder);
-    try beak.check(h.beak_namespace_mount(namespace, beak.bytes(""), &file_system, true));
-    defer _ = h.beak_namespace_unmount(namespace, beak.bytes(""));
-    try beak.check(h.beak_namespace_write(namespace, beak.bytes(name), beak.bytes(bytes)));
-    return try std.fs.path.join(arena, &.{ folder, name });
+    const machine = Machine.open(host.machine, .{ .base = .{ .workspace = folder } }) catch |err| switch (err) {
+        error.NoMachine => return null,
+        else => return err,
+    };
+    defer machine.close();
+    const path = try std.fs.path.join(arena, &.{ folder, name });
+    try machine.writeAll(arena, path, bytes);
+    return path;
 }
 
 /// `output` as the model reads it: its text as it is, then each note on a line of its own, in brackets.
