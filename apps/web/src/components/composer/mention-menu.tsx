@@ -22,10 +22,10 @@ export function MentionMenu(props: { readonly id: string; readonly mentions: Men
 			id={props.id}
 			role="listbox"
 			aria-label="Files to mention"
-			className="absolute inset-x-3 bottom-full z-30 mb-1 max-h-72 overflow-y-auto rounded-xl border border-black/[0.06] bg-popover p-1.5 shadow-lg/5 mask-b-from-85% dark:border-white/[0.08]"
+			className="absolute inset-x-3 bottom-full z-30 mb-1 max-h-72 overflow-y-auto floating rounded-lg p-1.5 mask-b-from-85%"
 		>
-			{found === undefined ? <p className="px-2.5 py-1.5 text-sm text-muted-foreground">Searching…</p> : null}
-			{found?.length === 0 ? <p className="px-2.5 py-1.5 text-sm text-muted-foreground">No files found</p> : null}
+			{found === undefined ? <p className="px-2.5 py-1.5 text-ui text-muted-foreground">Searching…</p> : null}
+			{found?.length === 0 ? <p className="px-2.5 py-1.5 text-ui text-muted-foreground">No files found</p> : null}
 			{found?.map((each, index) => {
 				const folder = folderOf(each.path);
 				return (
@@ -41,7 +41,7 @@ export function MentionMenu(props: { readonly id: string; readonly mentions: Men
 							props.onChoose(each);
 						}}
 						onMouseEnter={() => props.mentions.highlight(index)}
-						className="flex h-control-sm cursor-default items-center gap-2 rounded-lg px-2.5 text-sm aria-selected:bg-accent [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-muted-foreground"
+						className="flex h-control-sm cursor-default items-center gap-2 rounded-md px-2.5 text-ui aria-selected:bg-accent [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-muted-foreground"
 					>
 						<PathIcon path={each.path} kind={each.kind} />
 						<span className="shrink-0 font-medium text-foreground">{nameOf(each.path)}</span>

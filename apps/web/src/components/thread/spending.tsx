@@ -35,8 +35,8 @@ export function SpendingCard(props: { readonly usage: Usage; readonly turns: rea
 	const cost = usage.cost_nanodollars / 1e9;
 	return (
 		<div className="flex max-h-[70vh] flex-col">
-			<header className="flex items-center gap-3 border-b border-border/60 px-4 py-2.5">
-				<span className="text-sm font-medium">Spending</span>
+			<header className="flex items-center gap-3 border-b border-border px-4 py-2.5">
+				<span className="text-ui font-medium">Spending</span>
 				<Segmented
 					label="Lay the requests by"
 					value={measure}
@@ -48,7 +48,7 @@ export function SpendingCard(props: { readonly usage: Usage; readonly turns: rea
 					className="ms-auto w-40"
 				/>
 			</header>
-			<div className="grid grid-cols-3 divide-x divide-border/60 border-b border-border/60">
+			<div className="grid grid-cols-3 divide-x divide-border border-b border-border">
 				<Total title="Total cost" value={cost > 0 ? dollars(cost) : "Not told"} />
 				<Total
 					title="Total tokens"
@@ -83,7 +83,7 @@ export function SpendingCard(props: { readonly usage: Usage; readonly turns: rea
 						top={each === most}
 					/>
 				))}
-				{spent.length === 0 ? <p className="px-2 py-3 text-sm text-muted-foreground">No request has told what it used yet.</p> : null}
+				{spent.length === 0 ? <p className="px-2 py-3 text-ui text-muted-foreground">No request has told what it used yet.</p> : null}
 			</div>
 		</div>
 	);
@@ -94,7 +94,7 @@ function Total(props: { readonly title: string; readonly value: string; readonly
 	return (
 		<div className="flex min-w-0 flex-col gap-0.5 px-4 py-2.5">
 			<span className="label-caps">{props.title}</span>
-			<span className="truncate text-sm font-medium tabular-nums">{props.value}</span>
+			<span className="truncate text-ui font-medium tabular-nums">{props.value}</span>
 			{props.aside === undefined ? null : <span className="truncate text-xs text-muted-foreground tabular-nums">{props.aside}</span>}
 		</div>
 	);
@@ -112,15 +112,15 @@ function Request(props: {
 	return (
 		<>
 			{props.heading === undefined ? null : <p className="px-2 pt-2.5 pb-1 text-xs text-muted-foreground">{props.heading}</p>}
-			<div className={cn(COLUMNS, "rounded-md px-2 py-1 text-xs hover:bg-accent/50")}>
+			<div className={cn(COLUMNS, "rounded-md px-2 py-1 text-xs hover:bg-accent")}>
 				<span className="flex min-w-0 items-center gap-1.5">
 					<span className="truncate text-foreground">{spent.words}</span>
 					{props.model === undefined ? null : <span className="shrink-0 truncate text-muted-foreground">{props.model}</span>}
-					{props.top ? <span className="shrink-0 rounded bg-warning-surface px-1 text-2xs font-medium text-warning-foreground">Most</span> : null}
+					{props.top ? <span className="shrink-0 rounded-sm bg-warning-surface px-1 text-2xs font-medium text-warning-foreground">Most</span> : null}
 				</span>
 				<span className="relative h-2.5 rounded-sm bg-muted">
 					<span
-						className="absolute inset-y-0 min-w-0.5 rounded-sm bg-info/60"
+						className="absolute inset-y-0 min-w-0.5 rounded-sm bg-info"
 						style={{ left: `${String(bar.start * 100)}%`, width: `${String(bar.width * 100)}%` }}
 					/>
 				</span>

@@ -109,7 +109,7 @@ export function Composer(props: ComposerProps): ReactNode {
 	};
 	return (
 		<div
-			className="relative rounded-[20px] border border-black/[0.08] bg-card shadow-composer dark:border-white/[0.08]"
+			className="relative rounded-lg border border-border bg-card shadow-raised"
 			onDragOver={(event) => {
 				if (event.dataTransfer.types.includes("Files")) event.preventDefault();
 			}}
@@ -147,7 +147,7 @@ export function Composer(props: ComposerProps): ReactNode {
 				placeholder={
 					props.model === undefined ? "Choose a model to begin" : (props.placeholder ?? (props.folder === undefined ? PLACEHOLDER : PLACEHOLDER_MENTIONING))
 				}
-				className="block field-sizing-content max-h-[40vh] min-h-16 w-full resize-none bg-transparent px-4 pt-4 pb-1 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/70"
+				className="block field-sizing-content max-h-[40vh] min-h-16 w-full resize-none bg-transparent px-4 pt-4 pb-1 text-ui leading-relaxed outline-none placeholder:text-faint-foreground"
 			/>
 			<div className="@container flex items-center gap-0.5 px-3 pb-3">
 				{/* Where the box is narrow its controls give up their words, the least needed first, and the model's name is cut, rather than scroll. */}
@@ -177,7 +177,7 @@ function SendButton(props: {
 				type="button"
 				aria-label="Stop"
 				onClick={props.onStop}
-				className="ml-1 flex size-control items-center justify-center rounded-full bg-foreground text-background hover:bg-foreground/85"
+				className="ml-1 flex size-control items-center justify-center rounded-full bg-foreground text-background hover:opacity-90"
 			>
 				<Square className="size-3 fill-current" />
 			</button>
@@ -189,7 +189,7 @@ function SendButton(props: {
 			aria-label={props.working ? "Steer" : "Send"}
 			disabled={props.unready}
 			onClick={props.onSend}
-			className="ml-1 flex size-control items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-foreground/8 disabled:text-muted-foreground"
+			className="ml-1 flex size-control items-center justify-center rounded-full bg-primary text-primary-foreground not-disabled:hover:opacity-90 disabled:bg-accent disabled:text-muted-foreground"
 		>
 			<ArrowUp className="size-4" />
 		</button>

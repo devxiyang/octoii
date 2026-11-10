@@ -33,7 +33,7 @@ export function PictureStrip(props: { readonly pictures: readonly Picture[]; rea
 						type="button"
 						title={picture.name}
 						onClick={() => setOpened(index)}
-						className="shrink-0 snap-start overflow-hidden rounded-lg border border-border/70 bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+						className="shrink-0 snap-start overflow-hidden rounded-md border border-border bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring"
 					>
 						{picture.kind === "kept" ? (
 							<KeptImage address={pictureAddress(picture.ref)} alt={picture.name} loading="lazy" decoding="async" className={TILE} />
@@ -137,7 +137,7 @@ function Viewer(props: {
 function Whole(props: { readonly picture: Picture; readonly children: ReactNode }): ReactNode {
 	const { picture } = props;
 	const [size, setSize] = useState<string | undefined>(undefined);
-	const look = "max-h-[78vh] max-w-[90vw] rounded-lg object-contain shadow-dialog";
+	const look = "max-h-[78vh] max-w-[90vw] rounded-md object-contain shadow-floating";
 	return (
 		<>
 			{picture.kind === "kept" ? (
@@ -145,7 +145,7 @@ function Whole(props: { readonly picture: Picture; readonly children: ReactNode 
 			) : (
 				<FilePicture path={picture.path} name={picture.name} onSize={setSize} className={look} />
 			)}
-			<div className="flex max-w-[90vw] items-center gap-2 rounded-full bg-background/90 px-3 py-1 text-sm shadow-floating">
+			<div className="flex max-w-[90vw] items-center gap-2 rounded-full bg-background px-3 py-1 text-ui shadow-floating">
 				<DialogTitle className="min-w-0 truncate font-normal">{picture.name}</DialogTitle>
 				{size === undefined ? null : <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{size}</span>}
 				{props.children}

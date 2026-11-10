@@ -45,7 +45,7 @@ function Crumbs(props: { readonly root: string; readonly path: string }): ReactN
 		<div className="flex min-w-0 items-center gap-1 overflow-hidden text-xs text-muted-foreground">
 			{crumbs.map((crumb) => (
 				<span key={crumb.path} className="flex min-w-0 items-center gap-1 last:shrink-0">
-					{crumb.path === props.root ? null : <span className="text-muted-foreground/50">›</span>}
+					{crumb.path === props.root ? null : <span className="text-faint-foreground">›</span>}
 					<span className={crumb.path === props.path ? "text-foreground" : "truncate"}>{crumb.name}</span>
 				</span>
 			))}

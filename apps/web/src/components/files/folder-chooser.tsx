@@ -72,7 +72,7 @@ function Chooser({ ref, ...props }: FolderChooserProps & { readonly ref: Ref<HTM
 					onUp={up}
 					onChoose={() => (chosen === undefined ? undefined : props.onChoose(chosen))}
 				/>
-				<footer className="flex items-center gap-3 border-t border-border/60 px-3 py-2.5">
+				<footer className="flex items-center gap-3 border-t border-border px-3 py-2.5">
 					<label className="flex items-center gap-2 text-xs text-muted-foreground">
 						<Switch aria-label="Show hidden folders" checked={hidden} onCheckedChange={setHidden} />
 						Hidden folders
@@ -101,7 +101,7 @@ function Places(props: {
 	readonly onGo: (path: string) => void;
 }): ReactNode {
 	return (
-		<nav aria-label="Places" className="flex w-48 shrink-0 flex-col gap-px overflow-y-auto border-r border-border/60 bg-sidebar/60 p-2">
+		<nav aria-label="Places" className="flex w-48 shrink-0 flex-col gap-px overflow-y-auto border-r border-border bg-sidebar p-2">
 			<Place label="Home" icon={<House />} current={props.at !== undefined && props.at === props.home} onGo={() => props.onGo(HOME)} />
 			<Place label="Computer" icon={<HardDrive />} current={props.at === "/"} onGo={() => props.onGo("/")} />
 			{props.projects.length === 0 ? null : <p className="label-caps px-2 pt-3 pb-1">Projects</p>}
@@ -133,7 +133,7 @@ function Place(props: {
 			title={props.title}
 			aria-current={props.current ? "true" : undefined}
 			onClick={props.onGo}
-			className="flex h-control-sm w-full min-w-0 shrink-0 items-center gap-2 rounded-md px-2 text-left text-ui text-sidebar-foreground/80 hover:bg-sidebar-row-hover aria-[current=true]:bg-sidebar-row-active aria-[current=true]:text-foreground [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-sidebar-muted"
+			className="flex h-control-sm w-full min-w-0 shrink-0 items-center gap-2 rounded-md px-2 text-left text-ui text-muted-foreground hover:bg-accent aria-[current=true]:bg-selected aria-[current=true]:text-foreground [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-muted-foreground"
 		>
 			{props.icon}
 			<span className="truncate">{props.label}</span>
@@ -150,7 +150,7 @@ function WayBar(props: {
 }): ReactNode {
 	const [typing, setTyping] = useState(false);
 	return (
-		<div className="flex h-11 shrink-0 items-center gap-1 border-b border-border/60 px-2">
+		<div className="flex h-11 shrink-0 items-center gap-1 border-b border-border px-2">
 			<IconButton label="The folder above" disabled={props.up === undefined} onClick={props.up}>
 				<ArrowUp className="size-4" />
 			</IconButton>
@@ -187,7 +187,7 @@ function Way(props: { readonly way: readonly Crumb[]; readonly onGo: (path: stri
 	const last = way.at(-1);
 	const step = (crumb: Crumb): ReactNode => (
 		<li key={crumb.path} className="flex min-w-0 items-center gap-0.5">
-			{crumb === first ? null : <span className="text-muted-foreground/50">›</span>}
+			{crumb === first ? null : <span className="text-faint-foreground">›</span>}
 			<button
 				type="button"
 				title={crumb.path}
@@ -203,7 +203,7 @@ function Way(props: { readonly way: readonly Crumb[]; readonly onGo: (path: stri
 			{first === undefined ? null : step(first)}
 			{folded.length === 0 ? null : (
 				<li className="flex shrink-0 items-center gap-0.5">
-					<span className="text-muted-foreground/50">›</span>
+					<span className="text-faint-foreground">›</span>
 					<Menu>
 						<MenuTrigger render={<IconButton label="The folders between" size="icon-xs" />}>
 							<Ellipsis />
@@ -323,7 +323,7 @@ function Folders({
 					aria-selected={path === props.picked}
 					onClick={() => props.onPick(path)}
 					onDoubleClick={() => props.onOpen(path)}
-					className="flex h-control-sm cursor-default items-center gap-2 rounded-md px-2 text-ui select-none hover:bg-accent/50 aria-selected:bg-accent aria-selected:text-foreground [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-muted-foreground"
+					className="flex h-control-sm cursor-default items-center gap-2 rounded-md px-2 text-ui select-none hover:bg-accent aria-selected:bg-accent aria-selected:text-foreground [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-muted-foreground"
 				>
 					{entry.kind === "link" ? <FolderSymlink /> : <Folder />}
 					<span className="truncate">{entry.name}</span>

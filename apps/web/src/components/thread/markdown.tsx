@@ -40,7 +40,7 @@ function CodeBlock(props: { readonly language: string; readonly code: string }):
 					<CopyButton text={props.code} label="Copy code" />
 				</span>
 			</div>
-			<pre className="overflow-x-auto px-3 pt-0.5 pb-3 font-mono text-code leading-relaxed">
+			<pre className="overflow-x-auto px-3 pt-0.5 pb-3 font-mono text-xs leading-relaxed">
 				<code>{props.language === "diff" ? <DiffLines text={props.code} /> : props.code}</code>
 			</pre>
 		</div>

@@ -1,9 +1,9 @@
 /**
  * What the person set for the device the page runs on, as the node keeps it for the device's session: the theme and its
- * palette, contrast and glass, how wide the chat grows, what sends a message, how wide the sidebar and the right panel
- * are, how the diff lays out its sides, whether code views wrap their long lines,
- * and whether the Files view shows its tree — each with its default where nothing is set. What is kept is read through the schema of what it may hold;
- * whatever else it holds is left.
+ * palette, how wide the chat grows, what sends a message, how wide the sidebar and the right panel are, how the diff
+ * lays out its sides, whether code views wrap their long lines, and whether the Files view shows its tree — each with
+ * its default where nothing is set. What is kept is read through the schema of what it may hold; whatever else it holds
+ * is left.
  */
 import { matches } from "@octoii-works/octoii-client";
 import { type Static, Type } from "typebox";
@@ -25,8 +25,6 @@ const DeviceSchema = Type.Object({
 		Type.Literal("forest"),
 		Type.Literal("lilac"),
 	]),
-	contrast: Type.Number(),
-	glass_opacity: Type.Number(),
 	chat_width: Type.Union([Type.Literal("narrow"), Type.Literal("comfortable"), Type.Literal("wide")]),
 	diff_layout: Type.Union([Type.Literal("stacked"), Type.Literal("split")]),
 	wrap_lines: Type.Boolean(),
@@ -46,8 +44,6 @@ export const DEVICE_DEFAULTS: Device = {
 	sidebar_width: 256,
 	panel_width: 560,
 	palette: "default",
-	contrast: 100,
-	glass_opacity: 80,
 	chat_width: "comfortable",
 	diff_layout: "stacked",
 	wrap_lines: false,
@@ -69,15 +65,43 @@ export function isDark(theme: Device["theme"], systemDark: boolean): boolean {
 	return theme === "dark" || (theme === "system" && systemDark);
 }
 
-/** Each palette: its name and the hue it leans toward, for its swatch. */
-export const PALETTES: readonly { readonly id: Device["palette"]; readonly label: string; readonly hue: number }[] = [
-	{ id: "default", label: "Default", hue: 264 },
-	{ id: "deep-sea", label: "Deep Sea", hue: 238 },
-	{ id: "lagoon", label: "Lagoon", hue: 192 },
-	{ id: "coral", label: "Coral", hue: 25 },
-	{ id: "sand", label: "Sand", hue: 75 },
-	{ id: "kelp", label: "Kelp", hue: 125 },
-	{ id: "anemone", label: "Anemone", hue: 345 },
-	{ id: "forest", label: "Forest", hue: 158 },
-	{ id: "lilac", label: "Lilac", hue: 295 },
+/**
+ * A palette: its name, and the three numbers every colour of the design is made from — the hue all of them lean to, how
+ * far the greys lean to it, and how vivid the primary colour is.
+ */
+export interface Palette {
+	readonly id: Device["palette"];
+	readonly label: string;
+	readonly hue: number;
+	readonly tint: number;
+	readonly chroma: number;
+}
+
+/** The palette of a device that set none: its greys barely lean to its hue, so it reads as neutral. */
+const DEFAULT_PALETTE: Palette = { id: "default", label: "Default", hue: 264, tint: 0.3, chroma: 0.2 };
+
+/** The palettes: the default, and those whose greys lean to their hues. */
+export const PALETTES: readonly Palette[] = [
+	DEFAULT_PALETTE,
+	{ id: "deep-sea", label: "Deep Sea", hue: 238, tint: 1, chroma: 0.156 },
+	{ id: "lagoon", label: "Lagoon", hue: 192, tint: 1, chroma: 0.12 },
+	{ id: "coral", label: "Coral", hue: 25, tint: 1, chroma: 0.156 },
+	{ id: "sand", label: "Sand", hue: 75, tint: 1, chroma: 0.132 },
+	{ id: "kelp", label: "Kelp", hue: 125, tint: 1, chroma: 0.12 },
+	{ id: "anemone", label: "Anemone", hue: 345, tint: 1, chroma: 0.144 },
+	{ id: "forest", label: "Forest", hue: 158, tint: 1, chroma: 0.12 },
+	{ id: "lilac", label: "Lilac", hue: 295, tint: 1, chroma: 0.12 },
 ];
+
+/** The stylesheet's variables a palette sets, which every colour is made from wherever they stand. */
+export type PaletteVariables = Readonly<Record<"--palette-hue" | "--palette-tint" | "--palette-chroma", string>>;
+
+/** The variables of `palette`. */
+export function paletteVariables(palette: Palette): PaletteVariables {
+	return { "--palette-hue": String(palette.hue), "--palette-tint": String(palette.tint), "--palette-chroma": String(palette.chroma) };
+}
+
+/** The palette a device has set. */
+export function paletteOf(id: Device["palette"]): Palette {
+	return PALETTES.find((palette) => palette.id === id) ?? DEFAULT_PALETTE;
+}

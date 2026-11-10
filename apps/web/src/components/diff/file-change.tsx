@@ -33,8 +33,8 @@ export function FileChange(props: FileChangeProps): ReactNode {
 	const { file } = props;
 	const { folder, name } = pathParts(file.path);
 	return (
-		<Collapsible open={props.open} onOpenChange={props.onToggle} className="border-b border-border/60">
-			<CollapsibleTrigger title={file.path} className="flex h-control-sm w-full cursor-pointer items-center gap-1.5 px-2 text-left text-xs hover:bg-accent/60">
+		<Collapsible open={props.open} onOpenChange={props.onToggle} className="border-b border-border">
+			<CollapsibleTrigger title={file.path} className="flex h-control-sm w-full cursor-pointer items-center gap-1.5 px-2 text-left text-xs hover:bg-accent">
 				<FoldChevron className="text-muted-foreground" />
 				<StatusIcon file={file} />
 				{file.old_path === undefined ? null : (

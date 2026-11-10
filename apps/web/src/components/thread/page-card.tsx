@@ -21,13 +21,13 @@ export function PageCard(props: { readonly page: string }): ReactNode {
 			onClick={() => {
 				if (shown !== undefined) showSurface(shown.thread, pageKey(props.page));
 			}}
-			className="card my-2 flex w-full max-w-md items-center gap-3 px-3 py-2.5 text-left outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring/70 disabled:pointer-events-none disabled:opacity-60"
+			className="card my-2 flex w-full max-w-md items-center gap-3 px-3 py-2.5 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60"
 		>
 			<IconTile>
 				<Globe className="size-4" />
 			</IconTile>
 			<span className="flex min-w-0 flex-col">
-				<span className="truncate text-sm font-medium">{words}</span>
+				<span className="truncate text-ui font-medium">{words}</span>
 				{listed === undefined ? null : <span className="truncate text-xs text-muted-foreground">{listed.url}</span>}
 			</span>
 		</button>

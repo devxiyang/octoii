@@ -4,7 +4,6 @@
  */
 @import "tailwindcss";
 @import "./styles/tokens.css";
-@import "./styles/themes.css";
 @import "./styles/theme.css";
 @import "./styles/surfaces.css";
 @import "./styles/language.css";

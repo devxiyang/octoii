@@ -33,11 +33,11 @@ export function DeleteDialog(props: DeleteDialogProps): ReactNode {
 	return (
 		<AlertDialog open={props.open} onOpenChange={props.onOpenChange}>
 			<DialogPopup className="w-[26rem] max-w-[calc(100vw-2rem)] p-5">
-				<DialogTitle className="text-base font-semibold">Delete “{threadTitle(props.row)}”?</DialogTitle>
-				<DialogDescription className="mt-2 text-sm text-muted-foreground">
+				<DialogTitle className="text-body font-semibold">Delete “{threadTitle(props.row)}”?</DialogTitle>
+				<DialogDescription className="mt-2 text-ui text-muted-foreground">
 					Its conversation goes for good, and its terminals and pages close. Archive it instead to keep it out of the way.
 				</DialogDescription>
-				{failure === undefined ? null : <p className="mt-2 text-sm text-error-foreground">{failure}</p>}
+				{failure === undefined ? null : <p className="mt-2 text-ui text-error-foreground">{failure}</p>}
 				<div className="mt-5 flex justify-end gap-2">
 					<DialogClose render={<Button variant="outline" size="sm" />}>Cancel</DialogClose>
 					<Button variant="destructive" size="sm" disabled={deleting} onClick={remove}>

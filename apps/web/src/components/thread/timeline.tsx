@@ -164,7 +164,7 @@ function Head(props: ContextProp<Ends>): ReactNode {
 	const { context } = props;
 	if (!context.read) return null;
 	if (context.complete && context.empty) {
-		return <p className="py-20 text-center text-sm text-muted-foreground">Send a message to start the conversation.</p>;
+		return <p className="py-20 text-center text-ui text-muted-foreground">Send a message to start the conversation.</p>;
 	}
 	return (
 		<div className="flex justify-center pt-4 pb-4">
@@ -204,7 +204,7 @@ function Foot(props: {
 					<button
 						type="button"
 						onClick={latest}
-						className="absolute bottom-full left-1/2 mb-3 flex h-control -translate-x-1/2 items-center gap-1.5 rounded-full border border-warning/30 bg-background px-3 text-sm whitespace-nowrap text-warning-foreground shadow-floating transition-[opacity,scale] duration-150 starting:scale-90 starting:opacity-0 motion-reduce:transition-none"
+						className="absolute bottom-full left-1/2 mb-3 flex h-control -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-ui whitespace-nowrap text-warning-foreground shadow-floating transition-[opacity,scale] duration-150 starting:scale-90 starting:opacity-0 motion-reduce:transition-none"
 					>
 						<ShieldQuestion className="size-4" />
 						{waiting === 1 ? "Waiting for you" : `${String(waiting)} waiting for you`}

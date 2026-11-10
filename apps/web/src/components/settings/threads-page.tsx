@@ -106,7 +106,7 @@ function ProjectGrants(): ReactNode {
 	const [revoking, startRevoking] = useTransition();
 	const outcome = useOutcome("grants.list", {}, revision);
 	if (outcome === undefined) return null;
-	if ("failure" in outcome) return <p className="px-4 text-sm text-error-foreground">{outcome.failure}</p>;
+	if ("failure" in outcome) return <p className="px-4 text-ui text-error-foreground">{outcome.failure}</p>;
 	const projects = outcome.result.grants.filter((each) => each.allow.length > 0);
 	const revoke = (grants: Grants, action: Action, pattern: string): void =>
 		startRevoking(async () => {
@@ -124,7 +124,7 @@ function ProjectGrants(): ReactNode {
 			) : (
 				projects.map((grants) => (
 					<div key={grants.folder} className="flex flex-col gap-1 px-3 py-3 sm:px-4">
-						<p className="flex items-center gap-2 text-sm font-medium" title={grants.folder}>
+						<p className="flex items-center gap-2 text-ui font-medium" title={grants.folder}>
 							<FolderGit2 className="size-4 text-muted-foreground" />
 							{folderName(grants.folder)}
 							<span className="min-w-0 truncate text-xs font-normal text-muted-foreground">{grants.folder}</span>

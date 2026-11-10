@@ -9,8 +9,8 @@ import noBooleanParameters from "./rules/no-boolean-parameters.ts";
 import noDeadlinePolling from "./rules/no-deadline-polling.ts";
 import noHandWrittenParsers from "./rules/no-hand-written-parsers.ts";
 import noOtherProjectNames from "./rules/no-other-project-names.ts";
-import noOffScaleType from "./rules/no-off-scale-type.ts";
-import noPaletteColors from "./rules/no-palette-colors.ts";
+import noOffScale from "./rules/no-off-scale.ts";
+import noOffTokenColors from "./rules/no-off-token-colors.ts";
 import noRealWaits from "./rules/no-real-waits.ts";
 import noRecordNames from "./rules/no-record-names.ts";
 import noUnexplainedSkips from "./rules/no-unexplained-skips.ts";
@@ -31,8 +31,8 @@ export default definePlugin({
 		"disable-needs-reason": disableNeedsReason,
 		"no-boolean-parameters": noBooleanParameters,
 		"no-other-project-names": noOtherProjectNames,
-		"no-palette-colors": noPaletteColors,
-		"no-off-scale-type": noOffScaleType,
+		"no-off-token-colors": noOffTokenColors,
+		"no-off-scale": noOffScale,
 		"no-record-names": noRecordNames,
 		"no-real-waits": noRealWaits,
 		"no-wall-clock": noWallClock,

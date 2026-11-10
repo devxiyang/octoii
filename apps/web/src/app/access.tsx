@@ -36,9 +36,9 @@ export function PairingPage(props: { readonly failed?: string | undefined }): Re
 	};
 	return (
 		<div className="flex h-dvh flex-col items-center justify-center gap-3 px-6">
-			<h1 className="text-xl font-semibold">Pair this browser with Octoii</h1>
-			<p className="max-w-md text-center text-sm text-muted-foreground">
-				On the computer Octoii runs on, run <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">octoii pair</code> and open the link it prints
+			<h1 className="text-title font-semibold">Pair this browser with Octoii</h1>
+			<p className="max-w-md text-center text-ui text-muted-foreground">
+				On the computer Octoii runs on, run <code className="rounded-sm bg-muted px-1 py-0.5 font-mono text-xs">octoii pair</code> and open the link it prints
 				here, or paste it below. A link pairs one browser, once, within five minutes.
 			</p>
 			<form onSubmit={pair} className="mt-2 flex w-full max-w-md gap-2">

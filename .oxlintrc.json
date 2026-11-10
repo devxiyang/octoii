@@ -139,8 +139,8 @@
 				"react/no-array-index-key": "error",
 				"octoii/no-use-effect": "error",
 				"octoii/no-copied-runtime-state": "error",
-				"octoii/no-palette-colors": "error",
-				"octoii/no-off-scale-type": "error"
+				"octoii/no-off-token-colors": "error",
+				"octoii/no-off-scale": "error"
 			}
 		},
 		{

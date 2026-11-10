@@ -70,7 +70,7 @@ export function InlineDetails(props: DetailsProps): ReactNode {
 	return (
 		<aside
 			aria-label="Thread details"
-			className="menu-glass absolute top-[calc(var(--topbar-height)+0.25rem)] right-3 z-20 hidden max-h-[calc(100%-var(--topbar-height)-1rem)] w-(--details-width) overflow-y-auto rounded-2xl transition-[opacity,scale] duration-150 details-inline:block starting:scale-98 starting:opacity-0 motion-reduce:transition-none"
+			className="floating absolute top-[calc(var(--topbar-height)+0.25rem)] right-3 z-20 hidden max-h-[calc(100%-var(--topbar-height)-1rem)] w-(--details-width) overflow-y-auto rounded-md transition-[opacity,scale] duration-150 details-inline:block starting:scale-98 starting:opacity-0 motion-reduce:transition-none"
 		>
 			<DetailsCard {...props} />
 		</aside>
@@ -81,7 +81,7 @@ export function InlineDetails(props: DetailsProps): ReactNode {
 function DetailsCard(props: DetailsProps): ReactNode {
 	const folder = props.row?.manifest.workspace;
 	return (
-		<div className="flex flex-col divide-y divide-border/60 text-ui">
+		<div className="flex flex-col divide-y divide-border text-ui">
 			<Workspace thread={props.thread} folder={folder} />
 			{folder === undefined ? null : <VersionControl thread={props.thread} folder={folder} revision={props.revision} />}
 			<Lineage thread={props.thread} row={props.row} />
@@ -114,9 +114,9 @@ function DetailRow(props: {
 }
 
 /** A row's look, and that of one that opens something. */
-const ROW = "flex h-control w-full min-w-0 items-center gap-2.5 rounded-lg px-2 text-left [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground";
+const ROW = "flex h-control w-full min-w-0 items-center gap-2.5 rounded-md px-2 text-left [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground";
 const OPENING =
-	"cursor-pointer hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:outline-none focus-visible:ring-inset data-popup-open:bg-accent/60";
+	"cursor-pointer hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset data-popup-open:bg-accent";
 
 /** A row's icon, its words, and what stands beside them. */
 function RowContent(props: { readonly icon: ReactNode; readonly label: ReactNode; readonly aside?: ReactNode }): ReactNode {
@@ -263,7 +263,7 @@ function ContextRow(props: { readonly thread: string; readonly context: Context;
 	const words = `${tokens(used)} of ${tokens(window)} tokens`;
 	return (
 		<Popover>
-			<PopoverTrigger render={<button type="button" className={cn("flex w-full flex-col gap-1.5 rounded-lg px-2 pt-1.5 pb-2 text-left", OPENING)} />}>
+			<PopoverTrigger render={<button type="button" className={cn("flex w-full flex-col gap-1.5 rounded-md px-2 pt-1.5 pb-2 text-left", OPENING)} />}>
 				<span className="flex w-full items-center gap-2.5 [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground">
 					<Gauge />
 					<span className="flex-1">{props.compacting ? <span className="shimmer">Compacting</span> : "Context"}</span>

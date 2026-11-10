@@ -56,7 +56,7 @@ function StretchLine(props: StretchProps & { readonly one: CallLine | undefined;
 				<FoldChevron className="quiet-chevron" />
 				<span className="flex-1" />
 				{one === undefined ? <Failed calls={props.calls} /> : <CallEnd call={one} />}
-				<span className="shrink-0 text-xs text-muted-foreground/80 tabular-nums">
+				<span className="shrink-0 text-xs text-muted-foreground tabular-nums">
 					<StretchTime calls={props.calls} />
 				</span>
 			</CollapsibleTrigger>
@@ -116,15 +116,15 @@ function CallWords(props: { readonly call: CallLine }): ReactNode {
 	return (
 		<>
 			{call.verb === undefined ? (
-				<span className="shrink-0 font-mono text-xs text-foreground/80 group-data-[state=running]/call:shimmer">{call.tool}</span>
+				<span className="shrink-0 font-mono text-xs text-foreground group-data-[state=running]/call:shimmer">{call.tool}</span>
 			) : (
 				<span className="shrink-0 group-data-[state=running]/call:shimmer">{call.verb}</span>
 			)}
-			{call.subject === undefined ? null : <span className={cn("min-w-0 truncate text-foreground/80", call.code && "font-mono text-xs")}>{call.subject}</span>}
+			{call.subject === undefined ? null : <span className={cn("min-w-0 truncate text-foreground", call.code && "font-mono text-xs")}>{call.subject}</span>}
 			{call.aside === undefined ? null : call.aside.kind === "change" ? (
 				<ChangeCount added={call.aside.added} removed={call.aside.removed} />
 			) : (
-				<span className="min-w-0 shrink-0 truncate text-muted-foreground/80">{call.aside.text}</span>
+				<span className="min-w-0 shrink-0 truncate text-muted-foreground">{call.aside.text}</span>
 			)}
 		</>
 	);
@@ -191,7 +191,7 @@ export const Thought = memo(function Thought(props: { readonly text: string; rea
 				<FoldChevron className="quiet-chevron" />
 			</CollapsibleTrigger>
 			<CollapsiblePanel>
-				<Prose text={props.text} className="work-indent pt-0.5 pb-2 text-ui text-secondary-label" />
+				<Prose text={props.text} className="work-indent pt-0.5 pb-2 text-ui text-muted-foreground" />
 			</CollapsiblePanel>
 		</Collapsible>
 	);

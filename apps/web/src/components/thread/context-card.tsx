@@ -29,7 +29,7 @@ export function ContextCard(props: ContextCardProps): ReactNode {
 	return (
 		<div className="flex flex-col gap-3 p-3">
 			<div className="flex items-baseline justify-between gap-3 px-0.5">
-				<p className="text-sm font-medium">Context window</p>
+				<p className="text-ui font-medium">Context window</p>
 				{composition === undefined ? null : (
 					<span className="text-xs text-muted-foreground tabular-nums">
 						≈ {tokens(composition.tokens)} of {tokens(props.window)}
@@ -51,7 +51,7 @@ export function ContextCard(props: ContextCardProps): ReactNode {
 					</li>
 				))}
 			</ul>
-			<div className="flex items-center gap-3 border-t border-border/60 pt-2.5">
+			<div className="flex items-center gap-3 border-t border-border pt-2.5">
 				<p className="flex-1 text-xs text-muted-foreground">Shares are estimated. Compacting recaps the older work; a turn runs on meanwhile.</p>
 				<Button size="xs" variant="outline" disabled={props.compacting} onClick={compact}>
 					{props.compacting ? "Compacting…" : "Compact now"}
@@ -64,5 +64,5 @@ export function ContextCard(props: ContextCardProps): ReactNode {
 /** The colour a share is drawn in: its part's hue, else the muted ink. */
 function hueOf(share: PartShare): string {
 	const hue = PARTS[share.part].hue;
-	return hue === undefined ? "text-muted-foreground/60" : hueClassOf(hue);
+	return hue === undefined ? "text-faint-foreground" : hueClassOf(hue);
 }

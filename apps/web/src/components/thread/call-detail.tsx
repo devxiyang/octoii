@@ -82,7 +82,7 @@ function Shaped(props: { readonly detail: Detail }): ReactNode {
 							{detail.fields.map((field) => (
 								<div key={field.name} className="contents">
 									<dt className="text-muted-foreground">{field.name}</dt>
-									<dd className="min-w-0 break-words whitespace-pre-wrap text-secondary-label">{field.value}</dd>
+									<dd className="min-w-0 break-words whitespace-pre-wrap text-muted-foreground">{field.value}</dd>
 								</div>
 							))}
 						</dl>
@@ -106,7 +106,7 @@ function Found(props: { readonly detail: Extract<Detail, { shape: "found" }> }):
 								<PathLink path={place.path}>{place.path}</PathLink>
 								{place.line === undefined ? null : <span className="text-muted-foreground">:{place.line}</span>}
 							</span>
-							{place.text === undefined ? null : <span className="min-w-0 truncate text-secondary-label">{place.text}</span>}
+							{place.text === undefined ? null : <span className="min-w-0 truncate text-muted-foreground">{place.text}</span>}
 						</span>
 					))}
 				</div>
@@ -132,7 +132,7 @@ function ToldWell(props: { readonly told: Told | undefined }): ReactNode {
 function Well(props: { readonly copied: string; readonly children: ReactNode }): ReactNode {
 	return (
 		<div className="well group/well relative">
-			<pre className="max-h-64 overflow-auto px-3 py-2 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap text-secondary-label select-text">
+			<pre className="max-h-64 overflow-auto px-3 py-2 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap text-muted-foreground select-text">
 				{props.children}
 			</pre>
 			<span className="absolute top-1 right-1 opacity-0 transition-opacity group-hover/well:opacity-100 group-focus-within/well:opacity-100 pointer-coarse:opacity-100">

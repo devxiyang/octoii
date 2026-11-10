@@ -11,7 +11,7 @@
  * details wait folded, and what acts on a line — its chevron, a copy — shows as the line is pointed at; nothing is said
  * twice.
  * Restraint: a box only for what asks the person to act, and for code; everything else is set apart by space, weight and
- * tint. One hairline colour; a shadow only for what floats over the page.
+ * tint. One hairline colour; a shadow only for what floats over the page; three radii, five sizes of type, three inks.
  */
 
 /*
@@ -28,12 +28,17 @@
 
 /* A card in the flow of a page, for what asks the person to act or stands apart: a hairline, no shadow. */
 @utility card {
-	@apply rounded-xl border border-border/70 bg-card;
+	@apply rounded-md border border-border bg-card;
 }
 
 /* A well set into a page, for what a line or a card holds — a call's arguments, what an edit will do: a tint, no line. */
 @utility well {
-	@apply rounded-lg bg-muted;
+	@apply rounded-md bg-muted;
+}
+
+/* What floats over the page — a menu, a popover, a dialog, a sheet: the surface a step above a card's, a hairline, the one shadow. */
+@utility floating {
+	@apply border border-border bg-popover shadow-floating;
 }
 
 /* A label over a group, quiet: small capitals, spaced — a waterfall's heads, the folders a chooser lists. */
@@ -52,7 +57,7 @@
 }
 
 @utility work-opens {
-	@apply -mx-1.5 w-[calc(100%+0.75rem)] rounded-md px-1.5 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70;
+	@apply -mx-1.5 w-[calc(100%+0.75rem)] rounded-md px-1.5 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring;
 }
 
 /* What a stretch gathered: its lines closer, a dense row's height each. */
@@ -83,7 +88,7 @@
 
 /* A chevron that waits: seen as its line is pointed at, focused or open — always where the pointer is a finger, which points at nothing. */
 @utility quiet-chevron {
-	@apply text-muted-foreground/70 opacity-0 transition-opacity group-hover/fold:opacity-100 group-focus-visible/fold:opacity-100 group-data-panel-open/fold:opacity-100 pointer-coarse:opacity-100;
+	@apply text-faint-foreground opacity-0 transition-opacity group-hover/fold:opacity-100 group-focus-visible/fold:opacity-100 group-data-panel-open/fold:opacity-100 pointer-coarse:opacity-100;
 }
 
 /* A control a finger hits: where the pointer is a finger, it is hit 44px across at least, about its middle, however small it is drawn. */

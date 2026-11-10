@@ -117,7 +117,7 @@ function FoldedWork(props: { readonly thread: string; readonly turn: TimelineTur
 			? "Worked"
 			: `Worked for ${took}`;
 	const calls = callsIn(turn.work);
-	const told = calls === 0 ? null : <span className="text-muted-foreground/70">· {calls === 1 ? "1 call" : `${String(calls)} calls`}</span>;
+	const told = calls === 0 ? null : <span className="text-faint-foreground">· {calls === 1 ? "1 call" : `${String(calls)} calls`}</span>;
 	// With nothing left to fold — all it did stays in view — the line still tells how long it worked.
 	if (props.laid.length === 0) {
 		return stopped || calls > 0 ? (
@@ -129,7 +129,7 @@ function FoldedWork(props: { readonly thread: string; readonly turn: TimelineTur
 	}
 	return (
 		<Collapsible>
-			<CollapsibleTrigger className="meta-line rounded-md outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70">
+			<CollapsibleTrigger className="meta-line rounded-md outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
 				{label}
 				{told}
 				<FoldChevron className="quiet-chevron" />
@@ -212,9 +212,9 @@ function WorkStep(props: { readonly thread: string; readonly step: Work }): Reac
 export function SummedUp(): ReactNode {
 	return (
 		<div className="flex items-center gap-3 py-2 text-xs text-muted-foreground">
-			<span className="h-px flex-1 bg-border/70" />
+			<span className="h-px flex-1 bg-border" />
 			What came before was summed up
-			<span className="h-px flex-1 bg-border/70" />
+			<span className="h-px flex-1 bg-border" />
 		</div>
 	);
 }
@@ -242,7 +242,7 @@ function Doing(props: { readonly turn: TimelineTurn }): ReactNode {
 		<p className="meta-line">
 			<span className="shimmer">{doingOf(turn)}</span>
 			{turn.startedAt === undefined ? null : (
-				<span className="text-muted-foreground/70">
+				<span className="text-faint-foreground">
 					· <Counting since={turn.startedAt} written={runningTime} />
 				</span>
 			)}

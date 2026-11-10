@@ -23,7 +23,7 @@ export type MeterProps = {
 export function Meter({ value, max, label, valueText, tone = "default", className }: MeterProps): ReactNode {
 	return (
 		<MeterPrimitive.Root value={Math.min(value, max)} max={max} aria-label={label} getAriaValueText={() => valueText} className={cn("w-full", className)}>
-			<MeterPrimitive.Track className="h-1 w-full overflow-hidden rounded-full bg-foreground/8">
+			<MeterPrimitive.Track className="h-1 w-full overflow-hidden rounded-full bg-muted">
 				<MeterPrimitive.Indicator className={cn("rounded-full transition-[width] duration-300 motion-reduce:transition-none", TONES[tone])} />
 			</MeterPrimitive.Track>
 		</MeterPrimitive.Root>

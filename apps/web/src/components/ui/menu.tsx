@@ -1,7 +1,7 @@
 /**
- * Menus, on Base UI: a dropdown that a trigger opens and a context menu that a right click opens at the pointer, both on
- * the menu's glass, with items that carry an icon or a shortcut, groups of which one is chosen — a check at its end —
- * lines between, and submenus an item opens beside it.
+ * Menus, on Base UI: a dropdown that a trigger opens and a context menu that a right click opens at the pointer, both
+ * floating over the page, with items that carry an icon or a shortcut, groups of which one is chosen — a check at its
+ * end — lines between, and submenus an item opens beside it.
  */
 import type { ComponentProps } from "react";
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu";
@@ -34,9 +34,9 @@ type Placement = {
 	readonly alignOffset?: number;
 };
 
-/** A menu popup's own look: the glass, a little scale and fade in and out, its items scrolling within the space it has. */
+/** A menu popup's own look: floating over the page, a little scale and fade in and out, its items scrolling within the space it has. */
 const POPUP_CLASS =
-	"menu-glass relative flex max-w-[calc(100vw-2rem)] min-w-[min(10rem,calc(100vw-2rem))] origin-(--transform-origin) rounded-lg outline-none transition-[scale,opacity] duration-100 data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0";
+	"floating relative flex max-w-[calc(100vw-2rem)] min-w-[min(10rem,calc(100vw-2rem))] origin-(--transform-origin) rounded-md outline-none transition-[scale,opacity] duration-100 data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0";
 
 /** A dropdown menu's popup. */
 export function MenuPopup({
@@ -82,7 +82,7 @@ export function ContextMenuPopup({ className, children, ...props }: MenuPrimitiv
 
 /** An item's own look: a row that shades as it is highlighted, its icon muted and sized. */
 const ITEM_CLASS =
-	"flex min-h-control-sm cursor-default items-center gap-2 rounded-sm px-2 py-1 text-ui text-foreground outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-64 data-highlighted:bg-accent data-highlighted:text-accent-foreground [&>svg]:pointer-events-none [&>svg]:-mx-0.5 [&>svg]:shrink-0 [&>svg:not([class*='opacity-'])]:opacity-80 [&>svg:not([class*='size-'])]:size-4 [&>svg:not([class*='text-'])]:text-muted-foreground";
+	"flex min-h-control-sm cursor-default items-center gap-2 rounded-sm px-2 py-1 text-ui text-foreground outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-64 data-highlighted:bg-accent data-highlighted:text-foreground [&>svg]:pointer-events-none [&>svg]:-mx-0.5 [&>svg]:shrink-0 [&>svg:not([class*='opacity-'])]:opacity-80 [&>svg:not([class*='size-'])]:size-4 [&>svg:not([class*='text-'])]:text-muted-foreground";
 
 /** A menu's item; `variant="destructive"` reads red. */
 export function MenuItem({ className, variant = "default", ...props }: MenuPrimitive.Item.Props & { readonly variant?: "default" | "destructive" }) {
@@ -90,7 +90,7 @@ export function MenuItem({ className, variant = "default", ...props }: MenuPrimi
 		<MenuPrimitive.Item
 			className={cn(
 				ITEM_CLASS,
-				"data-[variant=destructive]:text-destructive-foreground data-[variant=destructive]:[&>svg:not([class*='text-'])]:text-current",
+				"data-[variant=destructive]:text-error-foreground data-[variant=destructive]:[&>svg:not([class*='text-'])]:text-current",
 				className,
 			)}
 			data-slot="menu-item"

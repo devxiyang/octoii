@@ -126,7 +126,7 @@ function ModelRow(props: {
 					props.onStar();
 				}}
 				className={cn(
-					"rounded p-0.5 hover:bg-accent",
+					"rounded-sm p-0.5 hover:bg-accent",
 					props.starred
 						? "text-warning"
 						: "text-muted-foreground opacity-0 group-hover/model:opacity-100 group-data-highlighted/model:opacity-100 pointer-coarse:opacity-100",

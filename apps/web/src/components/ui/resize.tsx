@@ -49,7 +49,7 @@ export function useDragSize(kept: number, bounds: Bounds, keep: (size: number) =
 				setDrag({ ...drag, size: final, held: false });
 				if (final !== kept) keep(final);
 			}}
-			className={`absolute z-20 hover:bg-primary/30 ${className} ${drag?.held === true ? "bg-primary/40" : ""}`}
+			className={`absolute z-20 bg-primary ${className} ${drag?.held === true ? "opacity-40" : "opacity-0 hover:opacity-30"}`}
 		/>
 	);
 	return { size, edge };

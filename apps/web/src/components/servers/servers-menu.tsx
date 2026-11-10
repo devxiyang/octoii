@@ -34,7 +34,7 @@ export function ServersMenu(props: { readonly folder: string | undefined }): Rea
 	};
 	return (
 		<Popover>
-			<PopoverTrigger className="inline-flex h-control-sm items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70 data-popup-open:bg-accent data-popup-open:text-foreground">
+			<PopoverTrigger className="inline-flex h-control-sm items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent data-popup-open:text-foreground">
 				<Chip listed={listed} />
 				<ChevronDown className="size-3.5 shrink-0 opacity-70" />
 			</PopoverTrigger>
@@ -63,7 +63,7 @@ function Card(props: { readonly listed: ServersListed; readonly onDecide: (proje
 	return (
 		<>
 			<div className="flex flex-col gap-0.5 px-0.5">
-				<p className="text-sm font-medium">MCP servers</p>
+				<p className="text-ui font-medium">MCP servers</p>
 				<p className="text-xs text-muted-foreground">Their tools are what a thread here calls beyond its own.</p>
 			</div>
 			<Group title="Yours" file={props.listed.person} servers={yours} waiting="a thread" />
@@ -94,7 +94,7 @@ function Group(props: {
 	readonly actions?: ReactNode;
 }): ReactNode {
 	return (
-		<section className="flex flex-col gap-1 border-t border-border/60 pt-2.5">
+		<section className="flex flex-col gap-1 border-t border-border pt-2.5">
 			<h3 className="flex items-baseline justify-between gap-2 px-0.5">
 				<span className="label-caps">{props.title}</span>
 				{props.file === undefined ? null : (
@@ -124,7 +124,7 @@ function ServerRow(props: { readonly server: ServerShown; readonly waiting: Wait
 	const command = [server.command, ...server.args].join(" ");
 	const program = [nameOf(server.command), ...server.args].join(" ");
 	return (
-		<li className="flex min-w-0 items-center gap-2.5 rounded-lg px-0.5 py-1.5">
+		<li className="flex min-w-0 items-center gap-2.5 rounded-md px-0.5 py-1.5">
 			<Monogram name={server.name} size="md" />
 			<span className="flex min-w-0 flex-1 flex-col">
 				<span className="truncate text-ui font-medium">{server.name}</span>
@@ -138,7 +138,7 @@ function ServerRow(props: { readonly server: ServerShown; readonly waiting: Wait
 					{`${String(server.tools.length)} tool${server.tools.length === 1 ? "" : "s"}`}
 				</span>
 			) : (
-				<span className="shrink-0 text-xs text-muted-foreground/80">{props.waiting === "a thread" ? "Starts with a thread" : "Not run"}</span>
+				<span className="shrink-0 text-xs text-muted-foreground">{props.waiting === "a thread" ? "Starts with a thread" : "Not run"}</span>
 			)}
 		</li>
 	);

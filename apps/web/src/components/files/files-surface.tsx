@@ -22,7 +22,7 @@ export type FilesSurfaceProps = { readonly thread: string; readonly folder: stri
 
 /** The surface. */
 export function FilesSurface(props: FilesSurfaceProps): ReactNode {
-	if (props.folder === undefined) return <p className="px-6 py-10 text-center text-xs text-muted-foreground/70">This thread works in no folder.</p>;
+	if (props.folder === undefined) return <p className="px-6 py-10 text-center text-xs text-faint-foreground">This thread works in no folder.</p>;
 	return <FolderSurface thread={props.thread} folder={props.folder} />;
 }
 
@@ -43,7 +43,7 @@ function FolderSurface(props: { readonly thread: string; readonly folder: string
 		<div className="@container/files flex min-h-0 flex-1">
 			<div className={cn("flex min-w-0 flex-1 flex-col", !reading && "@max-xl/files:hidden")}>
 				{place.file === undefined ? (
-					<p className="px-6 py-10 text-center text-xs text-muted-foreground/70">Choose a file in the tree to read it.</p>
+					<p className="px-6 py-10 text-center text-xs text-faint-foreground">Choose a file in the tree to read it.</p>
 				) : (
 					<FileView
 						key={`${place.file} ${String(generation)}`}
@@ -73,7 +73,7 @@ function FolderSurface(props: { readonly thread: string; readonly folder: string
 			</div>
 			<div
 				className={cn(
-					"flex w-64 shrink-0 flex-col border-l border-border/60 @max-xl/files:w-full @max-xl/files:border-l-0",
+					"flex w-64 shrink-0 flex-col border-l border-border @max-xl/files:w-full @max-xl/files:border-l-0",
 					!treeShown && "hidden",
 					reading && "@max-xl/files:hidden",
 				)}

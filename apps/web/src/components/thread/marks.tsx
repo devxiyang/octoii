@@ -35,7 +35,7 @@ export function CallMark(props: {
 	const troubled = call.state === "failed" || call.trouble !== undefined;
 	if (call.work === "other") {
 		return (
-			<Mark troubled={troubled} className="text-3xs font-semibold">
+			<Mark troubled={troubled} className="text-2xs font-semibold">
 				{call.tool.charAt(0).toUpperCase()}
 			</Mark>
 		);
@@ -62,7 +62,7 @@ export function MarkStack(props: { readonly marks: readonly Stacked[] }): ReactN
 	const more = marks.length - shown.length;
 	return (
 		<span className="tool-marks">
-			{more === 0 ? null : <Mark className="text-3xs tabular-nums">+{more}</Mark>}
+			{more === 0 ? null : <Mark className="text-2xs tabular-nums">+{more}</Mark>}
 			{shown.map((each) => (
 				<span key={each.key} className={cn("inline-flex", arrived(each.key) && "animate-push-in motion-reduce:animate-none")}>
 					{each.mark}

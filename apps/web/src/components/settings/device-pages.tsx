@@ -1,14 +1,12 @@
 /**
  * The settings of this device: general (how the code views — a file's and a diff's — lay out what they show),
- * appearance (light, dark or the system's, the palette, contrast, glass and the
- * chat's width) and chat (what sends a message). The node keeps them for the device's session.
+ * appearance (light, dark or the system's, the palette and the chat's width) and chat (what sends a message). The node keeps them for the device's session.
  */
 import type { ReactNode } from "react";
-import { type Device, type DeviceChange, PALETTES } from "../../core/device.ts";
+import { type Device, type DeviceChange, PALETTES, type Palette, type PaletteVariables, paletteVariables } from "../../core/device.ts";
 import { RadioChoice, RadioGroup } from "../ui/choices.tsx";
 import { cn } from "../ui/cn.ts";
 import { Select } from "../ui/select.tsx";
-import { Slider } from "../ui/slider.tsx";
 import { Switch } from "../ui/switch.tsx";
 import { Page, Row, Section, SectionHeading } from "./layout.tsx";
 import { SchemePreview } from "./scheme-preview.tsx";
@@ -45,7 +43,7 @@ export function GeneralPage(props: DevicePageProps): ReactNode {
 
 /** How a card of a choice of the page reads: a card on the page, ringed in the primary colour while it is the one chosen. */
 const CARD_CLASS =
-	"flex cursor-pointer flex-col rounded-xl border border-border bg-card text-ui text-muted-foreground hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring data-checked:border-primary data-checked:text-foreground data-checked:ring-1 data-checked:ring-primary";
+	"flex cursor-pointer flex-col rounded-lg border border-border bg-card text-ui text-muted-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-checked:border-primary data-checked:text-foreground data-checked:ring-1 data-checked:ring-primary";
 
 /** Appearance: the color scheme as three cards. */
 export function AppearancePage(props: DevicePageProps): ReactNode {
@@ -74,18 +72,6 @@ export function AppearancePage(props: DevicePageProps): ReactNode {
 			</section>
 			<Palettes device={props.device} set={props.set} />
 			<Section title="Interface">
-				<Row title="Contrast" description="How far secondary text and borders lean toward the text.">
-					<Slider label="Contrast" value={props.device.contrast} min={100} max={160} onValueChange={(contrast) => props.set({ contrast })} />
-				</Row>
-				<Row title="Glass opacity" description="Higher values make menus, dialogs and the composer more solid.">
-					<Slider
-						label="Glass opacity"
-						value={props.device.glass_opacity}
-						min={40}
-						max={100}
-						onValueChange={(opacity) => props.set({ glass_opacity: opacity })}
-					/>
-				</Row>
 				<Row title="Chat width" description="How wide messages and the composer grow on a large screen.">
 					<Select
 						label="Chat width"
@@ -117,8 +103,8 @@ function Palettes(props: DevicePageProps): ReactNode {
 				{PALETTES.map((palette) => (
 					<RadioChoice key={palette.id} value={palette.id} render={<div />} className={cn(CARD_CLASS, "items-center gap-3 px-3 pt-4 pb-3")}>
 						<span className="flex gap-3">
-							<Swatch hue={palette.hue} lightness={0.96} />
-							<Swatch hue={palette.hue} lightness={0.22} />
+							<Swatch palette={palette} scheme="light" />
+							<Swatch palette={palette} scheme="dark" />
 						</span>
 						<span>{palette.label}</span>
 					</RadioChoice>
@@ -128,15 +114,17 @@ function Palettes(props: DevicePageProps): ReactNode {
 	);
 }
 
-/** A palette's swatch: its ground at `lightness` washing into its primary colour. */
-function Swatch(props: { readonly hue: number; readonly lightness: number }): ReactNode {
-	const ground = `oklch(${String(props.lightness)} 0.02 ${String(props.hue)})`;
-	const primary = `oklch(0.6 0.14 ${String(props.hue)})`;
+declare module "react" {
+	interface CSSProperties extends Partial<PaletteVariables> {}
+}
+
+/** A palette's swatch in a scheme: its ground washing into its primary colour, by the design's own tokens. */
+function Swatch(props: { readonly palette: Palette; readonly scheme: "light" | "dark" }): ReactNode {
 	return (
 		<span
 			aria-hidden
-			className="size-12 rounded-full border border-border shadow-sm"
-			style={{ background: `radial-gradient(circle at 30% 30%, ${ground} 35%, ${primary} 140%)` }}
+			className={`${props.scheme} size-12 rounded-full border border-border bg-[radial-gradient(circle_at_30%_30%,var(--sidebar)_35%,var(--primary)_140%)]`}
+			style={paletteVariables(props.palette)}
 		/>
 	);
 }

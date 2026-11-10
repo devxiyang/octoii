@@ -61,7 +61,7 @@ export function NewThreadScreen(props: NewThreadScreenProps): ReactNode {
 			/>
 			<div className="flex flex-1 items-center justify-center px-4 pb-[12vh]">
 				<div className="w-full max-w-[var(--chat-width)]">
-					<h1 className="mb-6 text-center text-2xl font-normal tracking-tight sm:text-3xl">
+					<h1 className="mb-6 text-center text-title font-normal tracking-tight sm:text-title">
 						{folder === undefined ? "What should we work on?" : `What should we build in ${folderName(folder)}?`}
 					</h1>
 					{/* The composer stands over the folder's strip, which shows from under its foot. */}
@@ -110,11 +110,11 @@ function FolderStrip(props: {
 	readonly onAnother: () => void;
 }): ReactNode {
 	return (
-		<div className="-mt-5 flex items-center justify-between gap-2 rounded-b-[20px] border border-t-0 border-black/[0.08] bg-muted/50 px-2 pt-6 pb-1.5 dark:border-white/[0.08]">
+		<div className="-mt-5 flex items-center justify-between gap-2 rounded-b-lg border border-t-0 border-border bg-muted px-2 pt-6 pb-1.5">
 			<Menu>
 				<MenuTrigger
 					title={props.folder}
-					className="inline-flex h-control-sm max-w-full items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70 data-popup-open:bg-accent data-popup-open:text-foreground"
+					className="inline-flex h-control-sm max-w-full items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent data-popup-open:text-foreground"
 				>
 					<FolderOpen className="size-3.5 shrink-0" />
 					<span className="truncate">{props.folder === undefined ? "No project" : folderName(props.folder)}</span>

@@ -1,5 +1,5 @@
 /**
- * The app's notices, at the top right over everything: each on a menu's glass, its icon by its kind — a failure's in
+ * The app's notices, at the top right over everything: each floating as a menu does, its icon by its kind — a failure's in
  * the error's colour, never the colour alone telling it — its title and why, a way to copy a failure's words, and a
  * cross; stacked newest first, three at most, the rest waiting their turn; slid in from the edge, slid away to it by
  * a swipe, and held while pointed at or focused, as Base UI's toasts are. Moving nothing where the person asks for
@@ -45,7 +45,7 @@ function Notices(): ReactNode {
 							toast={toast}
 							swipeDirection={["right", "up"]}
 							className={
-								"menu-glass absolute top-0 right-0 w-full rounded-lg text-sm text-popover-foreground select-none " +
+								"floating absolute top-0 right-0 w-full rounded-lg text-ui text-foreground select-none " +
 								"[transform:translateX(var(--toast-swipe-movement-x))_translateY(calc(var(--toast-offset-y)+var(--toast-index)*0.5rem+var(--toast-swipe-movement-y)))] " +
 								"transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none " +
 								"data-limited:opacity-0 data-starting-style:[transform:translateX(calc(100%+1rem))] " +

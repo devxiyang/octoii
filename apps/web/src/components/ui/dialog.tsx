@@ -1,5 +1,5 @@
 /**
- * Dialogs, on Base UI: a light veil over the page and a popup on the dialog's glass that scales and fades in and out,
+ * Dialogs, on Base UI: a veil over the page and a popup floating over it that scales and fades in and out,
  * as tall as its content and centred, near the top, or filling the room it has up to its own most; Escape and a click
  * outside close it. An alert dialog asks what the person must answer, and only its buttons and Escape close it.
  */
@@ -37,13 +37,13 @@ export function DialogPopup({ className, placement = "center", ...props }: Dialo
 	return (
 		<DialogPrimitive.Portal>
 			<DialogPrimitive.Backdrop
-				className="dialog-backdrop fixed inset-0 z-50 transition-all duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0"
+				className="bg-scrim fixed inset-0 z-50 transition-all duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0"
 				data-slot="dialog-backdrop"
 			/>
 			<DialogPrimitive.Viewport className={cn("fixed inset-0 z-50 grid justify-items-center p-4", PLACEMENTS[placement])} data-slot="dialog-viewport">
 				<DialogPrimitive.Popup
 					className={cn(
-						"dialog-glass relative row-start-2 flex max-h-full min-h-0 w-full min-w-0 flex-col rounded-2xl text-popover-foreground outline-none transition-[scale,opacity] duration-200 ease-in-out data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0",
+						"floating relative row-start-2 flex max-h-full min-h-0 w-full min-w-0 flex-col rounded-lg text-foreground outline-none transition-[scale,opacity] duration-200 ease-in-out data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0",
 						className,
 					)}
 					data-slot="dialog-popup"

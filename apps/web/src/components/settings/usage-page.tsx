@@ -59,11 +59,11 @@ export function UsagePage(): ReactNode {
 function WindowCard(props: { readonly window: UsageWindow; readonly now: number }): ReactNode {
 	const { window, now } = props;
 	return (
-		<div className="grid items-center gap-x-6 gap-y-3 rounded-xl border border-border/60 bg-card/40 p-4 shadow-xs @lg:grid-cols-[9.5rem_minmax(0,1fr)]">
+		<div className="card grid items-center gap-x-6 gap-y-3 p-4 @lg:grid-cols-[9.5rem_minmax(0,1fr)]">
 			<div className="flex min-w-0 flex-col gap-1">
 				<p className="truncate text-ui font-medium">{window.title}</p>
 				<p className="flex items-baseline gap-2">
-					<span className="text-3xl font-semibold tabular-nums">{percentWords(window.leftPercent)}</span>
+					<span className="text-title font-semibold tabular-nums">{percentWords(window.leftPercent)}</span>
 					<span className="inline-flex items-center gap-1.5 text-ui text-muted-foreground">
 						left
 						{window.pace === undefined ? null : <PaceMark pace={window.pace} />}
@@ -124,7 +124,7 @@ function Segment(props: { readonly segment: UsageSegment; readonly named: boolea
 				delay={150}
 				aria-label={wordsOf(segment, now)}
 				className={cn(
-					"relative h-8 min-w-0 rounded-md bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/70 data-popup-open:ring-1 data-popup-open:ring-border",
+					"relative h-8 min-w-0 rounded-md bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring data-popup-open:ring-1 data-popup-open:ring-border",
 					hueClassOf(segment.hue),
 				)}
 				style={tick === undefined ? undefined : trackGappedAt(tick)}
@@ -151,7 +151,7 @@ function Segment(props: { readonly segment: UsageSegment; readonly named: boolea
 					{segment.resetsAt === undefined ? null : (
 						<span
 							className={cn(
-								"ms-auto hidden shrink-0 rounded-sm bg-background/85 px-1.5 py-0.5 text-2xs tabular-nums",
+								"ms-auto hidden shrink-0 rounded-sm bg-background px-1.5 py-0.5 text-2xs tabular-nums",
 								props.named ? "@min-[11rem]/segment:block" : "@min-[5rem]/segment:block",
 							)}
 						>

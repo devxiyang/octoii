@@ -1,5 +1,5 @@
 /**
- * A select, on Base UI: a trigger like an outline button naming the choice, its popup on the menu's glass over the
+ * A select, on Base UI: a trigger like an outline button naming the choice, its popup floating as a menu's does over the
  * trigger, the chosen item checked; for a setting with a few named values.
  */
 import { Select as SelectPrimitive } from "@base-ui/react/select";
@@ -32,7 +32,7 @@ export function Select<Value extends string>(props: SelectProps<Value>) {
 			<SelectPrimitive.Trigger
 				aria-label={props.label}
 				className={cn(
-					"flex h-control min-w-36 cursor-pointer items-center justify-between gap-2 rounded-lg border border-input bg-popover px-2.5 text-sm text-foreground shadow-xs/5 outline-none select-none hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-popup-open:bg-accent/50 dark:bg-input/32",
+					"flex h-control min-w-36 cursor-pointer items-center justify-between gap-2 rounded-md border border-input px-2.5 text-ui text-foreground outline-none select-none hover:bg-accent focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring data-popup-open:bg-accent",
 					props.className,
 				)}
 				data-slot="select-trigger"
@@ -45,7 +45,7 @@ export function Select<Value extends string>(props: SelectProps<Value>) {
 			<SelectPrimitive.Portal>
 				<SelectPrimitive.Positioner sideOffset={4} className="z-[130] outline-none select-none" data-slot="select-positioner">
 					<SelectPrimitive.Popup
-						className="menu-glass min-w-(--anchor-width) origin-(--transform-origin) rounded-lg outline-none transition-[scale,opacity] duration-100 data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0 data-[side=none]:data-starting-style:scale-100 data-[side=none]:data-starting-style:opacity-100"
+						className="floating min-w-(--anchor-width) origin-(--transform-origin) rounded-md outline-none transition-[scale,opacity] duration-100 data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0 data-[side=none]:data-starting-style:scale-100 data-[side=none]:data-starting-style:opacity-100"
 						data-slot="select-popup"
 					>
 						<SelectPrimitive.List className="max-h-(--available-height) overflow-y-auto p-1">

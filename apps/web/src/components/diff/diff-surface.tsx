@@ -63,7 +63,7 @@ function ChangesView(props: {
 	const everyOpen = changes !== undefined && changes.files.length > 0 && changes.files.every((file) => open.has(file.path));
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
-			<div className="flex h-control-lg shrink-0 items-center gap-1 border-b border-border/60 px-2 text-xs">
+			<div className="flex h-control-lg shrink-0 items-center gap-1 border-b border-border px-2 text-xs">
 				<ScopeMenu thread={props.thread} folder={props.folder} repository={props.repository} scope={scope} />
 				{scope.type === "branch" && changes?.base !== undefined ? <span className="truncate text-muted-foreground">vs {changes.base}</span> : null}
 				{changes === undefined ? null : <Totals changes={changes} />}
@@ -187,5 +187,5 @@ function ScopeItem(props: {
 }
 
 function Note(props: { readonly children: ReactNode }): ReactNode {
-	return <p className="px-6 py-10 text-center text-xs text-muted-foreground/70">{props.children}</p>;
+	return <p className="px-6 py-10 text-center text-xs text-faint-foreground">{props.children}</p>;
 }

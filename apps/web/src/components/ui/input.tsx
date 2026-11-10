@@ -14,9 +14,9 @@ export function Input({ className, size = "default", variant = "default", ...pro
 	return (
 		<InputPrimitive
 			className={cn(
-				"w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-placeholder [&::-webkit-search-cancel-button]:appearance-none",
+				"w-full min-w-0 bg-transparent text-ui outline-none placeholder:text-faint-foreground [&::-webkit-search-cancel-button]:appearance-none",
 				boxed &&
-					"rounded-lg border border-input bg-background px-[calc(--spacing(3)-1px)] shadow-xs/5 transition-shadow focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/24 disabled:opacity-64 dark:bg-input/32",
+					"rounded-md border border-input px-[calc(--spacing(3)-1px)] focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-64",
 				boxed && (size === "sm" ? "h-control-sm" : "h-control"),
 				className,
 			)}

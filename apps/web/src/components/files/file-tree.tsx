@@ -116,7 +116,7 @@ function TreeRow(props: {
 			aria-current={props.chosen === true ? "true" : undefined}
 			data-faded={props.faded === true ? "" : undefined}
 			style={{ paddingLeft: `${String(0.5 + props.depth * 0.75)}rem` }}
-			className="group/tree-row flex h-control-xs w-full items-center gap-1.5 rounded pr-2 text-left hover:bg-accent/50 data-faded:text-muted-foreground/60 aria-[current=true]:bg-accent aria-[current=true]:text-foreground [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg:not([class*='text-'])]:text-muted-foreground"
+			className="group/tree-row flex h-control-xs w-full items-center gap-1.5 rounded-sm pr-2 text-left hover:bg-accent data-faded:text-faint-foreground aria-[current=true]:bg-accent aria-[current=true]:text-foreground [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg:not([class*='text-'])]:text-muted-foreground"
 		>
 			{props.icon}
 			<span className={props.folder === undefined ? "truncate" : "shrink-0"}>{props.name}</span>

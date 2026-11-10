@@ -53,7 +53,7 @@ export function Settings(props: {
 					<div className="flex min-w-0 flex-1 flex-col">
 						<div className="flex h-11 shrink-0 items-center gap-2 border-b border-border ps-5 pe-2 text-ui max-md:ps-3">
 							<span className="text-muted-foreground max-md:hidden">Settings</span>
-							<span className="text-muted-foreground/60 max-md:hidden">/</span>
+							<span className="text-faint-foreground max-md:hidden">/</span>
 							<span className="flex-1 font-medium">{shown?.label}</span>
 							{shown !== undefined && DEVICE_SECTIONS.includes(shown.key) ? <RestoreDefaults /> : null}
 							<IconButton label="Close settings" onClick={() => props.onSection(undefined)}>
@@ -77,8 +77,8 @@ function SectionList(props: { readonly shown: SettingsSection | undefined; reado
 	const listed = SETTINGS_SECTIONS.filter((section) => section.label.toLowerCase().includes(words));
 	return (
 		<nav className="flex w-52 shrink-0 flex-col gap-px overflow-y-auto border-r border-border bg-sidebar p-2 max-md:w-14">
-			<label className="mb-1 flex h-control items-center gap-2 rounded-md px-2 focus-within:bg-sidebar-row-hover max-md:hidden">
-				<Search className="size-4 text-sidebar-muted" />
+			<label className="mb-1 flex h-control items-center gap-2 rounded-md px-2 focus-within:bg-accent max-md:hidden">
+				<Search className="size-4 text-muted-foreground" />
 				<Input
 					ref={box}
 					type="search"
@@ -87,7 +87,7 @@ function SectionList(props: { readonly shown: SettingsSection | undefined; reado
 					placeholder="Search"
 					value={search}
 					onValueChange={setSearch}
-					className="text-ui placeholder:text-sidebar-muted"
+					className="text-ui placeholder:text-muted-foreground"
 				/>
 				<Kbd className="pointer-coarse:hidden">/</Kbd>
 			</label>
@@ -97,7 +97,7 @@ function SectionList(props: { readonly shown: SettingsSection | undefined; reado
 					<div key={section.key}>
 						{section.group !== "" && listed[index - 1]?.group !== section.group ? (
 							<>
-								<p className="px-2 pt-3 pb-1 text-xs text-sidebar-muted max-md:hidden">{section.group}</p>
+								<p className="px-2 pt-3 pb-1 text-xs text-muted-foreground max-md:hidden">{section.group}</p>
 								<hr aria-hidden className="mx-2 my-2 border-border md:hidden" />
 							</>
 						) : null}
@@ -105,9 +105,9 @@ function SectionList(props: { readonly shown: SettingsSection | undefined; reado
 							type="button"
 							aria-current={section.key === props.shown ? "page" : undefined}
 							onClick={() => props.onSection(section.key)}
-							className="group/section flex h-control-sm w-full items-center gap-2 rounded-md px-2 text-left text-ui text-sidebar-foreground/75 hover:bg-sidebar-row-hover aria-[current=page]:bg-sidebar-row-active aria-[current=page]:text-foreground aria-[current=page]:shadow-xs max-md:h-10 max-md:justify-center"
+							className="group/section flex h-control-sm w-full items-center gap-2 rounded-md px-2 text-left text-ui text-muted-foreground hover:bg-accent aria-[current=page]:bg-selected aria-[current=page]:text-foreground max-md:h-10 max-md:justify-center"
 						>
-							<Icon className="size-3.5 text-sidebar-muted group-aria-[current=page]/section:text-foreground max-md:size-4" />
+							<Icon className="size-3.5 text-muted-foreground group-aria-[current=page]/section:text-foreground max-md:size-4" />
 							<span className="max-md:sr-only">{section.label}</span>
 						</button>
 					</div>

@@ -29,11 +29,8 @@ export function Attachments(props: AttachmentsProps): ReactNode {
 					<Chip key={attachment.ref} attachment={attachment} onRemove={() => attaching.remove(attachment.ref)} />
 				))}
 				{attaching.sending.map((going) => (
-					<div
-						key={going.key}
-						className="flex h-14 items-center gap-2 rounded-lg border border-border bg-background/60 px-2 text-xs text-muted-foreground opacity-70"
-					>
-						{going.preview === undefined ? <FileText className="size-4" /> : <img src={going.preview} alt="" className="size-10 rounded object-cover" />}
+					<div key={going.key} className="flex h-14 items-center gap-2 rounded-md border border-border bg-muted px-2 text-xs text-muted-foreground opacity-70">
+						{going.preview === undefined ? <FileText className="size-4" /> : <img src={going.preview} alt="" className="size-10 rounded-sm object-cover" />}
 						<span className="max-w-32 truncate">{going.name}</span>
 						<LoaderCircle className="size-3.5 animate-spin" />
 					</div>
@@ -57,10 +54,10 @@ function Chip(props: { readonly attachment: Attachment; readonly onRemove: () =>
 					address={fileAddress(attachment.ref)}
 					alt={attachment.name}
 					title={attachment.name}
-					className="size-14 rounded-lg border border-border object-cover"
+					className="size-14 rounded-md border border-border object-cover"
 				/>
 			) : (
-				<div title={attachment.name} className="flex h-14 max-w-52 items-center gap-2 rounded-lg border border-border bg-background/60 px-2.5">
+				<div title={attachment.name} className="flex h-14 max-w-52 items-center gap-2 rounded-md border border-border bg-muted px-2.5">
 					<FileText className="size-5 shrink-0 text-muted-foreground" />
 					<span className="flex min-w-0 flex-col">
 						<span className="truncate text-xs text-foreground">{attachment.name}</span>

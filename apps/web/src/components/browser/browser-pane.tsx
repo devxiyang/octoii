@@ -20,7 +20,7 @@ export function BrowserPane(props: { readonly page: PageListed }): ReactNode {
 	const view = usePageView(page.id);
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
-			<div className="flex h-control-lg shrink-0 items-center gap-0.5 border-b border-border/60 px-2 text-xs">
+			<div className="flex h-control-lg shrink-0 items-center gap-0.5 border-b border-border px-2 text-xs">
 				<IconButton
 					label="Go back"
 					disabled={!page.back}
@@ -91,7 +91,7 @@ function DialogBar(props: { readonly dialog: PageDialog; readonly onAnswer: (acc
 				event.preventDefault();
 				props.onAnswer(true, prompt ? text : undefined);
 			}}
-			className="flex shrink-0 flex-col gap-2 border-b border-border/60 bg-accent/40 px-3 py-2 text-sm"
+			className="flex shrink-0 flex-col gap-2 border-b border-border bg-accent px-3 py-2 text-ui"
 		>
 			<div className="flex items-start gap-2">
 				<MessageSquareWarning className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
@@ -105,7 +105,7 @@ function DialogBar(props: { readonly dialog: PageDialog; readonly onAnswer: (acc
 					value={text}
 					autoFocus
 					onChange={(event) => setText(event.target.value)}
-					className="h-control-sm rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-ring"
+					className="h-control-sm rounded-md border border-border bg-background px-2 text-ui outline-none focus:border-ring"
 				/>
 			) : null}
 			<div className="flex justify-end gap-2">
@@ -157,7 +157,7 @@ function AddressBar(props: { readonly page: PageListed; readonly onGo: (url: str
 					setTyped(undefined);
 					event.currentTarget.blur();
 				}}
-				className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-placeholder"
+				className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-faint-foreground"
 			/>
 		</form>
 	);

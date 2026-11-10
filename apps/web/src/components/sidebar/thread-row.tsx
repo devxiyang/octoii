@@ -48,7 +48,7 @@ export function ThreadCard(props: RowProps): ReactNode {
 			<ContextMenu>
 				<ContextMenuTrigger
 					aria-current={props.current ? "page" : undefined}
-					className="group/row relative grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-x-1.5 gap-y-1 rounded-lg border border-transparent px-2.5 py-2 hover:bg-sidebar-row-hover data-popup-open:bg-sidebar-row-hover aria-[current=page]:border-sidebar-border aria-[current=page]:bg-sidebar-row-active aria-[current=page]:shadow-xs/5"
+					className="group/row relative grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-x-1.5 gap-y-1 rounded-md px-2.5 py-2 hover:bg-accent data-popup-open:bg-accent aria-[current=page]:bg-selected"
 					onClick={() => go({ place: "thread", thread: row.id })}
 				>
 					<ProjectMark project={project} size="md" />
@@ -80,16 +80,16 @@ export function ThreadLine(props: RowProps): ReactNode {
 			<ContextMenu>
 				<ContextMenuTrigger
 					aria-current={props.current ? "page" : undefined}
-					className="group/row flex h-control w-full cursor-pointer items-center gap-1.5 rounded-lg border border-transparent px-2.5 text-xs hover:bg-sidebar-row-hover data-popup-open:bg-sidebar-row-hover aria-[current=page]:border-sidebar-border aria-[current=page]:bg-sidebar-row-active"
+					className="group/row flex h-control w-full cursor-pointer items-center gap-1.5 rounded-md border border-transparent px-2.5 text-xs hover:bg-accent data-popup-open:bg-accent aria-[current=page]:border-border aria-[current=page]:bg-selected"
 					onClick={() => go({ place: "thread", thread: row.id })}
 				>
 					<ProjectMark project={project} faded />
 					{renaming ? (
 						<TitleField row={row} onDone={() => setRenaming(false)} />
 					) : (
-						<span className="min-w-0 flex-1 truncate text-ui text-sidebar-foreground/70 group-hover/row:text-sidebar-foreground">{threadTitle(row)}</span>
+						<span className="min-w-0 flex-1 truncate text-ui text-muted-foreground group-hover/row:text-foreground">{threadTitle(row)}</span>
 					)}
-					<span className="text-sidebar-muted">
+					<span className="text-muted-foreground">
 						<StatusSlot row={row} standing={standing} now={props.now} />
 					</span>
 				</ContextMenuTrigger>
@@ -103,12 +103,12 @@ export function ThreadLine(props: RowProps): ReactNode {
 /** The project's name, which shows the project's threads alone; words of no project where the thread works in none. */
 function ProjectName(props: { readonly project: Project | undefined; readonly onFilter: (folder: string) => void }): ReactNode {
 	const { project } = props;
-	if (project === undefined) return <span className="truncate text-sidebar-muted">No project</span>;
+	if (project === undefined) return <span className="truncate text-muted-foreground">No project</span>;
 	return (
 		<button
 			type="button"
 			title={`Show ${project.name}'s threads alone`}
-			className="min-w-0 truncate font-medium text-sidebar-foreground hover:underline"
+			className="min-w-0 truncate font-medium text-foreground hover:underline"
 			onClick={(event) => {
 				event.stopPropagation();
 				props.onFilter(project.folder);
@@ -123,9 +123,7 @@ function ProjectName(props: { readonly project: Project | undefined; readonly on
 function Title(props: { readonly row: Listed; readonly standing: ThreadStanding }): ReactNode {
 	const unread = isUnread(props.row, props.standing);
 	return (
-		<span className={cn("min-w-0 flex-1 truncate text-sm", unread ? "font-medium text-sidebar-foreground" : "text-sidebar-foreground/80")}>
-			{threadTitle(props.row)}
-		</span>
+		<span className={cn("min-w-0 flex-1 truncate text-ui", unread ? "font-medium text-foreground" : "text-muted-foreground")}>{threadTitle(props.row)}</span>
 	);
 }
 
@@ -133,7 +131,7 @@ function Title(props: { readonly row: Listed; readonly standing: ThreadStanding 
 function SubThreads(props: { readonly count: number }): ReactNode {
 	if (props.count === 0) return null;
 	return (
-		<span title={`${String(props.count)} sub-threads`} className="flex shrink-0 items-center gap-0.5 text-sidebar-muted tabular-nums">
+		<span title={`${String(props.count)} sub-threads`} className="flex shrink-0 items-center gap-0.5 text-muted-foreground tabular-nums">
 			<Bot className="size-3.5" />
 			{props.count}
 		</span>
@@ -173,7 +171,7 @@ function TitleField(props: { readonly row: Listed; readonly onDone: () => void }
 				if (event.key === "Enter") keep();
 				if (event.key === "Escape") props.onDone();
 			}}
-			className="-my-0.5 h-6 w-full min-w-0 flex-1 rounded border border-primary bg-background px-1 text-sm outline-none"
+			className="-my-0.5 h-6 w-full min-w-0 flex-1 rounded-sm border border-primary bg-background px-1 text-ui outline-none"
 		/>
 	);
 }
@@ -187,7 +185,7 @@ function StatusSlot(props: { readonly row: Listed; readonly standing: ThreadStan
 	const until = row.manifest.snoozed_until;
 	if (until !== undefined && until > now) {
 		return (
-			<span className="flex shrink-0 items-center gap-1 text-sidebar-muted tabular-nums">
+			<span className="flex shrink-0 items-center gap-1 text-muted-foreground tabular-nums">
 				<AlarmClock className="size-3.5" />
 				{wakeLabel(until, now)}
 			</span>
@@ -214,7 +212,7 @@ function StatusSlot(props: { readonly row: Listed; readonly standing: ThreadStan
 				</Standing>
 			);
 		case "ready":
-			return <span className="shrink-0 text-sidebar-muted tabular-nums">{shortAgo(now - standing.since)}</span>;
+			return <span className="shrink-0 text-muted-foreground tabular-nums">{shortAgo(now - standing.since)}</span>;
 	}
 }
 

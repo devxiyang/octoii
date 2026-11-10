@@ -52,7 +52,7 @@ export function ModelControl(props: ModelControlProps): ReactNode {
 						<span className="flex min-w-0 items-center gap-1 whitespace-nowrap">
 							<Monogram name={provider} />
 							<span className="min-w-0 shrink-[2] truncate text-muted-foreground @max-xl:hidden">{provider}</span>
-							<span className="text-muted-foreground/60 @max-xl:hidden">/</span>
+							<span className="text-faint-foreground @max-xl:hidden">/</span>
 							<span className="min-w-0 truncate">{modelLabel(model, directory)}</span>
 						</span>
 					)}

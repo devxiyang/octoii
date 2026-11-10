@@ -26,7 +26,7 @@ export function ArchivePage(): ReactNode {
 		<Page>
 			<Section title="Archived threads">
 				{archived.length === 0 ? (
-					<p className="px-4 py-6 text-center text-sm text-muted-foreground">No thread is archived.</p>
+					<p className="px-4 py-6 text-center text-ui text-muted-foreground">No thread is archived.</p>
 				) : (
 					archived.map((row) => (
 						<div key={row.id} className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
@@ -35,7 +35,7 @@ export function ArchivePage(): ReactNode {
 								className="flex min-w-0 flex-1 cursor-pointer flex-col items-start text-left"
 								onClick={() => go({ place: "thread", thread: row.id })}
 							>
-								<span className="w-full truncate text-sm font-medium hover:underline">{threadTitle(row)}</span>
+								<span className="w-full truncate text-ui font-medium hover:underline">{threadTitle(row)}</span>
 								<span className="text-xs text-muted-foreground">
 									{projectOf(row)?.name ?? "No project"} · {shortAgo(now - activeAt(row))}
 								</span>

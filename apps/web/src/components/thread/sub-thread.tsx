@@ -24,8 +24,8 @@ import { Mark, MarkStack } from "./marks.tsx";
 const STANDINGS: Readonly<Record<Standing, { readonly dot: string; readonly label: string }>> = {
 	running: { dot: "bg-info", label: "Running" },
 	completed: { dot: "bg-success", label: "Completed" },
-	failed: { dot: "bg-destructive", label: "Failed" },
-	stopped: { dot: "bg-muted-foreground/60", label: "Stopped" },
+	failed: { dot: "bg-error", label: "Failed" },
+	stopped: { dot: "bg-faint-foreground", label: "Stopped" },
 };
 
 /** How a task given in the background ended, as its sub-thread told it, by how the sub-thread stands since. */
@@ -56,7 +56,7 @@ function Gathered(props: { readonly delegated: readonly { readonly call: CallLin
 				<FoldChevron className="quiet-chevron" />
 				<span className="flex-1" />
 				{worked === undefined ? null : (
-					<span className="shrink-0 text-xs text-muted-foreground/80 tabular-nums">
+					<span className="shrink-0 text-xs text-muted-foreground tabular-nums">
 						<WorkedFor worked={worked} />
 					</span>
 				)}
@@ -131,9 +131,9 @@ function SubThreadRow(props: {
 			{props.detail === undefined ? null : (
 				<span className="shrink-0 text-xs text-muted-foreground group-data-[standing=failed]/sub-thread:text-error-foreground">{props.label}</span>
 			)}
-			{props.time === undefined ? null : <span className="shrink-0 text-xs text-muted-foreground/80 tabular-nums">{props.time}</span>}
+			{props.time === undefined ? null : <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{props.time}</span>}
 			{props.thread === undefined ? null : (
-				<ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70 opacity-0 transition-opacity group-hover/sub-thread:opacity-100 group-focus-visible/sub-thread:opacity-100 pointer-coarse:opacity-100" />
+				<ChevronRight className="size-3.5 shrink-0 text-faint-foreground opacity-0 transition-opacity group-hover/sub-thread:opacity-100 group-focus-visible/sub-thread:opacity-100 pointer-coarse:opacity-100" />
 			)}
 		</>
 	);
@@ -179,7 +179,7 @@ function SubThreadMark(props: { readonly standing: Standing }): ReactNode {
 /** A sub-thread's avatar, as a card lists it: a bot, with a dot of how it stands where `standing` is given. */
 export function SubThreadAvatar(props: { readonly standing: Standing | undefined }): ReactNode {
 	return (
-		<span className="relative inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-border/70 bg-muted ring-2 ring-background">
+		<span className="relative inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted ring-2 ring-background">
 			<Bot className="size-3.5 text-muted-foreground" />
 			{props.standing === undefined ? null : (
 				<span className={cn("absolute -right-px -bottom-px size-2 rounded-full ring-2 ring-background", STANDINGS[props.standing].dot)} />

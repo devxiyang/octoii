@@ -43,7 +43,7 @@ export function RadioDot(): ReactNode {
 /** A checkbox choice's mark: a box, a check in it while its choice is chosen. */
 export function CheckboxBox(): ReactNode {
 	return (
-		<span aria-hidden className={cn(MARK_CLASS, "rounded-[4px]")}>
+		<span aria-hidden className={cn(MARK_CLASS, "rounded-sm")}>
 			<CheckboxPrimitive.Indicator>
 				<Check className="size-3" />
 			</CheckboxPrimitive.Indicator>

@@ -1,5 +1,5 @@
 /**
- * Popovers, on Base UI: a card a trigger opens beside it, on the menu's glass, scaling and fading in from where it
+ * Popovers, on Base UI: a card a trigger opens beside it, floating over the page, scaling and fading in from where it
  * opens and out again — at once where the person asks for less motion — gone while what opened it is hidden; Escape
  * and a click outside close it, the focus going back to its trigger.
  */
@@ -35,7 +35,7 @@ export function PopoverPopup({ className, side = "bottom", align = "end", sideOf
 			>
 				<PopoverPrimitive.Popup
 					className={cn(
-						"menu-glass max-h-(--available-height) origin-(--transform-origin) overflow-y-auto rounded-2xl outline-none transition-[scale,opacity] duration-150 data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0 motion-reduce:transition-none",
+						"floating max-h-(--available-height) origin-(--transform-origin) overflow-y-auto rounded-lg outline-none transition-[scale,opacity] duration-150 data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0 motion-reduce:transition-none",
 						className,
 					)}
 					data-slot="popover-popup"

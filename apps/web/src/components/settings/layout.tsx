@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 export function SectionHeading(props: { readonly title: string; readonly icon?: ReactNode; readonly action?: ReactNode }): ReactNode {
 	return (
 		<div className="flex min-h-control-sm items-center justify-between px-1">
-			<h3 className="flex items-center gap-2 text-sm font-semibold">
+			<h3 className="flex items-center gap-2 text-ui font-semibold">
 				{props.icon}
 				{props.title}
 			</h3>
@@ -22,7 +22,7 @@ export function Section(props: { readonly title: string; readonly action?: React
 	return (
 		<section className="flex flex-col gap-2">
 			<SectionHeading title={props.title} action={props.action} />
-			<div className="rounded-xl border border-border/60 bg-card/40 shadow-xs [&>*+*]:border-t [&>*+*]:border-border/50">{props.children}</div>
+			<div className="card [&>*+*]:border-t [&>*+*]:border-border">{props.children}</div>
 		</section>
 	);
 }

@@ -130,7 +130,7 @@ export function RightPanel(props: RightPanelProps): ReactNode {
 			className={
 				full
 					? "relative flex h-full min-w-0 flex-1 flex-col bg-background"
-					: "relative flex h-full w-(--panel-width) max-w-[70vw] shrink-0 flex-col border-s border-border bg-background max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-20 max-lg:w-[min(var(--panel-width),100%)] max-lg:max-w-none max-lg:shadow-dialog"
+					: "relative flex h-full w-(--panel-width) max-w-[70vw] shrink-0 flex-col border-s border-border bg-background max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-20 max-lg:w-[min(var(--panel-width),100%)] max-lg:max-w-none max-lg:shadow-floating"
 			}
 		>
 			{full ? null : edge}
@@ -200,11 +200,11 @@ function Shown(props: { readonly shows: Shows; readonly thread: string; readonly
 function TabButton(props: { readonly tab: Tab; readonly onClose: () => void }): ReactNode {
 	const { icon, label } = props.tab;
 	return (
-		<span className="group/tab flex h-control-sm max-w-48 shrink-0 items-center rounded-lg text-sm text-muted-foreground hover:bg-accent/60 has-data-active:bg-accent has-data-active:text-foreground">
+		<span className="group/tab flex h-control-sm max-w-48 shrink-0 items-center rounded-md text-ui text-muted-foreground hover:bg-accent has-data-active:bg-accent has-data-active:text-foreground">
 			<Tabs.Tab
 				value={props.tab.key}
 				title={label}
-				className="flex h-full min-w-0 cursor-pointer items-center gap-1.5 rounded-lg pr-1 pl-2 outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-inset [&>svg]:size-3.5 [&>svg]:shrink-0"
+				className="flex h-full min-w-0 cursor-pointer items-center gap-1.5 rounded-md pr-1 pl-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset [&>svg]:size-3.5 [&>svg]:shrink-0"
 			>
 				{icon}
 				<span className="truncate">{label}</span>
@@ -213,7 +213,7 @@ function TabButton(props: { readonly tab: Tab; readonly onClose: () => void }): 
 				type="button"
 				aria-label={`Close ${label}`}
 				onClick={props.onClose}
-				className="mr-1 flex size-4 shrink-0 cursor-pointer items-center justify-center rounded opacity-0 group-focus-within/tab:opacity-100 group-hover/tab:opacity-100 hover:bg-foreground/10 pointer-coarse:opacity-100"
+				className="mr-1 flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm opacity-0 group-focus-within/tab:opacity-100 group-hover/tab:opacity-100 hover:bg-accent pointer-coarse:opacity-100"
 			>
 				<X className="size-3" />
 			</button>
@@ -259,7 +259,7 @@ function openingOf(openings: readonly Opening[], event: KeyboardEvent): Opening 
 /** A panel with no tab: what `+` opens, offered at once. */
 function Empty(props: { readonly openings: readonly Opening[] }): ReactNode {
 	return (
-		<div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+		<div className="flex flex-1 flex-col items-center justify-center gap-3 text-ui text-muted-foreground">
 			Nothing is open.
 			<div className="flex gap-2">
 				{props.openings.map((opening) => (

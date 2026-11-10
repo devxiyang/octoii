@@ -85,10 +85,10 @@ function selectionColor(): string {
 	return `rgb(${String((rgb >> 16) & 0xff)} ${String((rgb >> 8) & 0xff)} ${String(rgb & 0xff)} / 0.3)`;
 }
 
-/** Calls back as the page's scheme or palette changes: the root's class, palette or variables. */
+/** Calls back as the page's scheme or palette changes: the root's class or variables. */
 function followTheme(changed: () => void): () => void {
 	const observer = new MutationObserver(changed);
-	observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-palette", "data-theme", "style"] });
+	observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style"] });
 	return () => observer.disconnect();
 }
 

@@ -106,7 +106,7 @@ function Asked(props: { readonly icon: ReactNode; readonly title: string; readon
 		<div>
 			<div className="mb-2 flex items-center gap-2">
 				<span className="text-muted-foreground">{props.icon}</span>
-				<span className="min-w-0 flex-1 truncate text-sm font-medium">{props.title}</span>
+				<span className="min-w-0 flex-1 truncate text-ui font-medium">{props.title}</span>
 				{props.aside}
 			</div>
 			{props.children}
@@ -118,8 +118,8 @@ function Asked(props: { readonly icon: ReactNode; readonly title: string; readon
 function Trust(props: { readonly folder: string; readonly servers: readonly ServerShown[]; readonly onAnswer: (value: Json) => void }): ReactNode {
 	return (
 		<Asked icon={<ShieldQuestion className="size-4 text-warning-foreground" />} title={`Trust what ${folderName(props.folder)} runs?`}>
-			<p className="text-sm text-muted-foreground">Its configuration names servers Octoii would run on this computer, as you:</p>
-			<ul className="mt-2 flex max-h-40 flex-col gap-1 overflow-auto rounded-lg border border-border/70 px-3 py-2 font-mono text-xs">
+			<p className="text-ui text-muted-foreground">Its configuration names servers Octoii would run on this computer, as you:</p>
+			<ul className="mt-2 flex max-h-40 flex-col gap-1 overflow-auto rounded-md border border-border px-3 py-2 font-mono text-xs">
 				{props.servers.map((server) => (
 					<li key={server.name} className="truncate">
 						<span className="text-foreground">{server.name}</span>
@@ -181,7 +181,7 @@ function Permission(props: {
 				<IconTile>
 					<Icon />
 				</IconTile>
-				<span className="min-w-0 flex-1 truncate text-sm font-medium">{permissionTitle(props.tool, props.access)}</span>
+				<span className="min-w-0 flex-1 truncate text-ui font-medium">{permissionTitle(props.tool, props.access)}</span>
 				{props.access.escalate === true ? (
 					<Pill tone="waiting" icon={<ShieldAlert />}>
 						Beyond the sandbox
@@ -195,8 +195,8 @@ function Permission(props: {
 			</div>
 			<p className="mb-1 text-xs text-muted-foreground">What will happen</p>
 			<Detail lines={permissionDetail(props.tool, props.arguments, props.access, props.workspace)} />
-			{props.access.justification === undefined ? null : <p className="mt-2 text-sm text-muted-foreground">{props.access.justification}</p>}
-			{props.doubt === undefined ? null : <p className="mt-2 text-sm text-warning-foreground">{props.doubt}</p>}
+			{props.access.justification === undefined ? null : <p className="mt-2 text-ui text-muted-foreground">{props.access.justification}</p>}
+			{props.doubt === undefined ? null : <p className="mt-2 text-ui text-warning-foreground">{props.doubt}</p>}
 			{denying ? (
 				<form
 					onSubmit={(event: FormEvent) => {
@@ -244,7 +244,7 @@ function Permission(props: {
 							Deny <Kbd className="pointer-coarse:hidden">Esc</Kbd>
 						</Button>
 						<Button size="sm" variant="default" onClick={allow}>
-							Allow <Kbd className="bg-primary-foreground/15 text-primary-foreground/80 pointer-coarse:hidden">⌘↵</Kbd>
+							Allow <Kbd className="bg-transparent text-primary-foreground opacity-75 pointer-coarse:hidden">⌘↵</Kbd>
 						</Button>
 					</div>
 				</div>
@@ -270,8 +270,8 @@ function Detail(props: { readonly lines: readonly DetailLine[] }): ReactNode {
 /** How each line of a call's detail reads. */
 const LINE_CLASSES: Readonly<Record<DetailLine["kind"], string>> = {
 	text: "text-foreground",
-	removed: "bg-error/8 text-error-foreground",
-	added: "bg-success/8 text-success-foreground",
+	removed: "bg-error-surface text-error-foreground",
+	added: "bg-success-surface text-success-foreground",
 };
 
 /** The keys that choose a question's choices, as they are numbered. */
@@ -320,7 +320,7 @@ function Questions(props: { readonly questions: readonly Question[]; readonly on
 				</>
 			}
 		>
-			<p className="text-sm text-foreground/90">{question.question}</p>
+			<p className="text-ui text-foreground">{question.question}</p>
 			{options.length === 0 ? null : (
 				<Options
 					options={options}
@@ -368,7 +368,7 @@ type Option = NonNullable<Question["options"]>[number];
 
 /** How a question's choice reads: a row that shades as it is pointed at, its words clear once it is chosen. */
 const OPTION_CLASS =
-	"flex w-full cursor-pointer items-start gap-2.5 rounded-md px-1.5 py-1.5 text-left text-foreground/75 hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring data-checked:text-foreground";
+	"flex w-full cursor-pointer items-start gap-2.5 rounded-md px-1.5 py-1.5 text-left text-foreground hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring data-checked:text-foreground";
 
 /**
  * A question's choices, each a row with its mark, its words and its key: of a question of one choice, a radio group the
@@ -415,7 +415,7 @@ function OptionWords(props: { readonly option: Option; readonly place: number })
 	return (
 		<>
 			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-				<span className="text-sm font-medium">{props.option.label}</span>
+				<span className="text-ui font-medium">{props.option.label}</span>
 				{props.option.description === undefined ? null : <span className="text-xs text-muted-foreground">{props.option.description}</span>}
 			</span>
 			{props.place < DIGITS.length ? <Kbd className="pointer-coarse:hidden">{DIGITS[props.place]}</Kbd> : null}
@@ -508,7 +508,7 @@ function FieldRows(props: { readonly fields: readonly AskField[]; readonly given
 function Shown(props: { readonly ask: Ask }): ReactNode {
 	return (
 		<Asked icon={<MessageCircleQuestion className="size-4" />} title={props.ask.request.name}>
-			<pre className="max-h-40 overflow-auto rounded-lg border border-border/70 px-3 py-2 font-mono text-xs">
+			<pre className="max-h-40 overflow-auto rounded-md border border-border px-3 py-2 font-mono text-xs">
 				{JSON.stringify(props.ask.request.payload ?? null, null, 2)}
 			</pre>
 			<p className="mt-2 text-xs text-muted-foreground">This page cannot answer this request.</p>

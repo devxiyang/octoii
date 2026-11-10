@@ -105,11 +105,11 @@ function ProviderList(props: {
 					value={shown?.id ?? null}
 					onValueChange={(id: string) => props.onChoose(id)}
 					orientation="vertical"
-					className="grid min-h-96 grid-cols-1 overflow-hidden rounded-xl border border-border/60 bg-card/40 shadow-xs @xl/providers:grid-cols-[14rem_minmax(0,1fr)]"
+					className="card grid min-h-96 grid-cols-1 overflow-hidden @xl/providers:grid-cols-[14rem_minmax(0,1fr)]"
 				>
 					<Tabs.List
 						aria-label="Providers"
-						className={cn("flex flex-col overflow-y-auto border-border/60 @xl/providers:border-r", props.chosen !== undefined && "@max-xl/providers:hidden")}
+						className={cn("flex flex-col overflow-y-auto border-border @xl/providers:border-r", props.chosen !== undefined && "@max-xl/providers:hidden")}
 					>
 						{providers.map((each) => (
 							<Tabs.Tab
@@ -117,16 +117,16 @@ function ProviderList(props: {
 								value={each.id}
 								data-connected={each.credential === undefined ? undefined : ""}
 								data-account={each.account === undefined ? undefined : ""}
-								className="group/provider flex items-start gap-2.5 border-b border-border/40 px-4 py-3 text-left outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-inset data-account:pl-8 data-active:bg-accent/70"
+								className="group/provider flex items-start gap-2.5 border-b border-border px-4 py-3 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-account:pl-8 data-active:bg-accent"
 							>
 								<span className="mt-0.5">
 									<Monogram name={each.name} size="md" />
 								</span>
 								<span className="min-w-0 flex-1">
-									<span className="block truncate text-sm font-medium">{each.name}</span>
+									<span className="block truncate text-ui font-medium">{each.name}</span>
 									<span className="block truncate text-xs text-muted-foreground">{standing(each)}</span>
 								</span>
-								<span className="mt-1.5 size-2 shrink-0 rounded-full bg-muted-foreground/30 group-data-connected/provider:bg-success" />
+								<span className="mt-1.5 size-2 shrink-0 rounded-full bg-faint-foreground group-data-connected/provider:bg-success" />
 							</Tabs.Tab>
 						))}
 						{/* Each provider but a server of the person's takes accounts: another account of a server would reach the same server. */}
@@ -152,9 +152,9 @@ function ProviderList(props: {
 /** How the sign-in this page finishes went: under way, done, or failed with the node's words. */
 function SignInOutcome(props: { readonly finishing: Finishing; readonly providers: readonly Provider[] }): ReactNode {
 	const { finishing } = props;
-	const tone = finishing.state === "failed" ? "border-error/40 text-error-foreground" : "border-border/60 text-muted-foreground";
+	const tone = finishing.state === "failed" ? "border-error text-error-foreground" : "border-border text-muted-foreground";
 	return (
-		<p className={`rounded-xl border px-4 py-3 text-sm ${tone}`}>
+		<p className={`rounded-md border px-4 py-3 text-ui ${tone}`}>
 			{finishing.state === "finishing" ? "Finishing your sign-in…" : null}
 			{finishing.state === "done" ? `Signed in to ${props.providers.find((each) => each.id === finishing.provider)?.name ?? finishing.provider}.` : null}
 			{finishing.state === "failed" ? `The sign-in did not finish: ${finishing.message}` : null}
@@ -175,13 +175,13 @@ function ProviderDetails(props: { readonly provider: Provider; readonly onChange
 				? `Connected${status.account === undefined ? "" : ` as ${status.account}`}`
 				: (status.problem ?? "Not connected");
 	return (
-		<div className="[&>*+*]:border-t [&>*+*]:border-border/40">
+		<div className="[&>*+*]:border-t [&>*+*]:border-border">
 			<div className="flex items-center gap-2.5 px-3.5 pt-4 pb-2">
 				<IconButton label="All providers" onClick={props.onBack} className="-ms-1.5 @xl/providers:hidden">
 					<ChevronLeft className="size-4" />
 				</IconButton>
 				<Monogram name={provider.name} size="md" />
-				<h4 className="flex-1 text-base font-semibold">{provider.name}</h4>
+				<h4 className="flex-1 text-body font-semibold">{provider.name}</h4>
 				{provider.account === undefined ? <span className="font-mono text-xs text-muted-foreground">{provider.id}</span> : null}
 			</div>
 			<Row title="Status" description={stood} />
@@ -236,7 +236,7 @@ function AddAccountLine(props: { readonly hosts: readonly Provider[]; readonly o
 	return (
 		<>
 			<Menu>
-				<MenuTrigger className="flex items-center gap-2.5 px-4 py-3 text-left text-ui text-muted-foreground outline-none hover:bg-accent/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-inset">
+				<MenuTrigger className="flex items-center gap-2.5 px-4 py-3 text-left text-ui text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
 					<Plus className="size-4" />
 					Add account
 				</MenuTrigger>
@@ -252,10 +252,10 @@ function AddAccountLine(props: { readonly hosts: readonly Provider[]; readonly o
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogPopup className="w-[26rem] max-w-[calc(100vw-2rem)] p-5">
 					<form onSubmit={add}>
-						<DialogTitle className="text-base font-semibold">Another {of?.name} account</DialogTitle>
-						<DialogDescription className="mt-2 text-sm text-balance text-muted-foreground">{of === undefined ? null : accountWords(of)}</DialogDescription>
+						<DialogTitle className="text-body font-semibold">Another {of?.name} account</DialogTitle>
+						<DialogDescription className="mt-2 text-ui text-balance text-muted-foreground">{of === undefined ? null : accountWords(of)}</DialogDescription>
 						<Field label="The account's name" placeholder="Name, such as Work" value={name} onValueChange={setName} className="mt-4" />
-						{refused === undefined ? null : <p className="mt-2 text-sm text-error-foreground">{refused}</p>}
+						{refused === undefined ? null : <p className="mt-2 text-ui text-error-foreground">{refused}</p>}
 						<div className="mt-5 flex justify-end gap-2">
 							<DialogClose render={<Button variant="outline" size="sm" />}>Cancel</DialogClose>
 							<Button type="submit" size="sm" disabled={adding || name.trim() === ""}>

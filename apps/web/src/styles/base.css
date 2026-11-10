@@ -14,7 +14,7 @@
 
 @layer base {
 	* {
-		@apply border-border outline-ring/50;
+		@apply border-border outline-ring;
 	}
 
 	/* Outlines stay inside controls, at clipped and scrolling edges too. */
@@ -37,7 +37,8 @@
 
 	body {
 		@apply bg-background font-sans text-foreground antialiased;
-		font-size: 14px;
+		font-size: var(--text-ui);
+		line-height: var(--text-ui--line-height);
 		overflow: hidden;
 	}
 

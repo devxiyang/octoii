@@ -42,7 +42,7 @@ export function Sidebar(props: SidebarProps): ReactNode {
 	const { device, set } = useDevice();
 	const { size: width, edge } = useDragSize(device.sidebar_width, SIDEBAR_BOUNDS, (width) => set({ sidebar_width: width }));
 	return (
-		<aside style={{ width }} className="relative flex h-full shrink-0 flex-col border-e border-sidebar-border bg-sidebar text-sidebar-foreground">
+		<aside style={{ width }} className="relative flex h-full shrink-0 flex-col border-e border-border bg-sidebar text-foreground">
 			{edge}
 			<SidebarBody {...props} />
 		</aside>
@@ -54,7 +54,7 @@ export function SidebarDrawer(props: SidebarProps & { readonly open: boolean; re
 	return (
 		<Drawer open={props.open} onOpenChange={props.onOpenChange}>
 			<DrawerSwipeArea />
-			<DrawerPopup className="bg-sidebar text-sidebar-foreground">
+			<DrawerPopup className="bg-sidebar text-foreground">
 				<DrawerTitle className="sr-only">Threads</DrawerTitle>
 				<SidebarBody route={props.route} onHide={props.onHide} onOverlay={props.onOverlay} />
 			</DrawerPopup>
@@ -76,14 +76,14 @@ function SidebarBody(props: SidebarProps): ReactNode {
 	return (
 		<>
 			<div className="flex h-[var(--topbar-height)] shrink-0 items-center gap-1.5 px-2">
-				<span className="min-w-0 flex-1 ps-2 text-sm font-semibold tracking-tight">Octoii</span>
+				<span className="min-w-0 flex-1 ps-2 text-ui font-semibold tracking-tight">Octoii</span>
 				<IconButton label="Hide sidebar" shortcut="⌘B" onClick={props.onHide}>
 					<PanelLeft className="size-4" />
 				</IconButton>
 			</div>
 			<div className="flex items-center gap-1 px-2 pb-2">
-				<label className="group flex h-control min-w-0 flex-1 items-center gap-2 rounded-md px-2 focus-within:ring-1 focus-within:ring-ring/70 hover:bg-sidebar-row-hover">
-					<Search className="size-4 shrink-0 text-sidebar-muted" />
+				<label className="group flex h-control min-w-0 flex-1 items-center gap-2 rounded-md px-2 focus-within:ring-1 focus-within:ring-ring hover:bg-accent">
+					<Search className="size-4 shrink-0 text-muted-foreground" />
 					<Input
 						type="search"
 						variant="bare"
@@ -91,10 +91,10 @@ function SidebarBody(props: SidebarProps): ReactNode {
 						placeholder="Search"
 						value={query}
 						onValueChange={setQuery}
-						className="font-medium placeholder:text-sidebar-muted"
+						className="font-medium placeholder:text-muted-foreground"
 					/>
 					{query === "" ? null : (
-						<button type="button" aria-label="Clear the search" className="text-sidebar-muted hover:text-sidebar-foreground" onClick={() => setQuery("")}>
+						<button type="button" aria-label="Clear the search" className="text-muted-foreground hover:text-foreground" onClick={() => setQuery("")}>
 							<X className="size-3.5" />
 						</button>
 					)}
@@ -107,7 +107,7 @@ function SidebarBody(props: SidebarProps): ReactNode {
 			{chosen === undefined ? null : <Filtered project={chosen} onClear={() => setFolder(undefined)} />}
 			<div className="min-h-0 flex-1 overflow-y-auto px-2 scrollbar-none">
 				{rows === undefined ? null : shown.length === 0 ? (
-					<p className="py-6 text-center text-xs text-muted-foreground/60">{query === "" ? "No threads yet" : "No threads found"}</p>
+					<p className="py-6 text-center text-xs text-faint-foreground">{query === "" ? "No threads yet" : "No threads found"}</p>
 				) : (
 					<ThreadList rows={shown} all={rows} current={current} now={now} onFilter={setFolder} />
 				)}
@@ -125,7 +125,7 @@ function SidebarBody(props: SidebarProps): ReactNode {
 function Filtered(props: { readonly project: Project; readonly onClear: () => void }): ReactNode {
 	return (
 		<div className="px-2 pb-2">
-			<span className="flex h-control-sm items-center gap-1.5 rounded-md bg-sidebar-row-active ps-2 pe-1 text-xs shadow-xs/5">
+			<span className="flex h-control-sm items-center gap-1.5 rounded-md bg-selected ps-2 pe-1 text-xs">
 				<ProjectMark project={props.project} />
 				<span className="min-w-0 flex-1 truncate font-medium">{props.project.name}</span>
 				<IconButton label="Show every project" size="icon-micro" onClick={props.onClear}>
@@ -178,9 +178,7 @@ function ThreadList(props: {
 			<Shelf title="Pinned" count={pinned.length} icon={<Pin className="size-3.5" />}>
 				{pinned.map(card)}
 			</Shelf>
-			{open.length === 0 ? null : (
-				<ul className={cn("flex flex-col pb-1", pinned.length > 0 && "mt-1 border-t border-sidebar-border pt-1")}>{open.map(card)}</ul>
-			)}
+			{open.length === 0 ? null : <ul className={cn("flex flex-col pb-1", pinned.length > 0 && "mt-1 border-t border-border pt-1")}>{open.map(card)}</ul>}
 			<Shelf title="Working" count={working.length} icon={<Activity className="size-3.5" />}>
 				{working.map(card)}
 			</Shelf>
@@ -209,7 +207,7 @@ function Shelf(props: {
 	if (props.count === 0) return null;
 	return (
 		<Collapsible defaultOpen={props.folded !== true} render={<section className="pb-1" />}>
-			<CollapsibleTrigger className="flex h-control w-full cursor-default items-center gap-2 rounded-md px-2.5 text-ui text-sidebar-muted hover:text-sidebar-foreground">
+			<CollapsibleTrigger className="flex h-control w-full cursor-default items-center gap-2 rounded-md px-2.5 text-ui text-muted-foreground hover:text-foreground">
 				{props.icon}
 				<span className="truncate">{props.title}</span>
 				<span className="flex-1" />

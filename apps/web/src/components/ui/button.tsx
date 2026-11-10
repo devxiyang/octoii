@@ -13,7 +13,7 @@ import { Tip } from "./tooltip.tsx";
 
 /** A button's looks and sizes. */
 export const buttonVariants = cva(
-	"[--icon-color:currentColor] relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-control border text-sm font-medium whitespace-nowrap outline-none transition-[box-shadow,scale,background-color] select-none [&:active:not([aria-haspopup])]:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:pointer-events-none disabled:opacity-64 aria-disabled:cursor-not-allowed aria-disabled:opacity-64 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-(--icon-color)",
+	"[--icon-color:currentColor] relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md border text-ui font-medium whitespace-nowrap outline-none transition-[box-shadow,scale,background-color] select-none [&:active:not([aria-haspopup])]:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:pointer-events-none disabled:opacity-64 aria-disabled:cursor-not-allowed aria-disabled:opacity-64 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-(--icon-color)",
 	{
 		defaultVariants: { size: "default", variant: "default" },
 		variants: {
@@ -29,17 +29,14 @@ export const buttonVariants = cva(
 				"icon-micro": "size-control-2xs touch-target rounded-sm [&_svg:not([class*='size-'])]:size-3",
 			},
 			variant: {
-				default:
-					"border-primary bg-primary text-primary-foreground shadow-xs shadow-primary/24 not-disabled:inset-shadow-control-highlight [:active,[data-pressed]]:inset-shadow-control-pressed hover:bg-primary/90 data-pressed:bg-primary/90",
-				destructive:
-					"border-destructive bg-destructive text-white shadow-xs shadow-destructive/24 not-disabled:inset-shadow-control-highlight hover:bg-destructive/90 data-pressed:bg-destructive/90",
-				outline:
-					"[--icon-color:var(--muted-foreground)] border-input bg-popover text-foreground shadow-xs/5 hover:bg-accent/50 data-pressed:bg-accent/50 dark:bg-input/32 dark:hover:bg-input/64",
-				secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/90 data-pressed:bg-secondary/80",
+				default: "border-primary bg-primary text-primary-foreground hover:opacity-90 data-pressed:opacity-90",
+				destructive: "border-error bg-error text-white hover:opacity-90 data-pressed:opacity-90",
+				outline: "[--icon-color:var(--muted-foreground)] border-input text-foreground hover:bg-accent data-pressed:bg-accent",
+				secondary: "border-transparent bg-muted text-foreground hover:bg-accent data-pressed:bg-accent",
 				ghost: "[--icon-color:var(--muted-foreground)] border-transparent text-foreground hover:bg-accent data-pressed:bg-accent data-popup-open:bg-accent",
 				"ghost-muted":
 					"border-transparent text-muted-foreground hover:bg-accent hover:text-foreground data-pressed:bg-accent data-pressed:text-foreground data-popup-open:bg-accent data-popup-open:text-foreground",
-				"ghost-destructive": "border-transparent text-muted-foreground hover:bg-accent hover:text-destructive-foreground data-pressed:bg-accent",
+				"ghost-destructive": "border-transparent text-muted-foreground hover:bg-accent hover:text-error-foreground data-pressed:bg-accent",
 				link: "border-transparent underline-offset-4 hover:underline",
 			},
 		},

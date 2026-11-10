@@ -27,7 +27,7 @@ export function UserMessage(props: { readonly said: Said }): ReactNode {
 			{said.text === "" ? null : (
 				// The copy stands beside the bubble's foot, taking no room of its own, so the message keeps near its reply.
 				<div className="relative flex max-w-[80%] justify-end">
-					<div className="rounded-2xl bg-message px-4 py-2.5 text-message-foreground [&_:is(p,li)]:whitespace-pre-wrap">
+					<div className="rounded-lg bg-muted px-4 py-2.5 text-foreground [&_:is(p,li)]:whitespace-pre-wrap">
 						<Prose text={said.text} className="text-body" />
 					</div>
 					<div className="absolute end-full bottom-0 me-1 opacity-0 transition-opacity group-focus-within/message:opacity-100 group-hover/message:opacity-100 pointer-coarse:opacity-100">
@@ -77,7 +77,7 @@ function GivenFile(props: { readonly attachment: Attachment }): ReactNode {
 	const { attachment } = props;
 	return (
 		<a href={useFileSource(fileAddress(attachment.ref))} target="_blank" rel="noreferrer" title={attachment.name} className="block">
-			<span className="flex h-12 max-w-56 items-center gap-2 rounded-xl border border-border bg-message px-3 text-sm text-message-foreground">
+			<span className="flex h-12 max-w-56 items-center gap-2 rounded-md border border-border bg-muted px-3 text-ui text-foreground">
 				<FileText className="size-4 shrink-0" />
 				<span className="truncate">{attachment.name}</span>
 			</span>

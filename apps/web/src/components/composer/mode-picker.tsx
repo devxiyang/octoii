@@ -50,7 +50,7 @@ export function ModeControl(props: ModeControlProps): ReactNode {
 			</Tip>
 			<PopoverPopup side="top" align="start" sideOffset={10} className="flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-3 p-3">
 				<div className="flex flex-col gap-0.5 px-0.5">
-					<p className="text-sm font-medium">Permissions</p>
+					<p className="text-ui font-medium">Permissions</p>
 					<p className="text-xs text-muted-foreground">What the thread may do without asking you.</p>
 				</div>
 				<Segmented
@@ -76,7 +76,7 @@ export function ModeControl(props: ModeControlProps): ReactNode {
 						</button>
 					</p>
 				)}
-				<p className="border-t border-border/60 px-0.5 pt-2 text-xs text-muted-foreground">What you always allowed in the project goes ahead in every mode.</p>
+				<p className="border-t border-border px-0.5 pt-2 text-xs text-muted-foreground">What you always allowed in the project goes ahead in every mode.</p>
 			</PopoverPopup>
 		</Popover>
 	);
@@ -88,11 +88,11 @@ function Rules(props: { readonly title: string; readonly items: readonly string[
 		<div className="flex flex-col gap-1 px-0.5">
 			<p className="text-xs font-medium text-muted-foreground">{props.title}</p>
 			{props.items.length === 0 ? (
-				<p className="text-sm text-muted-foreground">Nothing</p>
+				<p className="text-ui text-muted-foreground">Nothing</p>
 			) : (
 				<ul className="flex flex-col gap-1">
 					{props.items.map((item) => (
-						<li key={item} className="flex items-start gap-2 text-sm">
+						<li key={item} className="flex items-start gap-2 text-ui">
 							<span className="mt-0.5 shrink-0">{props.icon}</span>
 							<span>{item}</span>
 						</li>

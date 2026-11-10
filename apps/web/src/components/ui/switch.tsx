@@ -14,7 +14,7 @@ export function Switch({ className, ...props }: SwitchPrimitive.Root.Props) {
 			{...props}
 		>
 			<SwitchPrimitive.Thumb
-				className="pointer-events-none block size-[calc(var(--thumb-size)-2px)] shrink-0 origin-left rounded-(--thumb-size) bg-background shadow-sm/5 [transition:translate_.15s,border-radius_.15s,scale_.1s_.1s,transform-origin_.15s] in-[[role=switch]:active]:not-data-disabled:scale-x-110 data-checked:origin-right data-checked:translate-x-[calc(var(--thumb-size)-4px)] dark:data-unchecked:bg-muted-foreground"
+				className="pointer-events-none block size-[calc(var(--thumb-size)-2px)] shrink-0 origin-left rounded-full bg-white shadow-raised [transition:translate_.15s,border-radius_.15s,scale_.1s_.1s,transform-origin_.15s] in-[[role=switch]:active]:not-data-disabled:scale-x-110 data-checked:origin-right data-checked:translate-x-[calc(var(--thumb-size)-4px)]"
 				data-slot="switch-thumb"
 			/>
 		</SwitchPrimitive.Root>

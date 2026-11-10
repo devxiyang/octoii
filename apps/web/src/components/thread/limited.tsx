@@ -45,7 +45,7 @@ export function LimitedCard(props: { readonly thread: string; readonly limited: 
 					<Gauge />
 				</IconTile>
 				<div className="min-w-0 flex-1">
-					<p className="text-sm font-medium">{`${provider}'s ${window === undefined ? "" : `${window} `}limit is used up`}</p>
+					<p className="text-ui font-medium">{`${provider}'s ${window === undefined ? "" : `${window} `}limit is used up`}</p>
 					<p className="text-xs text-muted-foreground">
 						{props.resumingAt === undefined ? `Given again at ${at}.` : `Given again at ${at}; the thread goes on then.`}
 					</p>

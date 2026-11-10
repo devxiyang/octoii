@@ -1,11 +1,9 @@
 /*
- * The tokens as Tailwind's theme: each colour, radius, shadow, size and curve a utility, `bg-card`, `rounded-lg`,
- * `shadow-composer`, `text-2xs`, `ease-drawer`. Inline, so a utility reads the variable and a theme that changes the
- * variable changes it; secondary inks and borders lean toward the text by the device's contrast.
+ * The tokens as Tailwind's theme: each colour, radius, shadow, size and curve a utility, `bg-card`, `rounded-md`,
+ * `shadow-floating`, `text-ui`, `ease-drawer`. Inline, so a utility reads the variable where it is used, and a scheme
+ * or a palette that changes the variable changes it. The scales are the design's alone: Tailwind's own sizes, radii,
+ * shadows and palette are taken out, so nothing off the scale can be written.
  */
-
-/* Dark is a class on the root, which the device's theme sets. */
-@custom-variant dark (&:is(.dark, .dark *));
 
 /*
  * Where the chat has room beside its column for the thread's details card, at its top right: as wide as the column the
@@ -38,25 +36,23 @@
 	--font-mono: "SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
 
 	/*
-	 * The type scale, each size with the line it stands on, so words stand as tall wherever they are set: 10 and 11 for
-	 * counts, keys and small capitals; 12, Tailwind's xs, for what is secondary; 13 for the interface's own lines and its
-	 * small controls; 14, Tailwind's sm, for a control's words; 14 on an airier line for what people read; 12.5 for code;
-	 * 16, Tailwind's base, for a field that leads a surface; and the headline of an empty page. A mark's letters — a
-	 * project's monogram — have sizes of their own, their tile's. Every size the interface sets is one of these, as a lint
-	 * rule keeps it.
+	 * The type scale, five sizes, each with the line it stands on, so words stand as tall wherever they are set: 11 for
+	 * counts, keys and small capitals; 12 for what is secondary, and for code; 13 for the interface's own words, its
+	 * lines and its controls; 15 on an airy line for what people read; 22 for a page's headline. A mark's letters — a
+	 * project's monogram — have sizes of their own, their tile's. Every size the interface sets is one of these, as a
+	 * lint rule keeps it.
 	 */
-	--text-3xs: 0.625rem;
-	--text-3xs--line-height: 0.875rem;
+	--text-*: initial;
 	--text-2xs: 0.6875rem;
 	--text-2xs--line-height: 1rem;
+	--text-xs: 0.75rem;
+	--text-xs--line-height: 1rem;
 	--text-ui: 0.8125rem;
 	--text-ui--line-height: 1.25rem;
-	--text-body: 0.875rem;
-	--text-body--line-height: 1.375rem;
-	--text-code: 0.78125rem;
-	--text-code--line-height: 1.25rem;
-	--text-display: 1.75rem;
-	--text-display--line-height: 2.25rem;
+	--text-body: 0.9375rem;
+	--text-body--line-height: 1.5rem;
+	--text-title: 1.375rem;
+	--text-title--line-height: 1.75rem;
 	--text-glyph: 0.5625rem;
 	--text-glyph--line-height: 1;
 	--text-glyph-sm: 0.46875rem;
@@ -64,10 +60,26 @@
 	/* How far small capitals are spaced. */
 	--tracking-caps: 0.08em;
 
+	/* Three radii: 4 for what is small — a key, a badge, a mark; 8 for a control, a row, a menu; 12 for a card, a dialog. */
+	--radius-*: initial;
+	--radius-sm: 0.25rem;
+	--radius-md: 0.5rem;
+	--radius-lg: 0.75rem;
+
+	/* Two shadows, the tokens' own: what stands a little raised, and what floats. */
+	--shadow-*: initial;
+	--inset-shadow-*: initial;
+	--drop-shadow-*: initial;
+
+	/* The colours are the tokens', mapped below; white and black stay, as ink on a filled control. */
+	--color-*: initial;
+	--color-white: #fff;
+	--color-black: #000;
+
 	/*
 	 * The heights a control stands at, each paired with the words it centres: a key's or a badge's, 20; a dense row's, 24,
-	 * with xs words; a small control's or a line of work's, 28, with ui words; a control's, 32, with sm words; a prominent
-	 * one's, 36. `h-control-sm`, `size-control`, `min-h-control-sm`.
+	 * with xs words; a small control's or a line of work's, 28; a control's, 32, with ui words; a prominent one's, 36.
+	 * `h-control-sm`, `size-control`, `min-h-control-sm`.
 	 */
 	--spacing-control-2xs: 1.25rem;
 	--spacing-control-xs: 1.5rem;
@@ -77,35 +89,31 @@
 }
 
 @theme inline {
+	--color-sidebar: var(--sidebar);
 	--color-background: var(--background);
-	--color-foreground: var(--foreground);
 	--color-card: var(--card);
-	--color-card-foreground: var(--card-foreground);
 	--color-popover: var(--popover);
-	--color-popover-foreground: var(--popover-foreground);
+	--color-foreground: var(--foreground);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-faint-foreground: var(--faint-foreground);
+	/*
+	 * A tint, a hover and a selection: the ink laid thin over whatever surface they stand on. A colour is mixed here,
+	 * where the utilities are made, so each comes with its fallback where colours cannot mix: a custom property of the
+	 * root's would keep the fallback alone.
+	 */
+	--color-muted: color-mix(in oklab, var(--foreground) 4%, transparent);
+	--color-accent: color-mix(in oklab, var(--foreground) 7%, transparent);
+	--color-selected: color-mix(in oklab, var(--foreground) 11%, transparent);
+	--color-border: var(--border);
+	--color-input: var(--input);
 	--color-primary: var(--primary);
 	--color-primary-foreground: var(--primary-foreground);
-	--color-secondary: var(--secondary);
-	--color-secondary-foreground: var(--secondary-foreground);
-	--color-secondary-label: color-mix(in oklab, var(--secondary-label), var(--foreground) var(--contrast-boost));
-	--color-muted: var(--muted);
-	--color-muted-foreground: color-mix(in oklab, var(--muted-foreground), var(--foreground) var(--contrast-boost));
-	--color-placeholder: color-mix(in oklab, var(--placeholder), var(--foreground) var(--contrast-boost));
-	--color-icon-muted: color-mix(in oklab, var(--icon-muted), var(--foreground) var(--contrast-boost));
-	--color-message: var(--message);
-	--color-message-foreground: var(--message-foreground);
-	--color-accent: var(--accent);
-	--color-accent-foreground: var(--accent-foreground);
+	--color-ring: var(--ring);
+	--color-scrim: var(--scrim);
 	--color-error: var(--error);
 	--color-error-foreground: var(--error-foreground);
-	/* A status's surface is mixed where the utilities are made, so each comes with its fallback where colours cannot mix: a
-	 * custom property of the root's would keep the fallback alone. */
+	/* A status's surface: a tint of its ink, as much of it as the scheme takes. */
 	--color-error-surface: color-mix(in srgb, var(--error) var(--surface-tint), transparent);
-	--color-destructive: var(--destructive);
-	--color-destructive-foreground: var(--destructive-foreground);
-	--color-border: color-mix(in oklab, var(--border), var(--foreground) calc(var(--contrast-boost) / 2));
-	--color-input: var(--input);
-	--color-ring: var(--ring);
 	--color-info: var(--info);
 	--color-info-foreground: var(--info-foreground);
 	--color-info-surface: color-mix(in srgb, var(--info) var(--surface-tint), transparent);
@@ -115,31 +123,23 @@
 	--color-warning: var(--warning);
 	--color-warning-foreground: var(--warning-foreground);
 	--color-warning-surface: color-mix(in srgb, var(--warning) var(--surface-tint), transparent);
-	--color-sidebar: var(--sidebar);
-	--color-sidebar-foreground: var(--sidebar-foreground);
-	--color-sidebar-muted: color-mix(in oklab, var(--sidebar-muted), var(--foreground) var(--contrast-boost));
-	--color-sidebar-control: var(--sidebar-control);
-	--color-sidebar-row-hover: var(--sidebar-row-hover);
-	--color-sidebar-row-active: var(--sidebar-row-active);
-	--color-sidebar-border: color-mix(in oklab, var(--sidebar-border), var(--foreground) calc(var(--contrast-boost) / 2));
 	--color-diff-add: var(--diff-add);
 	--color-diff-remove: var(--diff-remove);
-	--color-diff-add-surface: var(--diff-add-surface);
-	--color-diff-remove-surface: var(--diff-remove-surface);
-	--color-diff-modified: var(--diff-modified);
-	--radius-sm: calc(var(--radius) - 4px);
-	--radius-md: calc(var(--radius) - 2px);
-	--radius-lg: var(--radius);
-	--radius-xl: calc(var(--radius) + 4px);
-	--radius-2xl: calc(var(--radius) + 8px);
-	--radius-3xl: calc(var(--radius) + 12px);
-	--radius-control: var(--control-radius);
-	--shadow-composer: var(--shadow-composer);
+	--color-diff-add-surface: color-mix(in srgb, var(--diff-add) 10%, transparent);
+	--color-diff-remove-surface: color-mix(in srgb, var(--diff-remove) 10%, transparent);
+	/* A changed file's mark: a dimmed blue, so added and deleted files lead. */
+	--color-diff-modified: color-mix(in oklab, var(--info-foreground) 60%, transparent);
+	/* The hues a monogram or a language's icon takes, each the scheme's lightness and chroma on its own angle. */
+	--color-hue-blue: oklch(var(--hue-lightness) var(--hue-chroma) 255);
+	--color-hue-violet: oklch(var(--hue-lightness) var(--hue-chroma) 295);
+	--color-hue-emerald: oklch(var(--hue-lightness) var(--hue-chroma) 160);
+	--color-hue-amber: oklch(var(--hue-lightness) var(--hue-chroma) 75);
+	--color-hue-rose: oklch(var(--hue-lightness) var(--hue-chroma) 15);
+	--color-hue-cyan: oklch(var(--hue-lightness) var(--hue-chroma) 215);
+	--color-hue-orange: oklch(var(--hue-lightness) var(--hue-chroma) 48);
+	--color-hue-indigo: oklch(var(--hue-lightness) var(--hue-chroma) 275);
 	--shadow-raised: var(--shadow-raised);
 	--shadow-floating: var(--shadow-floating);
-	--shadow-dialog: var(--shadow-dialog);
-	--inset-shadow-control-highlight: 0 1px rgb(255 255 255 / 16%);
-	--inset-shadow-control-pressed: 0 1px rgb(0 0 0 / 8%);
 	/* The decelerating curve of surfaces that slide or pop in. */
 	--ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 	--animate-shimmer: shimmer 2.2s linear infinite;

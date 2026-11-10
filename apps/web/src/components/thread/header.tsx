@@ -33,12 +33,12 @@ export function ChatHeader(props: HeaderProps): ReactNode {
 					<PanelLeft className="size-4" />
 				</IconButton>
 			) : null}
-			<div className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
+			<div className="flex min-w-0 flex-1 items-center gap-1.5 text-ui">
 				{props.project === undefined ? null : (
 					<>
 						<ProjectMark project={props.project} />
 						<span className="max-w-40 truncate text-muted-foreground max-sm:hidden">{props.project.name}</span>
-						<span className="text-muted-foreground/60 max-sm:hidden">/</span>
+						<span className="text-faint-foreground max-sm:hidden">/</span>
 					</>
 				)}
 				<h2 className="min-w-0 truncate font-medium text-foreground">{props.title}</h2>
