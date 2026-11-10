@@ -3,7 +3,7 @@
  * readers stood after a lost connection, and does a person's operations once; the protocol's types and schemas, so an
  * app imports this package alone; and its hooks for React at `/react`.
  */
-export { type Client, createClient } from "./client.ts";
+export { type Client, createClient, type Delivered } from "./client.ts";
 export type { ConnectionStatus } from "./connection.ts";
 export { type Ask, type Call, type Conversation, conversationOf, type Step, type Turn } from "./conversation.ts";
 export * from "./constants.ts";

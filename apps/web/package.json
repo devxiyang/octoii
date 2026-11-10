@@ -15,6 +15,7 @@
   "dependencies": {
     "@base-ui/react": "1.9.0",
     "@fontsource-variable/inter": "catalog:",
+    "@legendapp/list": "3.7.2",
     "@lobehub/icons-static-svg": "1.102.0",
     "@number-flow/react": "0.6.2",
     "@octoii-works/octoii-client": "workspace:*",
@@ -25,7 +26,6 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-markdown": "10.1.0",
-    "react-virtuoso": "4.18.20",
     "remark-directive": "4.0.0",
     "remark-gfm": "4.0.1",
     "shiki": "4.6.0",

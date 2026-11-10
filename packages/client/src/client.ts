@@ -36,6 +36,9 @@ import type { ThreadView } from "./thread.ts";
 import { type ThreadsView, WatchedThreads } from "./threads.ts";
 import { Watch } from "./watch.ts";
 
+/** An input delivered: the id it waits in the thread's inbox by, which withdraws it, and the id it was delivered by, which its entry in the log records. */
+export type Delivered = { readonly input: string; readonly delivery: string };
+
 /** What a client gives its app. */
 export type Client = {
 	readonly status: Followed<ConnectionStatus>;
@@ -48,8 +51,8 @@ export type Client = {
 	create(manifest: ManifestGiven): Promise<string>;
 	/** Changes the thread's manifest: its model or how hard it reasons, from its next request on; its title or its mode; whether it is pinned or archived, and till when it is snoozed — each given in place of the one it had. */
 	configure(thread: string, changes: Configured): Promise<void>;
-	/** Delivers `input` to the thread, once: the input's id. */
-	deliver(thread: string, input: InputGiven): Promise<string>;
+	/** Delivers `input` to the thread, once: the id it waits in the thread's inbox by, and the id its entry in the log records it was delivered by. */
+	deliver(thread: string, input: InputGiven): Promise<Delivered>;
 	/** Takes back an input while it waits in the thread's inbox: whether it was still there. */
 	withdraw(thread: string, input: string): Promise<boolean>;
 	/** Deletes the thread, whatever it was doing: its log, its fibers, its terminals and its pages gone for good. */
@@ -113,6 +116,14 @@ export type Client = {
 	close(): void;
 };
 
+/**
+ * Delivers `input` to `thread` once, under the operation `operation`, whose id is the delivery's: the log's entry of the
+ * input records it as the id it was delivered by.
+ */
+async function deliverOnce(connection: Connection, operation: string, thread: string, input: InputGiven): Promise<Delivered> {
+	return { input: (await connection.callOpen("threads.deliver", { thread, input, operation })).input, delivery: operation };
+}
+
 /** Connects to the node, as `options` says how, and keeps on connecting until it is closed. */
 export function createClient(options: ClientOptions): Client {
 	// What a lost or closed connection cuts off is followed again as the next one opens: only another failure is told.
@@ -170,7 +181,7 @@ export function createClient(options: ClientOptions): Client {
 		configure: async (thread, changes) => {
 			await connection.call("threads.configure", { thread, changes });
 		},
-		deliver: async (thread, input) => (await connection.callOpen("threads.deliver", { thread, input, operation: options.randomUUID() })).input,
+		deliver: (thread, input) => deliverOnce(connection, options.randomUUID(), thread, input),
 		withdraw: async (thread, input) => (await connection.call("threads.withdraw", { thread, input_id: input })).withdrawn,
 		stop: async (thread) => {
 			await connection.call("threads.stop", { thread });

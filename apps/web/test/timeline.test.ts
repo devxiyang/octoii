@@ -13,16 +13,16 @@ import {
 	firstSaid,
 	laidOut,
 	replyOf,
-	rowsOf,
+	itemsOf,
 	type TimelineTurn,
 	waitsOnPerson,
 	type Work,
 	workedText,
 } from "../src/core/timeline.ts";
 
-/** The turns among the rows of `conversation`, in their order. */
-const turnsOf = (conversation: Parameters<typeof rowsOf>[0]): readonly TimelineTurn[] =>
-	rowsOf(conversation).flatMap((row) => (row.kind === "turn" ? [row.turn] : []));
+/** The turns among the items of `conversation`, in their order. */
+const turnsOf = (conversation: Parameters<typeof itemsOf>[0]): readonly TimelineTurn[] =>
+	itemsOf(conversation).flatMap((item) => (item.kind === "turn" ? [item.turn] : []));
 
 /** A call's line of `tool`, made at the step `step`, done. */
 const callOf = (id: string, tool: string, step: string): CallLine => ({
@@ -105,7 +105,7 @@ describe("a thread's timeline", () => {
 		const asking = fiber("trust-1", "siphon.trust", "main", undefined, [
 			{ key: id(8, 9), name: "trust", payload: { folder: "/w" }, answer: { type: "object" } },
 		]);
-		const rows = rowsOf(
+		const items = itemsOf(
 			conversationOf(
 				viewOf(
 					[
@@ -123,11 +123,11 @@ describe("a thread's timeline", () => {
 				),
 			),
 		);
-		expect(rows.map((row) => row.kind)).toEqual(["turn", "summed-up", "turn", "ask", "summed-up"]);
-		const [within] = rows;
+		expect(items.map((item) => item.kind)).toEqual(["turn", "summed-up", "turn", "ask", "summed-up"]);
+		const [within] = items;
 		expect(within?.kind === "turn" ? within.turn.work.map((each) => each.kind) : []).toEqual(["compaction"]);
 		// A turn is known by the entry it began with, which it has from the first.
-		expect(rows.map((row) => row.key).slice(1)).toEqual([id(4, 5), id(5, 6), id(8, 9), id(9, 10)]);
+		expect(items.map((item) => item.key).slice(1)).toEqual([id(4, 5), id(5, 6), id(8, 9), id(9, 10)]);
 	});
 
 	it("gives an ended turn's words, its work by its tools, the words on the way, its answer, and how long it took", () => {
@@ -328,7 +328,7 @@ describe("a thread's timeline", () => {
 	it("marks a call the person declined, and gives a thread's first words where it has no title", () => {
 		expect(declinedText({ ...callOf("c", "write", "q"), state: "rejected" })).toBe("Rejected");
 		expect(declinedText({ ...callOf("c", "question", "q"), work: "ask", state: "rejected" })).toBe("Dismissed");
-		expect(firstSaid(rowsOf(conversationOf(viewOf([said(id(0, 1), "First line\nsecond")]))))).toBe("First line");
+		expect(firstSaid(itemsOf(conversationOf(viewOf([said(id(0, 1), "First line\nsecond")]))))).toBe("First line");
 		expect(firstSaid([])).toBeUndefined();
 	});
 

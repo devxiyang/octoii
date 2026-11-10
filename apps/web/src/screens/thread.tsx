@@ -6,20 +6,20 @@
  * column centred under it — and after it its panel, where it is shown: its files and changes, its terminals and pages,
  * which a path a message names opens in. What the thread brought is seen as it is shown.
  */
-import type { ReactNode } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import type { Conversation, Listed } from "@octoii-works/octoii-client";
 import { useClient, useConversation, useThreads } from "@octoii-works/octoii-client/react";
 import type { Device } from "../core/device.ts";
 import { projectOf, statusOf, titleOf } from "../core/threads.ts";
 import { contentOf } from "../core/attachments.ts";
-import { firstSaid, rowsOf, withLimited } from "../core/timeline.ts";
+import { firstSaid, itemsOf, withLimited } from "../core/timeline.ts";
 import { AskDock } from "../components/asks/asks.tsx";
 import { Composer } from "../components/composer/composer.tsx";
 import { Queued } from "../components/composer/queued.tsx";
 import { Pane, PanelFrame, ShowPanel } from "../components/frame/frame.tsx";
 import { ChatHeader } from "../components/thread/header.tsx";
 import { DetailsButtons, type DetailsProps, InlineDetails } from "../components/thread/details.tsx";
-import { Timeline } from "../components/thread/timeline.tsx";
+import { Timeline, type TimelineHandle } from "../components/thread/timeline.tsx";
 import { RightPanel } from "../components/panel/right-panel.tsx";
 import { MessageThreadContext } from "../components/thread/message-thread.ts";
 import { failed } from "../components/state/notices.ts";
@@ -38,10 +38,14 @@ export function ThreadScreen(props: ThreadScreenProps): ReactNode {
 	const conversation = useConversation(thread);
 	const row = useThreads()?.find((each) => each.id === thread);
 	useSeen(thread);
-	const rows = withLimited(rowsOf(conversation), row?.standing);
+	// The input the person last sent from here, by the id it was delivered by, which the timeline keeps near its top as
+	// the reply grows under it.
+	const [sent, setSent] = useState<string | undefined>(undefined);
+	const timeline = useRef<TimelineHandle>(null);
+	const items = withLimited(itemsOf(conversation), row?.standing);
 	const project = row === undefined ? undefined : projectOf(row);
 	const workspace = row?.manifest.workspace;
-	const said = firstSaid(rows);
+	const said = firstSaid(items);
 	// Where the thread's turns stand, which its repository and its changes are read again at.
 	const revision = conversation.status ?? "";
 	const details: DetailsProps = { thread, row, turns: conversation.turns, compactions: conversation.compactions, revision };
@@ -63,18 +67,29 @@ export function ThreadScreen(props: ThreadScreenProps): ReactNode {
 				<div className="relative flex min-h-0 flex-1 flex-col">
 					<MessageThreadContext value={{ thread, workspace, pages: conversation.pages }}>
 						<Timeline
+							ref={timeline}
 							thread={thread}
 							parent={row?.manifest.parent?.thread}
-							rows={rows}
+							items={items}
 							read={conversation.read}
 							complete={conversation.complete}
 							waiting={conversation.asks.length}
+							sent={sent}
 							onEarlier={() => void client.readOlder(thread).catch((error: unknown) => failed("Earlier messages could not be read", error))}
 						/>
 					</MessageThreadContext>
 					<InlineDetails {...details} />
 				</div>
-				<Dock thread={thread} row={row} conversation={conversation} device={props.device} />
+				<Dock
+					thread={thread}
+					row={row}
+					conversation={conversation}
+					device={props.device}
+					onSent={(delivery) => {
+						setSent(delivery);
+						timeline.current?.toEnd();
+					}}
+				/>
 			</Pane>
 			<PanelFrame>
 				<RightPanel thread={thread} folder={workspace} terminals={conversation.terminals} pages={conversation.pages} revision={revision} />
@@ -88,7 +103,14 @@ export function ThreadScreen(props: ThreadScreenProps): ReactNode {
  * thread's inbox over the composer, in the chat's column — or, while something waits on the person, over what waits,
  * docked in the composer's place till it is answered.
  */
-function Dock(props: { readonly thread: string; readonly row: Listed | undefined; readonly conversation: Conversation; readonly device: Device }): ReactNode {
+function Dock(props: {
+	readonly thread: string;
+	readonly row: Listed | undefined;
+	readonly conversation: Conversation;
+	readonly device: Device;
+	/** Told the id each input the person sends is delivered by. */
+	readonly onSent: (input: string) => void;
+}): ReactNode {
 	const { thread, row, conversation } = props;
 	const client = useClient();
 	const working = conversation.status === "running" || conversation.inbox.length > 0;
@@ -116,7 +138,7 @@ function Dock(props: { readonly thread: string; readonly row: Listed | undefined
 							draft={{ thread }}
 							folder={row?.manifest.workspace}
 							onSend={async ({ text, attachments }) => {
-								await client.deliver(thread, { message: { role: "user", content: contentOf(text, attachments) } });
+								props.onSent((await client.deliver(thread, { message: { role: "user", content: contentOf(text, attachments) } })).delivery);
 							}}
 							onStop={() => void client.stop(thread).catch((error: unknown) => failed("The thread could not be stopped", error))}
 						/>

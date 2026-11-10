@@ -81,12 +81,13 @@ export type Ending =
 	| { readonly state: "steered" };
 
 /**
- * Words a turn took: their entry's id, when they were said, whose they are — the person's, or a thread's, by its id: a
- * sub-thread's task, given by its thread, or what came of one given in the background, told by the sub-thread — their
- * text, and the files given with them.
+ * Words a turn took: their entry's id, the id they were delivered by, when they were said, whose they are — the
+ * person's, or a thread's, by its id: a sub-thread's task, given by its thread, or what came of one given in the
+ * background, told by the sub-thread — their text, and the files given with them.
  */
 export type Said = {
 	readonly key: string;
+	readonly delivery: string;
 	readonly at: number;
 	readonly from: string | undefined;
 	readonly text: string;
@@ -134,32 +135,32 @@ const TextDeltaSchema = Type.Object({ type: Type.Literal("response.output_text.d
 const FunctionCallSchema = Type.Object({ type: Type.Literal("function_call"), call_id: Type.String(), name: Type.String() });
 
 /**
- * A row of the timeline, at the id it stands at: a turn — a part of one the person steered — or the thread's own
- * between turns: its window summed up, or what waits on the person that no call asks.
+ * An item of the timeline, at the id it stands at: a turn — a part of one the person steered — or the thread's own
+ * between turns: its window summed up, what waits on the person that no call asks, or that its model's quota is used up.
  */
-export type TimelineRow =
+export type TimelineItem =
 	| { readonly kind: "turn"; readonly key: string; readonly turn: TimelineTurn }
 	| { readonly kind: "summed-up"; readonly key: string }
 	| { readonly kind: "ask"; readonly key: string; readonly ask: Ask }
 	| { readonly kind: "limited"; readonly key: string; readonly limited: Limited; readonly resumingAt: number | undefined };
 
-/** `rows`, and, where the thread its model's quota limits as `standing` says, the card of that at their end. */
-export function withLimited(rows: readonly TimelineRow[], standing: Standing | undefined): readonly TimelineRow[] {
+/** `items`, and, where the thread its model's quota limits as `standing` says, the card of that at their end. */
+export function withLimited(items: readonly TimelineItem[], standing: Standing | undefined): readonly TimelineItem[] {
 	const limited = standing?.limited;
-	if (limited === undefined) return rows;
-	return [...rows, { kind: "limited", key: "limited", limited, resumingAt: standing?.resuming_at }];
+	if (limited === undefined) return items;
+	return [...items, { kind: "limited", key: "limited", limited, resumingAt: standing?.resuming_at }];
 }
 
 /**
- * The rows of a conversation, in the order their ids give, as ids are minted in the order the log is written: each turn
+ * The items of a conversation, in the order their ids give, as ids are minted in the order the log is written: each turn
  * as the page shows it — one for each part the person steered it into — from where it began, with the compactions its
  * span holds among its work and what no call asks within it on its last part; and every compaction and ask between
- * turns a row of its own.
+ * turns an item of its own.
  */
-export function rowsOf(conversation: Conversation): readonly TimelineRow[] {
+export function itemsOf(conversation: Conversation): readonly TimelineItem[] {
 	const { turns, asks } = conversation;
 	const spans = turns.map(spanOf);
-	const placed: { readonly at: string; readonly rows: readonly TimelineRow[] }[] = [];
+	const placed: { readonly at: string; readonly items: readonly TimelineItem[] }[] = [];
 	const shown = turns.map((turn, place) =>
 		shownOf(turn, place, { asks, compactions: conversation.compactions.filter((each) => within(spans[place], each.id)) }),
 	);
@@ -169,14 +170,14 @@ export function rowsOf(conversation: Conversation): readonly TimelineRow[] {
 		const waiting = unasked.filter((ask) => within(spans[place], ask.request.key));
 		const last = parts.at(-1);
 		const kept = last === undefined || waiting.length === 0 ? parts : [...parts.slice(0, -1), { ...last, asks: waiting }];
-		placed.push({ at: spans[place]?.from ?? "", rows: kept.map((turn) => ({ kind: "turn", key: turn.key, turn })) });
+		placed.push({ at: spans[place]?.from ?? "", items: kept.map((turn) => ({ kind: "turn", key: turn.key, turn })) });
 	});
 	const between = (id: string): boolean => !spans.some((span) => within(span, id));
 	for (const compaction of conversation.compactions) {
-		if (between(compaction.id)) placed.push({ at: compaction.id, rows: [{ kind: "summed-up", key: compaction.id }] });
+		if (between(compaction.id)) placed.push({ at: compaction.id, items: [{ kind: "summed-up", key: compaction.id }] });
 	}
-	for (const ask of unasked) if (between(ask.request.key)) placed.push({ at: ask.request.key, rows: [{ kind: "ask", key: ask.request.key, ask }] });
-	return placed.toSorted((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0)).flatMap((each) => each.rows);
+	for (const ask of unasked) if (between(ask.request.key)) placed.push({ at: ask.request.key, items: [{ kind: "ask", key: ask.request.key, ask }] });
+	return placed.toSorted((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0)).flatMap((each) => each.items);
 }
 
 /** Where a turn lies in its log, by ids: from the first of its entries, through its end — on, while it runs. */
@@ -273,12 +274,8 @@ function partOf(turn: Turn, part: Part, next: Part | undefined, place: number, i
 		// after — so a turn keeps its row as it goes, rather than being drawn anew.
 		key: index === 0 ? (first ?? turn.id ?? turn.end?.id ?? `turn-${String(place)}`) : (first ?? `turn-${String(place)}-${String(index)}`),
 		said: part.inputs.flatMap((input) => {
-			const from = threadOfActor(input.actor);
-			const text = from === undefined ? inputText(input.message) : threadText(input.message);
-			const attachments = attachmentsOf(input.message);
-			// What a sub-thread told is shown though it holds no words: how its work ended.
-			const shown = text !== "" || attachments.length > 0 || from !== undefined;
-			return shown ? [{ key: input.id, at: mintedAt(input.id), from, text, attachments }] : [];
+			const said = saidOf(input);
+			return said === undefined ? [] : [said];
 		}),
 		work,
 		answer,
@@ -290,6 +287,23 @@ function partOf(turn: Turn, part: Part, next: Part | undefined, place: number, i
 		startedAt: first === undefined ? undefined : mintedAt(first),
 		endedAt: steeredAt !== undefined ? mintedAt(steeredAt) : turn.end === undefined ? undefined : mintedAt(turn.end.id),
 	};
+}
+
+/** The words each input gave, by the client's input: read once, as an input the client keeps is the same. */
+const saids = new WeakMap<Input, Said | null>();
+
+/** The words `input` gave, as a turn shows them; none where it holds nothing to show. */
+function saidOf(input: Input): Said | undefined {
+	const known = saids.get(input);
+	if (known !== undefined) return known ?? undefined;
+	const from = threadOfActor(input.actor);
+	const text = from === undefined ? inputText(input.message) : threadText(input.message);
+	const attachments = attachmentsOf(input.message);
+	// What a sub-thread told is shown though it holds no words: how its work ended.
+	const shown = text !== "" || attachments.length > 0 || from !== undefined;
+	const said = shown ? { key: input.id, delivery: input.delivery_id, at: mintedAt(input.id), from, text, attachments } : null;
+	saids.set(input, said);
+	return said ?? undefined;
 }
 
 /**
@@ -635,6 +649,6 @@ export function replyOf(turn: TimelineTurn): string {
 }
 
 /** A thread's title where it has none: the start of its first words, as read. */
-export function firstSaid(rows: readonly TimelineRow[]): string | undefined {
-	return rows.flatMap((row) => (row.kind === "turn" ? row.turn.said : []))[0]?.text.split("\n")[0];
+export function firstSaid(items: readonly TimelineItem[]): string | undefined {
+	return items.flatMap((item) => (item.kind === "turn" ? item.turn.said : []))[0]?.text.split("\n")[0];
 }

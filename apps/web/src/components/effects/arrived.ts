@@ -4,15 +4,15 @@
  * that draws what is in view alone draws it again as it is scrolled back to. A component whose keys are not known yet
  * at its first draw — what it shows not read yet — counts from the first draw that knows them.
  */
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 /**
  * Whether each key came after the first draw of the component that calls this that knew its keys — `keys`, or none
- * where they are not known yet, when nothing arrived.
+ * where they are not known yet, when nothing arrived: the same function till the first keys are known.
  */
 export function useArrived(keys: readonly string[] | undefined): (key: string) => boolean {
 	const [first, setFirst] = useState<ReadonlySet<string> | undefined>(() => (keys === undefined ? undefined : new Set(keys)));
 	// The keys known at last are kept as the first, as React keeps what a render learnt of the one before.
 	if (first === undefined && keys !== undefined) setFirst(new Set(keys));
-	return (key) => first !== undefined && !first.has(key);
+	return useCallback((key: string) => first !== undefined && !first.has(key), [first]);
 }

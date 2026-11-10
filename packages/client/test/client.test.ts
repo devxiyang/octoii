@@ -97,7 +97,7 @@ describe("a client of the node's protocol", () => {
 		expect(client.status.value.status).toBe("waiting");
 		clock.advance(500);
 		await settle();
-		expect(await delivered).toBe("e1");
+		expect(await delivered).toEqual({ input: "e1", delivery: "op-2" });
 		expect(node.entriesOf(thread)).toHaveLength(1);
 		const operations = node.received.filter((asked) => asked.method === "threads.deliver").map((asked) => asked.params?.["operation"]);
 		expect(operations).toEqual(["op-2", "op-2"]);
