@@ -57,9 +57,12 @@ fn titling(_: ?*anyopaque, run: *Phase) anyerror!void {
     // The title is the thread's work, beside its main fiber rather than under it: what it used is charged there.
     try models.charge(&run.changes, try threads.mainOf(run.arena, thread), response);
     const words = (try models.textOf(run.arena, response)) orelse return run.done(response);
+    // Words that hold no title leave the thread untitled, as a request that failed does.
+    const title = titleOf(words);
+    if (title.len == 0) return run.done(response);
     var manifest = try threads.manifestOf(run.runtime.volume, &run.arena, thread);
     if (manifest.title == null) {
-        manifest.title = titleOf(words);
+        manifest.title = title;
         try run.changes.write(try beak.join(run.arena, thread, "thread.json"), try foundation.json.encode(run.arena, manifest));
     }
     return run.done(response);
@@ -89,10 +92,15 @@ fn firstInput(run: *Phase, thread: []const u8) !?[]const u8 {
     }
 }
 
-/// The title the model's `words` give: their first line, the quotes and the full stop around it let go of, cut short
-/// at a character's end past `title_bytes_max`.
+/// The title the model's `words` give: their first line of words — a line of markup alone let go of, as a tag a model
+/// echoes before its answer or a call it writes out in place of one — the quotes and the full stop around it let go
+/// of, cut short at a character's end past `title_bytes_max`; empty where no line holds words.
 pub fn titleOf(words: []const u8) []const u8 {
-    const line = std.mem.trim(u8, words[0 .. std.mem.indexOfScalar(u8, words, '\n') orelse words.len], &std.ascii.whitespace);
+    var lines = std.mem.splitScalar(u8, words, '\n');
+    const line = while (lines.next()) |each| {
+        const trimmed = std.mem.trim(u8, each, &std.ascii.whitespace);
+        if (trimmed.len > 0 and !isMarkup(trimmed)) break trimmed;
+    } else return "";
     var title = line;
     var trimmed = true;
     while (trimmed) {
@@ -114,10 +122,20 @@ pub fn titleOf(words: []const u8) []const u8 {
     return std.mem.trimEnd(u8, title[0..end], &std.ascii.whitespace);
 }
 
+/// Whether the trimmed, non-empty `line` is markup alone: a tag, or tags around what they hold, as `<effort>8</effort>`.
+fn isMarkup(line: []const u8) bool {
+    return line[0] == '<' and line[line.len - 1] == '>';
+}
+
 test "a title is the first line of what the model wrote, its quotes and full stop let go of, cut at a character's end" {
     try std.testing.expectEqualStrings("Fix the build", titleOf("\"Fix the build.\"\nmore"));
     try std.testing.expectEqualStrings("修复构建", titleOf("「修复构建」。"));
     try std.testing.expectEqualStrings("Plan the release", titleOf("  **Plan the release**  "));
+    // A line of markup alone is no title: a tag echoed before the answer is passed over, and a call written out in
+    // place of an answer holds none.
+    try std.testing.expectEqualStrings("Fix the build", titleOf("<reasoning_effort>8</reasoning_effort>\n\nFix the build"));
+    try std.testing.expectEqualStrings("", titleOf("<invoke name=\"read\">\n<parameter name=\"path\">a.ts</parameter>\n</invoke>"));
+    try std.testing.expectEqualStrings("", titleOf("  \n"));
     const long = "一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一";
     const cut = titleOf(long);
     try std.testing.expect(cut.len <= title_bytes_max);
