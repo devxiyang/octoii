@@ -2,9 +2,9 @@
  * A thread, in the page's frame: its column — its header, with the buttons of its details and the one that shows its
  * panel; its timeline in a column of the chat's width, each turn's words, its work and its answer, the reply being
  * written, kept at its end as it grows; docked at its foot, opaque, the messages waiting for the turn's end over the
- * composer; and its details on a card at its top right, where it has room beside the chat's column, the column centred
- * in the room the card leaves — and after it its panel, where it is shown: its files and changes, its terminals and
- * pages, which a path a message names opens in. What the thread brought is seen as it is shown.
+ * composer; and its details on a card floating at the timeline's top right, where the column is wide enough, the chat's
+ * column centred under it — and after it its panel, where it is shown: its files and changes, its terminals and pages,
+ * which a path a message names opens in. What the thread brought is seen as it is shown.
  */
 import type { ReactNode } from "react";
 import type { Conversation, Listed } from "@octoii-works/octoii-client";
@@ -17,7 +17,7 @@ import { Composer } from "../components/composer/composer.tsx";
 import { Queued } from "../components/composer/queued.tsx";
 import { Pane, PanelFrame, ShowPanel } from "../components/frame/frame.tsx";
 import { ChatHeader } from "../components/thread/header.tsx";
-import { DetailsButtons, type DetailsProps, DetailsRoom, InlineDetails } from "../components/thread/details.tsx";
+import { DetailsButtons, type DetailsProps, InlineDetails } from "../components/thread/details.tsx";
 import { Timeline } from "../components/thread/timeline.tsx";
 import { RightPanel } from "../components/panel/right-panel.tsx";
 import { MessageThreadContext } from "../components/thread/message-thread.ts";
@@ -58,7 +58,8 @@ export function ThreadScreen(props: ThreadScreenProps): ReactNode {
 						</div>
 					}
 				/>
-				<DetailsRoom>
+				{/* The timeline's room, between the header and the dock, its details floating at its top right. */}
+				<div className="relative flex min-h-0 flex-1 flex-col">
 					<MessageThreadContext value={{ thread, workspace, pages: conversation.pages }}>
 						<Timeline
 							thread={thread}
@@ -70,9 +71,9 @@ export function ThreadScreen(props: ThreadScreenProps): ReactNode {
 							onEarlier={() => void client.readOlder(thread).catch((error: unknown) => failed("Earlier messages could not be read", error))}
 						/>
 					</MessageThreadContext>
-					<Dock thread={thread} row={row} conversation={conversation} device={props.device} />
-				</DetailsRoom>
-				<InlineDetails {...details} />
+					<InlineDetails {...details} />
+				</div>
+				<Dock thread={thread} row={row} conversation={conversation} device={props.device} />
 			</Pane>
 			<PanelFrame>
 				<RightPanel thread={thread} folder={workspace} terminals={conversation.terminals} pages={conversation.pages} revision={revision} />

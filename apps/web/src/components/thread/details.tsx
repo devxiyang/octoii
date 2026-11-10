@@ -1,12 +1,13 @@
 /**
- * A thread's details, on a card at the top right of the page's column where the column has room for it beside the
- * chat's, or in a popover from the header's button where it has not: the machine the thread works on and its folder, which opens in
+ * A thread's details, on a card floating at the top right of the thread's timeline where the page's column is wide
+ * enough, the chat's column staying centred under it, or in a popover from the header's button where it is not: the
+ * machine the thread works on and its folder, which opens in
  * the Files view; the folder's repository — its branch, how far ahead of its upstream and behind, and the lines the
  * changes the Diff view shows gained and lost, which open it; the thread it came from and those it delegated to; how
  * full its window is, which opens what fills it and compacts it; and what its model's requests read, wrote and cost,
  * which opens where it went, request by request.
  */
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { Conversation, Listed, Repository, Turn, Usage } from "@octoii-works/octoii-client";
 import { useConnection, useThreads } from "@octoii-works/octoii-client/react";
 import { Coins, CornerLeftUp, FileDiff, Folder, FolderX, Gauge, GitBranch, Laptop, SquareMenu } from "lucide-react";
@@ -41,19 +42,9 @@ export type DetailsProps = {
 	readonly revision: string;
 };
 
-declare module "react" {
-	interface CSSProperties {
-		/** The room the details card takes beside the chat's column while it is shown. */
-		"--details-room"?: string;
-	}
-}
-
-/** The room the card takes beside the chat's column while it is shown, which the column is centred beside. */
-const DETAILS_ROOM: CSSProperties = { "--details-room": "var(--details-inline-room)" };
-
 /**
- * The header's buttons of the card: where the page's column has room, one that shows the card beside the chat's or
- * hides it; where it has not, one that opens it as a popover.
+ * The header's buttons of the card: where the page's column is wide enough, one that shows the card floating over the
+ * timeline or hides it; where it is not, one that opens it as a popover.
  */
 export function DetailsButtons(props: DetailsProps): ReactNode {
 	const shown = useDetailsShown();
@@ -74,22 +65,16 @@ export function DetailsButtons(props: DetailsProps): ReactNode {
 	);
 }
 
-/** What stands in the chat's column, centred in the room the card leaves while it is shown. */
-export function DetailsRoom(props: { readonly children: ReactNode }): ReactNode {
-	return (
-		<div style={useDetailsShown() ? DETAILS_ROOM : undefined} className="contents">
-			{props.children}
-		</div>
-	);
-}
-
-/** The card beside the chat's column, at the top right of the page's, where it has room for it and the person shows it; fading in as it comes. */
+/**
+ * The card floating at the top right of the room it is set in — the thread's timeline — where the page's column is wide
+ * enough and the person shows it, over the chat's column rather than beside it; fading in as it comes.
+ */
 export function InlineDetails(props: DetailsProps): ReactNode {
 	if (!useDetailsShown()) return null;
 	return (
 		<aside
 			aria-label="Thread details"
-			className="floating absolute top-[calc(var(--topbar-height)+0.25rem)] right-3 z-20 hidden max-h-[calc(100%-var(--topbar-height)-1rem)] w-(--details-width) overflow-y-auto rounded-md transition-[opacity,scale] duration-150 details-inline:block starting:scale-98 starting:opacity-0 motion-reduce:transition-none"
+			className="floating absolute top-3 right-4 z-20 hidden max-h-[calc(100%-1.5rem)] w-(--details-width) overflow-y-auto rounded-md transition-[opacity,scale] duration-150 details-inline:block starting:scale-98 starting:opacity-0 motion-reduce:transition-none"
 		>
 			<DetailsCard {...props} />
 		</aside>

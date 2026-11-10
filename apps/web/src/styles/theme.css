@@ -6,10 +6,11 @@
  */
 
 /*
- * Where the page's column has room beside the chat's for the thread's details card, at its top right: as wide as the
- * chat's column the device sets, its gutters, and the card's room — the card, its inset and the gap before the column,
- * which is centred in what the card leaves. A container query reads no variable, so each width the device may set has
- * its own; the page's column is the container named `pane`.
+ * Where the thread's details card floats at the top right of the page's column: where the column is as wide as the
+ * chat's, which the device sets, with its gutters and the card's room beside it — the card, its inset and a gap — so
+ * the card, floating over the chat's centred column, covers the ends of its lines by half its own width at most. A
+ * container query reads no variable, so each width the device may set has its own; the page's column is the container
+ * named `pane`.
  */
 @custom-variant details-inline {
 	@container pane (min-width: 61rem) {

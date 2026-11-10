@@ -17,8 +17,6 @@
 	/* The page's gutter on either side of the chat's column, where the window is narrower than the column and its gutters. */
 	--chat-gutter: 1rem;
 	--details-width: 17.5rem;
-	/* The room the details card takes beside the chat's column: the card, its inset from the edge, and the gap before the column. */
-	--details-inline-room: calc(var(--details-width) + 1.5rem);
 	--sidebar-inset: 0.5rem;
 	--sidebar-row-inset: 0.625rem;
 	--floating-inset: 0.75rem;
