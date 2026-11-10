@@ -1,10 +1,9 @@
 /**
- * Where a thread's money and tokens went, unfolded under its overview's usage row: its totals — what it cost, what its
- * requests read and wrote, the request that took the most — over a waterfall of its requests, turn by turn, each a bar
- * starting where those before it left the total, by cost or by tokens as the switch says, with what it did, its model,
- * what it read and wrote, what it cost and how long it took; what its log tells nothing of — the review model's
- * verdicts, a title made, turns not read yet — as a line of its own at the end. The waterfall keeps its columns'
- * widths, scrolled sideways where its room is narrower.
+ * Where a thread's money and tokens went: its totals — what it cost, what its requests read and wrote, the request that
+ * took the most — over a waterfall of its requests, turn by turn, each a bar starting where those before it left the
+ * total, by cost or by tokens as the switch says, with what it did, its model, what it read and wrote, what it cost and
+ * how long it took; what its log tells nothing of — the review model's verdicts, a title made, turns not read yet — as a
+ * line of its own at the end.
  */
 import { type ReactNode, useState } from "react";
 import type { Conversation, Turn, Usage } from "@octoii-works/octoii-client";
@@ -23,7 +22,7 @@ const COLUMNS = "grid grid-cols-[minmax(0,1fr)_7.5rem_3.25rem_3.25rem_4.5rem_3.2
 const SOME = { cost: 1e-6, tokens: 1 } as const;
 
 /** The waterfall of the thread's requests, by `usage`, all it used, and its `turns`, as far as they were read. */
-export function Requests(props: { readonly usage: Usage; readonly turns: readonly Turn[]; readonly compactions: Conversation["compactions"] }): ReactNode {
+export function SpendingCard(props: { readonly usage: Usage; readonly turns: readonly Turn[]; readonly compactions: Conversation["compactions"] }): ReactNode {
 	const directory = useDirectory();
 	const { usage } = props;
 	const [chosen, setChosen] = useState<Measure | undefined>(undefined);
@@ -35,18 +34,9 @@ export function Requests(props: { readonly usage: Usage; readonly turns: readonl
 	const most = mostOf(logged, measure);
 	const cost = usage.cost_nanodollars / 1e9;
 	return (
-		<div className="flex flex-col gap-1 pt-1 pb-2">
-			<div className="grid grid-cols-3 divide-x divide-border">
-				<Total title="Total cost" value={cost > 0 ? dollars(cost) : "Not told"} />
-				<Total
-					title="Total tokens"
-					value={tokens(usage.input_tokens + usage.output_tokens)}
-					aside={`${tokens(usage.input_tokens)} in · ${tokens(usage.output_tokens)} out`}
-				/>
-				<Total title="Took the most" value={most?.words ?? "Nothing yet"} aside={most === undefined ? undefined : amountText(most, measure)} />
-			</div>
-			<div className="flex items-center gap-3 px-2 pt-2">
-				<span className="label-caps">Requests</span>
+		<div className="flex max-h-[70vh] flex-col">
+			<header className="flex items-center gap-3 border-b border-border px-4 py-2.5">
+				<span className="text-ui font-medium">Spending</span>
 				<Segmented
 					label="Lay the requests by"
 					value={measure}
@@ -57,37 +47,44 @@ export function Requests(props: { readonly usage: Usage; readonly turns: readonl
 					]}
 					className="ms-auto w-40"
 				/>
+			</header>
+			<div className="grid grid-cols-3 divide-x divide-border border-b border-border">
+				<Total title="Total cost" value={cost > 0 ? dollars(cost) : "Not told"} />
+				<Total
+					title="Total tokens"
+					value={tokens(usage.input_tokens + usage.output_tokens)}
+					aside={`${tokens(usage.input_tokens)} in · ${tokens(usage.output_tokens)} out`}
+				/>
+				<Total title="Took the most" value={most?.words ?? "Nothing yet"} aside={most === undefined ? undefined : amountText(most, measure)} />
 			</div>
-			<div className="overflow-x-auto">
-				<div className="min-w-[36rem]">
-					<div className={cn(COLUMNS, "label-caps px-2 pt-1.5 pb-1.5")}>
-						<span>Request</span>
-						<span className="flex justify-between tracking-normal normal-case tabular-nums">
-							<span>0</span>
-							<span>
-								{measure === "cost"
-									? dollars(spent.reduce((sum, each) => sum + (each.cost ?? 0), 0))
-									: tokens(spent.reduce((sum, each) => sum + amountOf(each, "tokens"), 0))}
-							</span>
+			<div className="min-h-0 overflow-y-auto px-2 pb-2">
+				<div className={cn(COLUMNS, "label-caps sticky top-0 bg-popover px-2 pt-2.5 pb-1.5")}>
+					<span>Request</span>
+					<span className="flex justify-between tracking-normal normal-case tabular-nums">
+						<span>0</span>
+						<span>
+							{measure === "cost"
+								? dollars(spent.reduce((sum, each) => sum + (each.cost ?? 0), 0))
+								: tokens(spent.reduce((sum, each) => sum + amountOf(each, "tokens"), 0))}
 						</span>
-						<span className="text-end">In</span>
-						<span className="text-end">Out</span>
-						<span className="text-end">Cost</span>
-						<span className="text-end">Time</span>
-					</div>
-					{spent.map((each, index) => (
-						<Request
-							key={each.key}
-							spent={each}
-							bar={bars[index] ?? { start: 0, width: 0 }}
-							model={each.model === undefined ? undefined : modelLabel(each.model, directory)}
-							heading={index === 0 || spent[index - 1]?.turn !== each.turn ? headingOf(each) : undefined}
-							top={each === most}
-						/>
-					))}
+					</span>
+					<span className="text-end">In</span>
+					<span className="text-end">Out</span>
+					<span className="text-end">Cost</span>
+					<span className="text-end">Time</span>
 				</div>
+				{spent.map((each, index) => (
+					<Request
+						key={each.key}
+						spent={each}
+						bar={bars[index] ?? { start: 0, width: 0 }}
+						model={each.model === undefined ? undefined : modelLabel(each.model, directory)}
+						heading={index === 0 || spent[index - 1]?.turn !== each.turn ? headingOf(each) : undefined}
+						top={each === most}
+					/>
+				))}
+				{spent.length === 0 ? <p className="px-2 py-3 text-ui text-muted-foreground">No request has told what it used yet.</p> : null}
 			</div>
-			{spent.length === 0 ? <p className="px-2 py-3 text-ui text-muted-foreground">No request has told what it used yet.</p> : null}
 		</div>
 	);
 }
@@ -95,7 +92,7 @@ export function Requests(props: { readonly usage: Usage; readonly turns: readonl
 /** One of the totals: its title over its value, and what it is made of beside. */
 function Total(props: { readonly title: string; readonly value: string; readonly aside?: string | undefined }): ReactNode {
 	return (
-		<div className="flex min-w-0 flex-col gap-0.5 px-2 py-1.5">
+		<div className="flex min-w-0 flex-col gap-0.5 px-4 py-2.5">
 			<span className="label-caps">{props.title}</span>
 			<span className="truncate text-ui font-medium tabular-nums">{props.value}</span>
 			{props.aside === undefined ? null : <span className="truncate text-xs text-muted-foreground tabular-nums">{props.aside}</span>}

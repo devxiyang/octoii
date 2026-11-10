@@ -1,9 +1,10 @@
 /**
- * A thread, in the page's frame: its column — its header, with the button that shows its panel; its timeline in a
- * column of the chat's width, each turn's words, its work and its answer, the reply being written, kept at its end as
- * it grows; and docked at its foot, opaque, the messages waiting for the turn's end over the composer — and after it
- * its panel, where it is shown: its overview, its files and changes, its terminals and pages, which a path a message
- * names opens in. What the thread brought is seen as it is shown.
+ * A thread, in the page's frame: its column — its header, with the buttons of its details and the one that shows its
+ * panel; its timeline in a column of the chat's width, each turn's words, its work and its answer, the reply being
+ * written, kept at its end as it grows; docked at its foot, opaque, the messages waiting for the turn's end over the
+ * composer; and its details on a card at its top right, where it has room beside the chat's column, the column centred
+ * in the room the card leaves — and after it its panel, where it is shown: its files and changes, its terminals and
+ * pages, which a path a message names opens in. What the thread brought is seen as it is shown.
  */
 import type { ReactNode } from "react";
 import type { Conversation, Listed } from "@octoii-works/octoii-client";
@@ -16,7 +17,7 @@ import { Composer } from "../components/composer/composer.tsx";
 import { Queued } from "../components/composer/queued.tsx";
 import { Pane, PanelFrame, ShowPanel } from "../components/frame/frame.tsx";
 import { ChatHeader } from "../components/thread/header.tsx";
-import { Details } from "../components/thread/details.tsx";
+import { DetailsButtons, type DetailsProps, DetailsRoom, InlineDetails } from "../components/thread/details.tsx";
 import { Timeline } from "../components/thread/timeline.tsx";
 import { RightPanel } from "../components/panel/right-panel.tsx";
 import { MessageThreadContext } from "../components/thread/message-thread.ts";
@@ -42,6 +43,7 @@ export function ThreadScreen(props: ThreadScreenProps): ReactNode {
 	const said = firstSaid(rows);
 	// Where the thread's turns stand, which its repository and its changes are read again at.
 	const revision = conversation.status ?? "";
+	const details: DetailsProps = { thread, row, turns: conversation.turns, compactions: conversation.compactions, revision };
 	return (
 		<>
 			<Pane>
@@ -49,30 +51,31 @@ export function ThreadScreen(props: ThreadScreenProps): ReactNode {
 					title={row?.manifest.title ?? (said === undefined ? "New thread" : titleOf(said))}
 					status={row === undefined ? undefined : statusOf(row)}
 					{...(project === undefined ? {} : { project })}
-					actions={<ShowPanel className="-mr-1" />}
+					actions={
+						<div className="-mr-1 flex items-center gap-1">
+							<DetailsButtons {...details} />
+							<ShowPanel />
+						</div>
+					}
 				/>
-				<MessageThreadContext value={{ thread, workspace, pages: conversation.pages }}>
-					<Timeline
-						thread={thread}
-						parent={row?.manifest.parent?.thread}
-						rows={rows}
-						read={conversation.read}
-						complete={conversation.complete}
-						waiting={conversation.asks.length}
-						onEarlier={() => void client.readOlder(thread).catch((error: unknown) => failed("Earlier messages could not be read", error))}
-					/>
-				</MessageThreadContext>
-				<Dock thread={thread} row={row} conversation={conversation} device={props.device} />
+				<DetailsRoom>
+					<MessageThreadContext value={{ thread, workspace, pages: conversation.pages }}>
+						<Timeline
+							thread={thread}
+							parent={row?.manifest.parent?.thread}
+							rows={rows}
+							read={conversation.read}
+							complete={conversation.complete}
+							waiting={conversation.asks.length}
+							onEarlier={() => void client.readOlder(thread).catch((error: unknown) => failed("Earlier messages could not be read", error))}
+						/>
+					</MessageThreadContext>
+					<Dock thread={thread} row={row} conversation={conversation} device={props.device} />
+				</DetailsRoom>
+				<InlineDetails {...details} />
 			</Pane>
 			<PanelFrame>
-				<RightPanel
-					thread={thread}
-					overview={<Details thread={thread} row={row} turns={conversation.turns} compactions={conversation.compactions} revision={revision} />}
-					folder={workspace}
-					terminals={conversation.terminals}
-					pages={conversation.pages}
-					revision={revision}
-				/>
+				<RightPanel thread={thread} folder={workspace} terminals={conversation.terminals} pages={conversation.pages} revision={revision} />
 			</PanelFrame>
 		</>
 	);

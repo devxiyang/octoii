@@ -11,11 +11,8 @@ import { useSyncExternalStore } from "react";
 import type { ChangesScope } from "@octoii-works/octoii-client";
 import { childPath, crumbsOf, isWholePath } from "../../core/files.ts";
 
-/** A view of a thread's the panel opens: its overview, its files, or the changes in its repository. */
-export type View = "overview" | "files" | "diff";
-
-/** Every view. */
-const VIEWS: readonly string[] = ["overview", "files", "diff"] satisfies readonly View[];
+/** A view of a thread's the panel opens: its files, or the changes in its repository. */
+export type View = "files" | "diff";
 
 /** What a tab of the panel shows, by its key: a view; one of the thread's terminals, `terminal:` and its id; or one of its pages, `page:` and its id. */
 export type SurfaceKey = View | `terminal:${string}` | `page:${string}`;
@@ -38,8 +35,8 @@ export type PanelPlace = "hidden" | "beside" | "full";
 /** The panel: where it stands, and each thread's. */
 type Panel = { readonly place: PanelPlace; readonly threads: ReadonlyMap<string, ThreadPanel> };
 
-/** Where a thread's panel begins: its overview and its files open, the overview shown, no file read, no folder open. */
-const FRESH: ThreadPanel = { views: ["overview", "files"], shown: undefined, folders: new Set(), scope: undefined };
+/** Where a thread's panel begins: its files open, no file read, no folder open. */
+const FRESH: ThreadPanel = { views: ["files"], shown: undefined, folders: new Set(), scope: undefined };
 
 let panel: Panel = { place: "hidden", threads: new Map() };
 const listeners = new Set<() => void>();
@@ -76,7 +73,7 @@ export function pageKey(id: string): SurfaceKey {
 
 /** Whether `key` is a view's, not a terminal's nor a page's. */
 function isView(key: SurfaceKey): key is View {
-	return VIEWS.includes(key);
+	return key === "files" || key === "diff";
 }
 
 /** `place` with the tab of `key` shown: a view opened, where it was not. */

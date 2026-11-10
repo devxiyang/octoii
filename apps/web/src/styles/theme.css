@@ -5,6 +5,31 @@
  * shadows and palette are taken out, so nothing off the scale can be written.
  */
 
+/*
+ * Where the page's column has room beside the chat's for the thread's details card, at its top right: as wide as the
+ * chat's column the device sets, its gutters, and the card's room — the card, its inset and the gap before the column,
+ * which is centred in what the card leaves. A container query reads no variable, so each width the device may set has
+ * its own; the page's column is the container named `pane`.
+ */
+@custom-variant details-inline {
+	@container pane (min-width: 61rem) {
+		:root[data-chat-width="narrow"] & {
+			@slot;
+		}
+	}
+	/* Comfortable, the device's own until it says otherwise. */
+	@container pane (min-width: 67rem) {
+		:root:not([data-chat-width="narrow"], [data-chat-width="wide"]) & {
+			@slot;
+		}
+	}
+	@container pane (min-width: 79rem) {
+		:root[data-chat-width="wide"] & {
+			@slot;
+		}
+	}
+}
+
 @theme {
 	--font-sans: -apple-system, BlinkMacSystemFont, "Inter Variable", "Segoe UI", system-ui, sans-serif;
 	/* Some engines map ui-monospace to a proportional font, so the stack names concrete ones. */

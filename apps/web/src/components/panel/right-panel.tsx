@@ -1,6 +1,6 @@
 /**
  * The panel's tabs, in the place the frame gives the panel: a bar of them, which the arrow keys walk — the thread's
- * views open, its overview, its files and its changes, then each of its terminals, named by the title its program set,
+ * views open, its files and its changes, then each of its terminals, named by the title its program set,
  * then each of its pages in the browser, named by its title — each as wide as its name, narrower where the bar runs
  * out of room; `+` to open a terminal, a page or a view, by its letter while the menu is open; the tab chosen shown
  * below, each other kept as it was while it is hidden, its terminal or page no longer followed; and the frame's own
@@ -13,7 +13,7 @@ import { Activity, type KeyboardEvent, type ReactNode, useState } from "react";
 import { Tabs } from "@base-ui/react/tabs";
 import type { PageListed, TerminalListed } from "@octoii-works/octoii-client";
 import { useClient } from "@octoii-works/octoii-client/react";
-import { FileDiff, Files, Globe, Plus, SquareMenu, SquareTerminal, X } from "lucide-react";
+import { FileDiff, Files, Globe, Plus, SquareTerminal, X } from "lucide-react";
 import { pageName } from "../../core/browser.ts";
 import { nameOf } from "../../core/files.ts";
 import { terminalName } from "../../core/terminal.ts";
@@ -34,10 +34,9 @@ const OPENED_SIZE = { rows: 24, cols: 80 } as const;
 /** The size a page opens at, before the view that opens it lays it out at its room. */
 const OPENED_PAGE = { width: 1280, height: 800, scale: 1 } as const;
 
-/** What the panel is given: its thread, the thread's overview, the folder it works in — none where it works in none — its terminals and its pages. */
+/** What the panel is given: its thread, the folder it works in — none where it works in none — its terminals and its pages. */
 export type RightPanelProps = {
 	readonly thread: string;
-	readonly overview: ReactNode;
 	readonly folder: string | undefined;
 	readonly terminals: readonly TerminalListed[];
 	readonly pages: readonly PageListed[];
@@ -92,7 +91,6 @@ export function RightPanel(props: RightPanelProps): ReactNode {
 				);
 			},
 		},
-		{ label: "Overview", icon: SquareMenu, letter: "O", open: () => showSurface(props.thread, "overview") },
 		{ label: "Files", icon: Files, letter: "F", open: () => showSurface(props.thread, "files") },
 		{ label: "Diff", icon: FileDiff, letter: "D", open: () => showSurface(props.thread, "diff") },
 	];
@@ -120,7 +118,7 @@ export function RightPanel(props: RightPanelProps): ReactNode {
 			{tabs.map((tab) => (
 				<Tabs.Panel key={tab.key} value={tab.key} keepMounted className="flex min-h-0 flex-1 flex-col">
 					<Activity mode={tab === shown ? "visible" : "hidden"}>
-						<Shown shows={tab.shows} overview={props.overview} thread={props.thread} folder={props.folder} revision={props.revision} />
+						<Shown shows={tab.shows} thread={props.thread} folder={props.folder} revision={props.revision} />
 					</Activity>
 				</Tabs.Panel>
 			))}
@@ -128,11 +126,9 @@ export function RightPanel(props: RightPanelProps): ReactNode {
 	);
 }
 
-/** The tab of a view of a thread's: its overview; its files, named by the file read; or its changes. */
+/** The tab of a view of a thread's: its files, named by the file read; or its changes. */
 function viewTab(view: View, place: ThreadPanel): Tab {
 	switch (view) {
-		case "overview":
-			return { key: view, icon: <SquareMenu />, label: "Overview", shows: { view } };
 		case "files":
 			return {
 				key: view,
@@ -146,18 +142,10 @@ function viewTab(view: View, place: ThreadPanel): Tab {
 }
 
 /** A tab's surface. */
-function Shown(props: {
-	readonly shows: Shows;
-	readonly overview: ReactNode;
-	readonly thread: string;
-	readonly folder: string | undefined;
-	readonly revision: string;
-}): ReactNode {
+function Shown(props: { readonly shows: Shows; readonly thread: string; readonly folder: string | undefined; readonly revision: string }): ReactNode {
 	if ("terminal" in props.shows) return <TerminalPane terminal={props.shows.terminal} />;
 	if ("page" in props.shows) return <BrowserPane page={props.shows.page} />;
 	switch (props.shows.view) {
-		case "overview":
-			return props.overview;
 		case "files":
 			return <FilesSurface thread={props.thread} folder={props.folder} />;
 		case "diff":
