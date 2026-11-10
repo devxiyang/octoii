@@ -1,6 +1,7 @@
 /**
  * A provider in use, as settings show it beside the list: its mark and name; how it stands, as it is asked — who it is
- * connected as, or what is wrong and how to put it right; what connects it — its key, replaced as another is pasted, or
+ * connected as, or what is wrong and how to put it right, the command to run copied from it, asked again on asking;
+ * what connects it — its key, replaced as another is pasted, or
  * its sign-in, given again here or from another device's browser; an account's name, kept as it is changed; another
  * account of it to add; and what takes it out of use — its key forgotten, its sign-in, or the account itself — asked
  * first.
@@ -54,7 +55,13 @@ export function ProviderDetails(props: ProviderDetailsProps): ReactNode {
 						<CodedWords text={standingOf(provider, props.status)} />
 					</span>
 				}
-			/>
+			>
+				{troubled(props.status) ? (
+					<Button size="sm" variant="outline" onClick={props.onChanged}>
+						Check again
+					</Button>
+				) : undefined}
+			</Row>
 			{provider.connects === "api_key" ? <KeyRow provider={provider} {...changes} /> : null}
 			{provider.connects === "sign_in" ? <SignInRows provider={provider} {...changes} /> : null}
 			{provider.account === undefined ? null : <NameRow provider={provider} {...changes} />}

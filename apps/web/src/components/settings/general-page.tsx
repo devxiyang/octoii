@@ -102,7 +102,7 @@ function Schemes(props: { readonly device: Device; readonly set: (change: Device
 			aria-label="Theme"
 			value={props.device.theme}
 			onValueChange={(theme: Device["theme"]) => props.set({ theme })}
-			className="grid grid-cols-3 gap-3 @md:grid-cols-[repeat(3,minmax(0,11rem))]"
+			className="grid w-full grid-cols-3 gap-3 @md:grid-cols-[repeat(3,minmax(0,11rem))]"
 		>
 			{schemes.map((scheme) => (
 				<RadioChoice key={scheme.key} value={scheme.key} render={<div />} className={SCHEME_CARD}>
