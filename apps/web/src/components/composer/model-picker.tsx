@@ -1,15 +1,17 @@
 /**
- * The model's control: a chip naming the provider and the model, from which the models to choose from open — a card
+ * The model's control: a chip naming the provider, and the model by its maker's mark and its name, from which the
+ * models to choose from open — a card
  * that grows out of the chip, over the composer — ⌘' opening it too; a model chosen, the focus goes back where the
  * person was typing.
  */
 import type { ReactNode, RefObject } from "react";
 import { ChevronDown } from "lucide-react";
 import { modelLabel, providerName, providerOf } from "../../core/models.ts";
+import { vendorOfReference } from "../../core/vendors.ts";
 import { shortcutLabel } from "../../core/shortcuts.ts";
 import { useShortcut } from "../effects/shortcut.ts";
 import { Button } from "../ui/button.tsx";
-import { Monogram } from "../ui/monogram.tsx";
+import { VendorMark } from "../ui/vendor-mark.tsx";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover.tsx";
 import { Tip } from "../ui/tooltip.tsx";
 import { useDirectory } from "./directory.ts";
@@ -50,9 +52,9 @@ export function ModelControl(props: ModelControlProps): ReactNode {
 						<span className="text-muted-foreground">Choose a model</span>
 					) : (
 						<span className="flex min-w-0 items-center gap-1 whitespace-nowrap">
-							<Monogram name={provider} />
 							<span className="min-w-0 shrink-[2] truncate text-muted-foreground @max-xl:hidden">{provider}</span>
 							<span className="text-faint-foreground @max-xl:hidden">/</span>
+							<VendorMark vendor={vendorOfReference(directory, model)} name={provider} />
 							<span className="min-w-0 truncate">{modelLabel(model, directory)}</span>
 						</span>
 					)}
@@ -72,6 +74,7 @@ export function ModelControl(props: ModelControlProps): ReactNode {
 						props.onChoose(chosen);
 						props.onOpenChange(false);
 					}}
+					onClose={() => props.onOpenChange(false)}
 				/>
 			</PopoverPopup>
 		</Popover>

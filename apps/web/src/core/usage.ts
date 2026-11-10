@@ -45,8 +45,8 @@ export type UsageWindow = {
 	readonly columns: readonly UsageColumn[];
 };
 
-/** A provider's cards: its name, and a card for each window its accounts tell. */
-export type UsageGroup = { readonly provider: string; readonly windows: readonly UsageWindow[] };
+/** A provider's cards: the provider, and a card for each window its accounts tell. */
+export type UsageGroup = { readonly provider: Provider; readonly windows: readonly UsageWindow[] };
 
 /** A window as its accounts told it: one of their limits, for its length and title, and the accounts' segments. */
 type Told = { readonly limit: Limit; readonly columns: UsageColumn[] };
@@ -66,7 +66,7 @@ export function usageOf(providers: readonly Provider[], statuses: ReadonlyMap<st
 			}
 		}
 		if (windows.size === 0) return [];
-		return [{ provider: host.name, windows: [...windows].map(([key, told]) => windowOf(key, told)) }];
+		return [{ provider: host, windows: [...windows].map(([key, told]) => windowOf(key, told)) }];
 	});
 }
 

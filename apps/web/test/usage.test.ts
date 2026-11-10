@@ -9,8 +9,10 @@ import { countdown, paceOf, usageOf } from "../src/core/usage.ts";
 
 const HOUR = 60 * 60_000;
 
+const CLAUDE: Provider = { id: "claude", name: "Claude", connects: "agent" };
+
 const PROVIDERS: readonly Provider[] = [
-	{ id: "claude", name: "Claude", connects: "agent" },
+	CLAUDE,
 	{ id: "openai", name: "OpenAI", connects: "api_key", credential: "api_key" },
 	{ id: "work", name: "Claude · Work", connects: "agent", account: { of: "claude", name: "Work" } },
 	{ id: "spare", name: "Claude · Spare", connects: "agent", account: { of: "claude", name: "Spare" } },
@@ -35,7 +37,7 @@ describe("the usage page", () => {
 		]);
 		expect(usageOf(PROVIDERS, statuses, 0)).toEqual([
 			{
-				provider: "Claude",
+				provider: CLAUDE,
 				windows: [
 					{
 						key: "300 ",

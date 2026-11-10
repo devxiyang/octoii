@@ -78,6 +78,13 @@
 	@apply inline-flex shrink-0 items-center [&>*+*]:-ms-1.5;
 }
 
+/* A mark drawn in the ink of the words beside it: the shape of its image, `--mark`, filled with their colour. */
+@utility mark-ink {
+	display: inline-block;
+	background-color: currentColor;
+	mask: var(--mark) center / contain no-repeat;
+}
+
 @utility work-list {
 	@apply flex flex-col gap-0.5;
 }

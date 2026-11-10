@@ -10,12 +10,13 @@ import { ChevronDown, FilePen, FolderGit2, SquareTerminal, Wrench, X } from "luc
 import { MODES, modeOffered, modeShown } from "../../core/modes.ts";
 import { modelLabel, providerName, providerOf } from "../../core/models.ts";
 import { folderName } from "../../core/threads.ts";
+import { vendorOfReference } from "../../core/vendors.ts";
 import { useDirectory } from "../composer/directory.ts";
 import { ModelList } from "../composer/model-list.tsx";
 import { useOutcome } from "../effects/read.ts";
 import { failed } from "../state/notices.ts";
 import { Button, IconButton } from "../ui/button.tsx";
-import { Monogram } from "../ui/monogram.tsx";
+import { VendorMark } from "../ui/vendor-mark.tsx";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover.tsx";
 import { Select } from "../ui/select.tsx";
 import { Page, Row, Section } from "./layout.tsx";
@@ -65,7 +66,7 @@ function ReviewModel(props: { readonly model: string | undefined }): ReactNode {
 						<span className="text-muted-foreground">None</span>
 					) : (
 						<>
-							<Monogram name={providerName(directory, providerOf(model))} />
+							<VendorMark vendor={vendorOfReference(directory, model)} name={providerName(directory, providerOf(model))} />
 							<span className="min-w-0 truncate">{modelLabel(model, directory)}</span>
 						</>
 					)}
@@ -78,6 +79,7 @@ function ReviewModel(props: { readonly model: string | undefined }): ReactNode {
 							keep(chosen);
 							setOpen(false);
 						}}
+						onClose={() => setOpen(false)}
 					/>
 				</PopoverPopup>
 			</Popover>

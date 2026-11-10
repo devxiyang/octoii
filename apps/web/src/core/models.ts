@@ -74,6 +74,11 @@ export function shortName(name: string): string {
 	return name.slice(name.indexOf(": ") + 1).trim();
 }
 
+/** The provider a provider is: itself, or, for an account the person added, the one it is another of — by its id. */
+export function baseProviderOf(directory: Directory | undefined, provider: string): string {
+	return directory?.providers.find((each) => each.id === provider)?.account?.of ?? provider;
+}
+
 /** A provider's name, as the node gives it; its id where it gives none. */
 export function providerName(directory: Directory | undefined, id: string): string {
 	return directory?.providers.find((provider) => provider.id === id)?.name ?? id;

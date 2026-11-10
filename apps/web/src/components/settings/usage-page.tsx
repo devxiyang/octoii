@@ -9,12 +9,14 @@ import { type CSSProperties, type ReactNode, useState } from "react";
 import { Gauge, RefreshCw, TrendingDown, TrendingUp } from "lucide-react";
 import { wakeLabel } from "../../core/time.ts";
 import { countdown, type Pace, type UsageSegment, type UsageWindow, usageOf } from "../../core/usage.ts";
+import { vendorOfProvider } from "../../core/vendors.ts";
 import { useNow } from "../effects/now.ts";
 import { useRead } from "../effects/read.ts";
 import { useStatuses } from "../effects/statuses.ts";
 import { Button } from "../ui/button.tsx";
 import { cn } from "../ui/cn.ts";
-import { hueClassOf, Monogram } from "../ui/monogram.tsx";
+import { hueClassOf } from "../ui/monogram.tsx";
+import { VendorMark } from "../ui/vendor-mark.tsx";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover.tsx";
 import { Tip } from "../ui/tooltip.tsx";
 import { Page, SectionHeading } from "./layout.tsx";
@@ -44,8 +46,8 @@ export function UsagePage(): ReactNode {
 				</p>
 			) : null}
 			{groups?.map((group) => (
-				<section key={group.provider} className="@container flex flex-col gap-2">
-					<SectionHeading title={group.provider} icon={<Monogram name={group.provider} />} />
+				<section key={group.provider.id} className="@container flex flex-col gap-2">
+					<SectionHeading title={group.provider.name} icon={<VendorMark vendor={vendorOfProvider(group.provider)} name={group.provider.name} />} />
 					{group.windows.map((window) => (
 						<WindowCard key={window.key} window={window} now={now} />
 					))}

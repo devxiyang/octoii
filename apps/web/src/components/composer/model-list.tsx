@@ -7,24 +7,25 @@
 import { type ReactNode, useRef, useState } from "react";
 import { useClient, useSettings, useThreads } from "@octoii-works/octoii-client/react";
 import { Settings2, Star } from "lucide-react";
-import { type ModelChoice, modelSections, providerOf, recentModelsOf, shortName, toggledFavorite } from "../../core/models.ts";
+import { type ModelChoice, modelSections, providerName, providerOf, recentModelsOf, shortName, toggledFavorite } from "../../core/models.ts";
 import { withSettings } from "../../core/route.ts";
+import { type Vendor, vendorOfReference } from "../../core/vendors.ts";
 import { go, useRoute } from "../state/navigation.ts";
 import { failed } from "../state/notices.ts";
 import { Button } from "../ui/button.tsx";
 import { cn } from "../ui/cn.ts";
 import { Command, CommandGroup, CommandHints, CommandItem, CommandList, CommandSearch } from "../ui/command.tsx";
-import { Monogram } from "../ui/monogram.tsx";
+import { VendorMark } from "../ui/vendor-mark.tsx";
 import { useDirectory } from "./directory.ts";
 
-/** A row of the list: where it stands — its section's title and the model — and the model. */
-type Row = { readonly key: string; readonly model: ModelChoice };
+/** A row of the list: where it stands — its section's title and the model — the model, and its maker, by its mark, else its provider's name. */
+type Row = { readonly key: string; readonly model: ModelChoice; readonly vendor: Vendor | undefined; readonly provider: string };
 
 /** A section of the list: its title, and its rows. */
 type Section = { readonly title: string; readonly items: readonly Row[] };
 
-/** What the list is given: the model chosen, and who is told of another. */
-export type ModelListProps = { readonly model: string | undefined; readonly onChoose: (model: string) => void };
+/** What the list is given: the model chosen, who is told of another, and what closes the list as the person goes to manage the providers. */
+export type ModelListProps = { readonly model: string | undefined; readonly onChoose: (model: string) => void; readonly onClose: () => void };
 
 /** The hints of the list's keys. */
 const HINTS = [
@@ -48,7 +49,12 @@ export function ModelList(props: ModelListProps): ReactNode {
 			? []
 			: modelSections({ directory, search: query, favorites, recent }).map((section) => ({
 					title: section.title,
-					items: section.models.map((model) => ({ key: `${section.title}/${model.reference}`, model })),
+					items: section.models.map((model) => ({
+						key: `${section.title}/${model.reference}`,
+						model,
+						vendor: vendorOfReference(directory, model.reference),
+						provider: providerName(directory, providerOf(model.reference)),
+					})),
 				}));
 	const star = (model: ModelChoice): void => {
 		client
@@ -76,7 +82,14 @@ export function ModelList(props: ModelListProps): ReactNode {
 					star(row.model);
 				}}
 				aside={
-					<Button variant="ghost-muted" size="xs" onClick={() => go(withSettings(route, "providers"))}>
+					<Button
+						variant="ghost-muted"
+						size="xs"
+						onClick={() => {
+							props.onClose();
+							go(withSettings(route, "providers"));
+						}}
+					>
 						<Settings2 />
 						Manage providers
 					</Button>
@@ -103,7 +116,7 @@ export function ModelList(props: ModelListProps): ReactNode {
 	);
 }
 
-/** One model: its provider's mark, its name and context, its star — shown while it is starred, pointed at or highlighted — and its mark where it is chosen. */
+/** One model: its maker's mark, its name and context, its star — shown while it is starred, pointed at or highlighted — and its mark where it is chosen. */
 function ModelRow(props: {
 	readonly row: Row;
 	readonly starred: boolean;
@@ -114,7 +127,7 @@ function ModelRow(props: {
 	const { model } = props.row;
 	return (
 		<CommandItem value={props.row} onClick={props.onChoose} className="group/model h-control-lg">
-			<Monogram name={providerOf(model.reference)} />
+			<VendorMark vendor={props.row.vendor} name={props.row.provider} />
 			<span className="min-w-0 flex-1 truncate">{shortName(model.name)}</span>
 			{model.context === undefined ? null : <span className="text-xs text-muted-foreground tabular-nums">{model.context}</span>}
 			<button

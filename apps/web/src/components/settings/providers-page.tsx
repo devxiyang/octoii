@@ -13,6 +13,7 @@ import type { Provider } from "@octoii-works/octoii-client";
 import { useClient } from "@octoii-works/octoii-client/react";
 import { ChevronLeft, Plus, RefreshCw } from "lucide-react";
 import { isSignInReturn } from "../../core/sign-in.ts";
+import { vendorOfProvider } from "../../core/vendors.ts";
 import { useOnFocus } from "../effects/focus.ts";
 import { useRead } from "../effects/read.ts";
 import { type Finishing, useSignInFinish } from "../effects/sign-in.ts";
@@ -22,7 +23,7 @@ import { cn } from "../ui/cn.ts";
 import { Field } from "../ui/input.tsx";
 import { Dialog, DialogClose, DialogDescription, DialogPopup, DialogTitle } from "../ui/dialog.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu.tsx";
-import { Monogram } from "../ui/monogram.tsx";
+import { VendorMark } from "../ui/vendor-mark.tsx";
 import { Page, Row, SectionHeading } from "./layout.tsx";
 import { failed } from "../state/notices.ts";
 
@@ -120,7 +121,7 @@ function ProviderList(props: {
 								className="group/provider flex items-start gap-2.5 border-b border-border px-4 py-3 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-account:pl-8 data-active:bg-accent"
 							>
 								<span className="mt-0.5">
-									<Monogram name={each.name} size="md" />
+									<VendorMark vendor={vendorOfProvider(each)} name={each.name} size="md" />
 								</span>
 								<span className="min-w-0 flex-1">
 									<span className="block truncate text-ui font-medium">{each.name}</span>
@@ -180,7 +181,7 @@ function ProviderDetails(props: { readonly provider: Provider; readonly onChange
 				<IconButton label="All providers" onClick={props.onBack} className="-ms-1.5 @xl/providers:hidden">
 					<ChevronLeft className="size-4" />
 				</IconButton>
-				<Monogram name={provider.name} size="md" />
+				<VendorMark vendor={vendorOfProvider(provider)} name={provider.name} size="md" />
 				<h4 className="flex-1 text-body font-semibold">{provider.name}</h4>
 				{provider.account === undefined ? <span className="font-mono text-xs text-muted-foreground">{provider.id}</span> : null}
 			</div>
@@ -243,7 +244,7 @@ function AddAccountLine(props: { readonly hosts: readonly Provider[]; readonly o
 				<MenuPopup align="start" className="w-56">
 					{props.hosts.map((host) => (
 						<MenuItem key={host.id} onClick={() => choose(host)}>
-							<Monogram name={host.name} />
+							<VendorMark vendor={vendorOfProvider(host)} name={host.name} />
 							{host.name}
 						</MenuItem>
 					))}
