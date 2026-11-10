@@ -409,6 +409,13 @@ export const AddedSchema = Type.Object({ of: Type.String(), name: Type.String() 
 export type Added = Static<typeof AddedSchema>;
 
 /**
+ * A sign-in begun: the address where the person signs in, in a browser, for a provider signed in to in one; or the
+ * terminal that runs its agent's login, for a provider reached through an agent the person signs in to themselves.
+ */
+export const SignInStartedSchema = Type.Union([Type.Object({ url: Type.String() }), Type.Object({ terminal: Type.String() })]);
+export type SignInStarted = Static<typeof SignInStartedSchema>;
+
+/**
  * A provider: its id and its name, how it is connected, and the kind of credential the node keeps for it — `api_key`,
  * `oauth` or `none` — none where it keeps none, never the credential; and, for an account the person added, which
  * provider's it is and its own name.
@@ -765,7 +772,7 @@ export const METHODS = {
 	"trust.decide": { params: Type.Object({ folder: Type.String(), digest: Type.String(), trusted: Type.Boolean() }), result: Nothing },
 	"providers.list": { params: Nothing, result: Type.Object({ providers: Type.Array(ProviderSchema) }) },
 	"providers.status": { params: Type.Object({ provider: Type.String() }), result: ProviderStatusSchema },
-	"providers.sign-in": { params: Type.Object({ provider: Type.String() }), result: Type.Object({ url: Type.String() }) },
+	"providers.sign-in": { params: Type.Object({ provider: Type.String() }), result: SignInStartedSchema },
 	"providers.finish-sign-in": { params: Type.Object({ redirect: Type.String() }), result: Type.Object({ provider: Type.String() }) },
 	"credentials.set": { params: Type.Object({ provider: Type.String(), api_key: Type.String() }), result: Nothing },
 	"credentials.remove": { params: Type.Object({ provider: Type.String() }), result: Nothing },

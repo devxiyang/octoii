@@ -1,8 +1,8 @@
 /**
  * Adding a provider: a dialog that leads from the catalogue — the node's providers by how each connects, those in use
- * marked — to what connects the one chosen: its API key; a sign-in in a new tab; its agent's own sign-in on this
- * computer, or a server of the person's, checked again as they ask; for one in use already, another account of it,
- * named first. Once the provider is connected, the dialog closes on it.
+ * marked — to what connects the one chosen: its API key; a sign-in in a new tab; its agent's login, run in a terminal
+ * here; or a server of the person's, checked again as they ask; for one in use already, another account of it, named
+ * first. Once the provider is connected, the dialog closes on it.
  */
 import { type FormEvent, type ReactNode, useState, useTransition } from "react";
 import type { Provider, ProviderStatus } from "@octoii-works/octoii-client";
@@ -14,6 +14,7 @@ import { DialogDescription, DialogTitle } from "../ui/dialog.tsx";
 import { Field } from "../ui/input.tsx";
 import { VendorMark } from "../ui/vendor-mark.tsx";
 import { CodedWords } from "./coded-words.tsx";
+import { AgentLogin, useSignIn } from "./signing-in.tsx";
 
 /** Where adding begins: the catalogue, or another account of a provider in use. */
 export type AddStart = { readonly of: Provider | undefined };
@@ -228,28 +229,13 @@ function ConnectSignIn(props: { readonly provider: Provider; readonly onBack: ()
 }
 
 /**
- * Begins a sign-in to a provider, in a new tab opened as the person clicks, so no browser blocks it, sent to the issuer
- * once the node says where — or in this one where the browser opened none.
+ * A provider reached on this computer — through its agent, signed in to in a terminal here, or a server of the
+ * person's — and how it stands, asked again as they say, or as they are done signing in.
  */
-export function useSignIn(): (provider: string) => Promise<void> {
-	const client = useClient();
-	return async (provider) => {
-		const tab = window.open("", "_blank");
-		try {
-			const url = await client.signIn(provider);
-			if (tab === null) window.location.assign(url);
-			else tab.location.assign(url);
-		} catch (error) {
-			tab?.close();
-			throw error;
-		}
-	};
-}
-
-/** A provider reached on this computer — through its agent's own sign-in, or a server of the person's — and how it stands, asked again as they say. */
 function ConnectHere(props: { readonly provider: Provider; readonly onBack: () => void; readonly onConnected: () => void }): ReactNode {
 	const client = useClient();
 	const [status, setStatus] = useState<ProviderStatus | undefined>(undefined);
+	const [refused, setRefused] = useState<string | undefined>(undefined);
 	const [checking, startChecking] = useTransition();
 	const check = (): void =>
 		startChecking(async () => {
@@ -260,22 +246,33 @@ function ConnectHere(props: { readonly provider: Provider; readonly onBack: () =
 			setStatus(asked);
 			if (asked.connected) props.onConnected();
 		});
-	const agent = props.provider.connects === "agent";
+	const through = props.provider.through ?? "its agent";
 	return (
 		<>
 			<StepTitle provider={props.provider}>Connect {props.provider.name}</StepTitle>
 			<DialogDescription className="mt-2 text-ui text-balance text-muted-foreground">
-				{agent
-					? `Octoii reaches ${props.provider.name} through ${props.provider.through ?? "its agent"} on this computer, on its own sign-in.`
+				{props.provider.connects === "agent"
+					? `Octoii reaches ${props.provider.name} through ${through} on this computer. Sign in to it here; its login is kept on this computer.`
 					: `Start ${props.provider.name} on this computer; its models are listed as it answers.`}
 			</DialogDescription>
-			{status === undefined ? null : (
+			{props.provider.connects === "agent" ? (
+				<div className="mt-4">
+					<AgentLogin
+						provider={props.provider}
+						signedIn={false}
+						onDone={check}
+						onFailed={(error) => setRefused(error instanceof Error ? error.message : String(error))}
+					/>
+				</div>
+			) : null}
+			{status === undefined || status.connected ? null : (
 				<p className="mt-3 text-ui text-error-foreground">
 					<CodedWords text={standingOf(props.provider, status)} />
 				</p>
 			)}
+			{refused === undefined ? null : <p className="mt-2 text-ui text-error-foreground">{refused}</p>}
 			<StepFoot onBack={props.onBack}>
-				<Button size="sm" disabled={checking} onClick={check}>
+				<Button size="sm" variant={props.provider.connects === "agent" ? "outline" : "default"} disabled={checking} onClick={check}>
 					{checking ? "Checking…" : status === undefined ? "Check" : "Check again"}
 				</Button>
 			</StepFoot>
