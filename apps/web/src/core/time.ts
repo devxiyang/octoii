@@ -45,3 +45,13 @@ export function wakeLabel(at: number, now: number): string {
 	if (day.toDateString() === new Date(now).toDateString()) return time;
 	return `${day.toLocaleDateString([], { weekday: "short" })} ${time}`;
 }
+
+/** When something past was, as a reply's foot says it: its hour and minute that day, its date before them on another, its year too in another year. */
+export function pastLabel(at: number, now: number): string {
+	const day = new Date(at);
+	const today = new Date(now);
+	const time = day.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+	if (day.toDateString() === today.toDateString()) return time;
+	const year = day.getFullYear() === today.getFullYear() ? undefined : "numeric";
+	return `${day.toLocaleDateString([], { month: "short", day: "numeric", year })}, ${time}`;
+}

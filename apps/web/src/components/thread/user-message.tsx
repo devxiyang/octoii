@@ -1,18 +1,21 @@
 /**
  * The person's words on a bubble at the right, as markdown — their lines kept as they broke them, each file or folder
- * they mention a link shown by its name — over it the files they gave: the images on a strip of pictures, as the
- * pictures a call shows are, opened whole in the view; any other file by its name, opened whole in a tab; and, for a
- * sub-thread's task, a way to the thread it came from; and a button that copies the words as they were written, shown
- * as the message is pointed at or focused, and always where nothing points.
+ * they mention a link shown by its name, a long message by its first lines till the reader asks for the rest — over it
+ * the files they gave: the images on a strip of pictures, as the pictures a call shows are, opened whole in the view;
+ * any other file by its name, opened whole in a tab; and, for a sub-thread's task, a way to the thread it came from;
+ * and a button that copies the words as they were written, shown as the message is pointed at or focused, and always
+ * where nothing points.
  */
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { useThreads } from "@octoii-works/octoii-client/react";
 import { CornerLeftUp, FileText } from "lucide-react";
 import { type Attachment, fileAddress, isImage } from "../../core/attachments.ts";
+import { isLong } from "../../core/messages.ts";
 import { picturesGiven } from "../../core/pictures.ts";
 import type { Said } from "../../core/timeline.ts";
 import { useFileSource } from "../effects/file-source.ts";
 import { go } from "../state/navigation.ts";
+import { cn } from "../ui/cn.ts";
 import { CopyButton } from "../ui/copy-button.tsx";
 import { Prose } from "./markdown.tsx";
 import { PictureStrip } from "./pictures.tsx";
@@ -24,17 +27,36 @@ export function UserMessage(props: { readonly said: Said }): ReactNode {
 		<div className="group/message flex flex-col items-end gap-1">
 			{said.from === undefined ? null : <From thread={said.from} />}
 			{said.attachments.length === 0 ? null : <Given attachments={said.attachments} />}
-			{said.text === "" ? null : (
-				// The copy stands beside the bubble's foot, taking no room of its own, so the message keeps near its reply.
-				<div className="relative flex max-w-[80%] justify-end">
-					<div className="rounded-lg bg-muted px-4 py-2.5 text-foreground [&_:is(p,li)]:whitespace-pre-wrap">
-						<Prose text={said.text} className="text-body" />
-					</div>
-					<div className="absolute end-full bottom-0 me-1 opacity-0 transition-opacity group-focus-within/message:opacity-100 group-hover/message:opacity-100 pointer-coarse:opacity-100">
-						<CopyButton text={said.text} label="Copy message" />
-					</div>
-				</div>
-			)}
+			{said.text === "" ? null : <Bubble text={said.text} />}
+		</div>
+	);
+}
+
+/**
+ * The person's words on their bubble: a long message by its first lines, fading out where it is cut, till the reader
+ * asks for the rest; the copy beside the bubble's foot, taking no room of its own, so the message keeps near its reply.
+ */
+function Bubble(props: { readonly text: string }): ReactNode {
+	const [whole, setWhole] = useState(false);
+	const long = isLong(props.text);
+	return (
+		<div className="relative flex max-w-[80%] justify-end">
+			<div className="min-w-0 rounded-lg bg-muted px-3.5 py-2 text-foreground [&_:is(p,li)]:whitespace-pre-wrap">
+				<Prose text={props.text} className={cn("text-body", long && !whole && "max-h-48 overflow-hidden mask-b-from-36")} />
+				{long ? (
+					<button
+						type="button"
+						aria-expanded={whole}
+						onClick={() => setWhole(!whole)}
+						className="mt-1 block text-xs text-muted-foreground hover:text-foreground"
+					>
+						{whole ? "Show less" : "Show more"}
+					</button>
+				) : null}
+			</div>
+			<div className="absolute end-full bottom-0 me-1 opacity-0 transition-opacity group-focus-within/message:opacity-100 group-hover/message:opacity-100 pointer-coarse:opacity-100">
+				<CopyButton text={props.text} label="Copy message" />
+			</div>
 		</div>
 	);
 }

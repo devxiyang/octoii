@@ -31,6 +31,7 @@
         "react-virtuoso": "4.18.20",
         "remark-directive": "4.0.0",
         "remark-gfm": "4.0.1",
+        "shiki": "4.6.0",
         "tailwind-merge": "3.7.0",
         "typebox": "catalog:",
       },

@@ -2,24 +2,26 @@
  * A turn of the thread: the words that began it, or that steered it on — the person's, a task its parent gave it, or
  * what came of one it gave a sub-thread in the background; its work — as it comes while it works, folded under how long
  * it worked once it ended, but for the sub-threads it delegated to that still work; then its reply, a block at a time,
- * the files it changed, what waits on the person, why it failed where it did, and, while it works, what it does now and
- * how long it has worked. The reply stands in one place as the turn works and once it ended, so the blocks drawn while
- * it was written are kept as it ends; and a turn the same as it was is not drawn again, as only the turn that runs
- * changes. A turn that works only grows as it goes: its steps are added at the end, each fading in as it comes, and
- * what it does now changes its words in one line of its own, so nothing of it moves back as it calls its tools.
+ * the files it changed, what waits on the person, why it failed where it did, and, as its last line, what it does now
+ * and how long it has worked while it works, or its reply's foot once it ended. The reply stands in one place as the
+ * turn works and once it ended, so the blocks drawn while it was written are kept as it ends; and a turn the same as it
+ * was is not drawn again, as only the turn that runs changes. A turn that works only grows as it goes: its steps are
+ * added at the end, each fading in as it comes, and what it does now changes its words in one line of its own, so
+ * nothing of it moves back as it calls its tools.
  */
 import { memo, type ReactNode } from "react";
 import { CircleAlert, Globe } from "lucide-react";
 import { useThreads } from "@octoii-works/octoii-client/react";
 import { standingOf } from "../../core/sub-threads.ts";
 import { subThreadOf } from "../../core/threads.ts";
-import { duration, runningTime } from "../../core/time.ts";
+import { duration, pastLabel, runningTime } from "../../core/time.ts";
 import { callsIn, type Laid, laidOut, replyOf, type Said, type TimelineTurn, type Work } from "../../core/timeline.ts";
 import { verbOf } from "../../core/tools.ts";
 import { useArrived } from "../effects/arrived.ts";
-import { Counting } from "../effects/now.ts";
+import { Counting, useNow } from "../effects/now.ts";
 import { cn } from "../ui/cn.ts";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger, FoldChevron } from "../ui/collapsible.tsx";
+import { CopyButton } from "../ui/copy-button.tsx";
 import { AskInline } from "../composer/asks.tsx";
 import { Calls, Thought } from "./calls.tsx";
 import { TurnChanges } from "./changes.tsx";
@@ -52,11 +54,36 @@ export const Turn = memo(function Turn(props: { readonly thread: string; readonl
 					<AskInline key={ask.request.key} thread={props.thread} ask={ask} />
 				))}
 				{turn.ending.state === "failed" ? <FailureLine text={turn.ending.why} /> : null}
-				{working ? <Doing turn={turn} /> : null}
+				{working ? <Doing turn={turn} /> : <ReplyFoot text={replyOf(turn)} endedAt={turn.endedAt} />}
 			</div>
 		</div>
 	);
 });
+
+/**
+ * The foot of an ended turn's reply, the turn's last line: a button that copies the reply as it was written, and when
+ * the turn ended. Nothing where the turn wrote no reply.
+ */
+function ReplyFoot(props: { readonly text: string; readonly endedAt: number | undefined }): ReactNode {
+	if (props.text === "") return null;
+	return (
+		<div className="-ms-1.5 flex min-h-control-sm items-center gap-1 text-xs text-faint-foreground tabular-nums">
+			<CopyButton text={props.text} label="Copy reply" />
+			{props.endedAt === undefined ? null : <Ended at={props.endedAt} />}
+		</div>
+	);
+}
+
+/** When a turn ended, as the day it is read on says it — its hour that day, its date on another — the whole of it its tip. */
+function Ended(props: { readonly at: number }): ReactNode {
+	const now = useNow(60_000);
+	const at = new Date(props.at);
+	return (
+		<time dateTime={at.toISOString()} title={at.toLocaleString()}>
+			{pastLabel(props.at, now)}
+		</time>
+	);
+}
 
 /** Words a turn took: what came of a task given to a sub-thread, as its row; the person's, or a task from `parent`, as theirs. */
 function Words(props: { readonly said: Said; readonly parent: string | undefined }): ReactNode {

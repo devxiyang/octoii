@@ -1,7 +1,7 @@
 /** What a device has set, read from what the browser kept: each field that fits, the defaults for the rest. */
 import { describe, expect, it } from "bun:test";
 import { DEVICE_DEFAULTS, deviceOf, isDark } from "../src/core/device.ts";
-import { duration, mintedAt, runningTime, shortAgo } from "../src/core/time.ts";
+import { duration, mintedAt, pastLabel, runningTime, shortAgo } from "../src/core/time.ts";
 
 describe("a device's settings", () => {
 	it("keep each field the browser kept that fits, and the defaults for what it did not keep or keeps wrong", () => {
@@ -26,5 +26,18 @@ describe("times as the page writes them", () => {
 			"2d",
 			"5w",
 		]);
+	});
+
+	it("tell when a turn ended: the time alone that day, the day before it on another, and the year in another year", () => {
+		const now = new Date(2026, 10, 10, 18, 30).getTime();
+		const time = (at: Date): string => at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+		const sameDay = new Date(2026, 10, 10, 9, 5);
+		expect(pastLabel(sameDay.getTime(), now)).toBe(time(sameDay));
+		const dayBefore = new Date(2026, 10, 9, 23, 59);
+		expect(pastLabel(dayBefore.getTime(), now)).toBe(`${dayBefore.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time(dayBefore)}`);
+		const lastYear = new Date(2025, 11, 31, 8, 0);
+		const label = pastLabel(lastYear.getTime(), now);
+		expect(label).toContain("2025");
+		expect(label.endsWith(time(lastYear))).toBe(true);
 	});
 });

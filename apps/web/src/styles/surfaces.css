@@ -31,11 +31,39 @@
 	}
 }
 
-/* Code as the diff view draws it, through the library that draws it: the page's monospace, small; its headers' words in
- * the page's own face. */
+/*
+ * Code as the files' and the diff's views draw it, through the library that draws it: the page's monospace, small; its
+ * headers' words in the page's own face; and on the page's ground, opaque, as a gutter that keeps its place covers the
+ * lines scrolled under it — not the theme's own, a white and a black, which the library would paint.
+ */
 @utility code-view {
 	--diffs-font-family: var(--font-mono);
 	--diffs-header-font-family: var(--font-sans);
 	--diffs-font-size: 12px;
 	--diffs-line-height: 18px;
+
+	& > * {
+		--diffs-bg: var(--background);
+	}
+}
+
+/*
+ * Code as a message's well draws it, through the same library: nearer the words' size, on the well's own ground, its
+ * lines beginning where the well's head does; and as tall as its lines, `--code-lines` of them, before they are drawn,
+ * so nothing under it moves as they are.
+ */
+@utility code-well {
+	--diffs-font-family: var(--font-mono);
+	--diffs-font-size: 13px;
+	--diffs-line-height: 20px;
+	--diffs-gap-block: 8px;
+	/* A line pads itself by one of its characters; the well pads it the rest of the way to its head's inset. */
+	font-family: var(--diffs-font-family);
+	font-size: var(--diffs-font-size);
+	padding-inline: calc(var(--spacing) * 3 - 1ch);
+	min-height: calc(var(--code-lines) * var(--diffs-line-height) + 2 * var(--diffs-gap-block));
+
+	& > * {
+		--diffs-bg: transparent;
+	}
 }
