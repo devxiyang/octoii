@@ -1,53 +1,32 @@
 /**
- * The right panel, beside the chat: a bar of its tabs, which the arrow keys walk — the thread's views open, its files
- * and its changes, then each of its terminals, named by the title its program set, then each of its pages in the
- * browser, named by its title — with `+` to open a terminal, a page or a view, by its letter while the menu is open; the
- * tab chosen shown below, each other kept as it was while it is hidden, its terminal or page no longer followed; and on
- * the bar's right the button that has the panel fill the chat's place, or gives the chat its place back, and the one
- * that hides the panel, ⌘⌥B. A view's tab is named by what it shows, the Files view's by its file and that file's icon. A tab closes from its cross: a view's is taken out, a
- * terminal's closes the terminal, a page's the page. Beside the chat, its left edge drags it wider or narrower, the
- * width kept for the device.
+ * The panel's tabs, in the place the frame gives the panel: a bar of them, which the arrow keys walk — the thread's
+ * views open, its overview, its files and its changes, then each of its terminals, named by the title its program set,
+ * then each of its pages in the browser, named by its title — each as wide as its name, narrower where the bar runs
+ * out of room; `+` to open a terminal, a page or a view, by its letter while the menu is open; the tab chosen shown
+ * below, each other kept as it was while it is hidden, its terminal or page no longer followed; and the frame's own
+ * buttons — at the bar's left the one that shows the sidebar, where the panel stands at the page's left edge, at its
+ * right those that have the panel fill the page's column and that hide it. A view's tab is named by what it
+ * shows, the Files view's by its file and that file's icon. A tab closes from its cross: a view's is taken out, a
+ * terminal's closes the terminal, a page's the page.
  */
 import { Activity, type KeyboardEvent, type ReactNode, useState } from "react";
 import { Tabs } from "@base-ui/react/tabs";
 import type { PageListed, TerminalListed } from "@octoii-works/octoii-client";
 import { useClient } from "@octoii-works/octoii-client/react";
-import { FileDiff, Files, Globe, Maximize2, Minimize2, PanelRight, Plus, SquareTerminal, X } from "lucide-react";
+import { FileDiff, Files, Globe, Plus, SquareMenu, SquareTerminal, X } from "lucide-react";
 import { pageName } from "../../core/browser.ts";
 import { nameOf } from "../../core/files.ts";
 import { terminalName } from "../../core/terminal.ts";
-import { useDevice } from "../state/device.ts";
-import {
-	closeSurface,
-	pageKey,
-	placePanel,
-	type SurfaceKey,
-	showSurface,
-	terminalKey,
-	type ThreadPanel,
-	usePanelPlace,
-	useThreadPanel,
-	type View,
-} from "../state/panel.ts";
+import { closeSurface, pageKey, type SurfaceKey, showSurface, terminalKey, type ThreadPanel, useThreadPanel, type View } from "../state/panel.ts";
 import { PathIcon } from "../files/path-icon.tsx";
-import { Button, IconButton, ToggleButton } from "../ui/button.tsx";
+import { FillPanel, HidePanel, ShowSidebarFromPanel } from "../frame/frame.tsx";
+import { Button, IconButton } from "../ui/button.tsx";
 import { Menu, MenuItem, MenuItemLabel, MenuPopup, MenuShortcut, MenuTrigger } from "../ui/menu.tsx";
-import { useDragSize } from "../ui/resize.tsx";
-
-declare module "react" {
-	interface CSSProperties {
-		/** The right panel's width, as the person dragged it, which the panel keeps where it stands beside the chat. */
-		"--panel-width"?: string;
-	}
-}
 import { BrowserPane } from "../browser/browser-pane.tsx";
 import { DiffSurface } from "../diff/diff-surface.tsx";
 import { FilesSurface } from "../files/files-surface.tsx";
 import { TerminalPane } from "../terminal/terminal-pane.tsx";
 import { failed } from "../state/notices.ts";
-
-/** How narrow and how wide the panel may be dragged. */
-const PANEL_BOUNDS = { min: 360, max: 1400, grows: "left" } as const;
 
 /** The size a terminal opens at, before the view that opens it sizes it to its room. */
 const OPENED_SIZE = { rows: 24, cols: 80 } as const;
@@ -55,9 +34,10 @@ const OPENED_SIZE = { rows: 24, cols: 80 } as const;
 /** The size a page opens at, before the view that opens it lays it out at its room. */
 const OPENED_PAGE = { width: 1280, height: 800, scale: 1 } as const;
 
-/** What the panel is given: its thread, the folder it works in — none where it works in none — its terminals and its pages. */
+/** What the panel is given: its thread, the thread's overview, the folder it works in — none where it works in none — its terminals and its pages. */
 export type RightPanelProps = {
 	readonly thread: string;
+	readonly overview: ReactNode;
 	readonly folder: string | undefined;
 	readonly terminals: readonly TerminalListed[];
 	readonly pages: readonly PageListed[];
@@ -76,11 +56,8 @@ type Opening = { readonly label: string; readonly icon: typeof Files; readonly l
 
 /** The panel. */
 export function RightPanel(props: RightPanelProps): ReactNode {
-	const { device, set } = useDevice();
-	const { size: width, edge } = useDragSize(device.panel_width, PANEL_BOUNDS, (panel_width) => set({ panel_width }));
 	const client = useClient();
 	const place = useThreadPanel(props.thread);
-	const full = usePanelPlace() === "full";
 	const tabs: readonly Tab[] = [
 		...place.views.map((view) => viewTab(view, place)),
 		...props.terminals.map((terminal): Tab => ({
@@ -115,6 +92,7 @@ export function RightPanel(props: RightPanelProps): ReactNode {
 				);
 			},
 		},
+		{ label: "Overview", icon: SquareMenu, letter: "O", open: () => showSurface(props.thread, "overview") },
 		{ label: "Files", icon: Files, letter: "F", open: () => showSurface(props.thread, "files") },
 		{ label: "Diff", icon: FileDiff, letter: "D", open: () => showSurface(props.thread, "diff") },
 	];
@@ -124,54 +102,37 @@ export function RightPanel(props: RightPanelProps): ReactNode {
 		if ("page" in tab.shows) client.closePage(tab.shows.page.id).catch((error: unknown) => failed("The page could not be closed", error));
 	};
 	return (
-		// In the chat's place where it fills it; else beside the chat where the page is wide enough for both, over it where it is not.
-		<aside
-			style={{ "--panel-width": `${String(width)}px` }}
-			className={
-				full
-					? "relative flex h-full min-w-0 flex-1 flex-col bg-background"
-					: "relative flex h-full w-(--panel-width) max-w-[70vw] shrink-0 flex-col border-s border-border bg-background max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-20 max-lg:w-[min(var(--panel-width),100%)] max-lg:max-w-none max-lg:shadow-floating"
-			}
-		>
-			{full ? null : edge}
-			<Tabs.Root value={shown?.key ?? null} onValueChange={(key: SurfaceKey) => showSurface(props.thread, key)} className="flex min-h-0 flex-1 flex-col">
-				<div className="flex h-[var(--topbar-height)] shrink-0 items-center gap-1 px-2">
-					<Tabs.List aria-label="The panel's tabs" className="flex min-w-0 items-center gap-1 overflow-x-auto scrollbar-none">
-						{tabs.map((tab, index) => (
-							<TabButton key={tab.key} tab={tab} onClose={() => close(tab, index)} />
-						))}
-					</Tabs.List>
-					<OpenMenu openings={openings} />
-					<span className="flex-1" />
-					{/* Where the page is narrow, as a phone's, the panel takes the chat's whole place already. */}
-					<ToggleButton
-						label={full ? "Give the chat its place back" : "Fill the chat's place"}
-						pressed={full}
-						onPressedChange={(on) => placePanel(on ? "full" : "beside")}
-						className="max-md:hidden"
-					>
-						{full ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
-					</ToggleButton>
-					<ToggleButton label="Hide the panel" shortcut="⌘⌥B" pressed onPressedChange={() => placePanel("hidden")}>
-						<PanelRight className="size-4" />
-					</ToggleButton>
-				</div>
-				{shown === undefined ? <Empty openings={openings} /> : null}
-				{tabs.map((tab) => (
-					<Tabs.Panel key={tab.key} value={tab.key} keepMounted className="flex min-h-0 flex-1 flex-col">
-						<Activity mode={tab === shown ? "visible" : "hidden"}>
-							<Shown shows={tab.shows} thread={props.thread} folder={props.folder} revision={props.revision} />
-						</Activity>
-					</Tabs.Panel>
-				))}
-			</Tabs.Root>
-		</aside>
+		<Tabs.Root value={shown?.key ?? null} onValueChange={(key: SurfaceKey) => showSurface(props.thread, key)} className="flex min-h-0 flex-1 flex-col">
+			<div className="flex h-[var(--topbar-height)] shrink-0 items-center gap-1 px-2">
+				<ShowSidebarFromPanel />
+				{/* Positioned, as the list measures where a tab stands in it to keep the one chosen in view. */}
+				<Tabs.List aria-label="The panel's tabs" className="relative flex min-w-0 items-center gap-1 overflow-x-auto scrollbar-none">
+					{tabs.map((tab, index) => (
+						<TabButton key={tab.key} tab={tab} onClose={() => close(tab, index)} />
+					))}
+				</Tabs.List>
+				<OpenMenu openings={openings} />
+				<span className="flex-1" />
+				<FillPanel />
+				<HidePanel />
+			</div>
+			{shown === undefined ? <Empty openings={openings} /> : null}
+			{tabs.map((tab) => (
+				<Tabs.Panel key={tab.key} value={tab.key} keepMounted className="flex min-h-0 flex-1 flex-col">
+					<Activity mode={tab === shown ? "visible" : "hidden"}>
+						<Shown shows={tab.shows} overview={props.overview} thread={props.thread} folder={props.folder} revision={props.revision} />
+					</Activity>
+				</Tabs.Panel>
+			))}
+		</Tabs.Root>
 	);
 }
 
-/** The tab of a view of a thread's: its files, named by the file read; or its changes. */
+/** The tab of a view of a thread's: its overview; its files, named by the file read; or its changes. */
 function viewTab(view: View, place: ThreadPanel): Tab {
 	switch (view) {
+		case "overview":
+			return { key: view, icon: <SquareMenu />, label: "Overview", shows: { view } };
 		case "files":
 			return {
 				key: view,
@@ -185,10 +146,18 @@ function viewTab(view: View, place: ThreadPanel): Tab {
 }
 
 /** A tab's surface. */
-function Shown(props: { readonly shows: Shows; readonly thread: string; readonly folder: string | undefined; readonly revision: string }): ReactNode {
+function Shown(props: {
+	readonly shows: Shows;
+	readonly overview: ReactNode;
+	readonly thread: string;
+	readonly folder: string | undefined;
+	readonly revision: string;
+}): ReactNode {
 	if ("terminal" in props.shows) return <TerminalPane terminal={props.shows.terminal} />;
 	if ("page" in props.shows) return <BrowserPane page={props.shows.page} />;
 	switch (props.shows.view) {
+		case "overview":
+			return props.overview;
 		case "files":
 			return <FilesSurface thread={props.thread} folder={props.folder} />;
 		case "diff":
@@ -196,11 +165,15 @@ function Shown(props: { readonly shows: Shows; readonly thread: string; readonly
 	}
 }
 
-/** A tab: its icon and name, shaded while it is the one chosen; its cross shown as it is pointed at or focused, and always where nothing points. */
+/**
+ * A tab: its icon and name, shaded while it is the one chosen, as wide as its name and narrower, its name cut short,
+ * where the bar runs out of room; its cross shown as it is pointed at or focused, and always, larger, where a finger
+ * points.
+ */
 function TabButton(props: { readonly tab: Tab; readonly onClose: () => void }): ReactNode {
 	const { icon, label } = props.tab;
 	return (
-		<span className="group/tab flex h-control-sm max-w-48 shrink-0 items-center rounded-md text-ui text-muted-foreground hover:bg-accent has-data-active:bg-accent has-data-active:text-foreground">
+		<span className="group/tab flex h-control-sm max-w-48 min-w-30 items-center rounded-md text-ui text-muted-foreground hover:bg-accent has-data-active:bg-accent has-data-active:text-foreground">
 			<Tabs.Tab
 				value={props.tab.key}
 				title={label}
@@ -213,7 +186,7 @@ function TabButton(props: { readonly tab: Tab; readonly onClose: () => void }): 
 				type="button"
 				aria-label={`Close ${label}`}
 				onClick={props.onClose}
-				className="mr-1 flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm opacity-0 group-focus-within/tab:opacity-100 group-hover/tab:opacity-100 hover:bg-accent pointer-coarse:opacity-100"
+				className="mr-1 flex size-control-2xs shrink-0 cursor-pointer items-center justify-center rounded-sm opacity-0 group-focus-within/tab:opacity-100 group-hover/tab:opacity-100 hover:bg-accent pointer-coarse:size-control-xs pointer-coarse:opacity-100"
 			>
 				<X className="size-3" />
 			</button>
@@ -234,7 +207,7 @@ function OpenMenu(props: { readonly openings: readonly Opening[] }): ReactNode {
 	};
 	return (
 		<Menu open={open} onOpenChange={setOpen}>
-			<MenuTrigger render={<IconButton label="Open a terminal, a page or a view" />}>
+			<MenuTrigger render={<IconButton label="New tab" />}>
 				<Plus />
 			</MenuTrigger>
 			<MenuPopup className="w-48" onKeyDownCapture={onKeyDown}>
@@ -259,9 +232,9 @@ function openingOf(openings: readonly Opening[], event: KeyboardEvent): Opening 
 /** A panel with no tab: what `+` opens, offered at once. */
 function Empty(props: { readonly openings: readonly Opening[] }): ReactNode {
 	return (
-		<div className="flex flex-1 flex-col items-center justify-center gap-3 text-ui text-muted-foreground">
+		<div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 text-ui text-muted-foreground">
 			Nothing is open.
-			<div className="flex gap-2">
+			<div className="flex flex-wrap justify-center gap-2">
 				{props.openings.map((opening) => (
 					<Button key={opening.label} variant="outline" size="sm" onClick={opening.open}>
 						<opening.icon />

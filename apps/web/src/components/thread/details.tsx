@@ -1,15 +1,14 @@
 /**
- * A thread's details, on a card at the chat's top right where the chat has room for it beside its column, or in a
- * popover from the header's button where it has not: the machine the thread works on and its folder, which opens in
- * the Files view; the folder's repository — its branch, how far ahead of its upstream and behind, and the lines the
+ * A thread's overview, the panel's first view: the machine the thread works on and its folder, which opens in the
+ * Files view; the folder's repository — its branch, how far ahead of its upstream and behind, and the lines the
  * changes the Diff view shows gained and lost, which open it; the thread it came from and those it delegated to; how
- * full its window is, which opens what fills it and compacts it; and what its model's requests read, wrote and cost,
- * which opens where it went, request by request.
+ * full its window is, which unfolds what fills it and compacts it; and what its model's requests read, wrote and cost,
+ * which unfolds where it went, request by request.
  */
 import type { ReactNode } from "react";
 import type { Conversation, Listed, Repository, Turn, Usage } from "@octoii-works/octoii-client";
 import { useConnection, useThreads } from "@octoii-works/octoii-client/react";
-import { Coins, CornerLeftUp, FileDiff, Folder, FolderX, Gauge, GitBranch, Laptop, SquareMenu } from "lucide-react";
+import { Coins, CornerLeftUp, FileDiff, Folder, FolderX, Gauge, GitBranch, Laptop } from "lucide-react";
 import { cachedShare, type Context, contextOf, fullnessOf } from "../../core/details.ts";
 import { defaultScope, scopeName, shortCount, totalsOf } from "../../core/diff.ts";
 import { modelOf } from "../../core/models.ts";
@@ -18,79 +17,43 @@ import { standingOf, workedOf } from "../../core/sub-threads.ts";
 import { folderName, subThreadsOf, threadTitle } from "../../core/threads.ts";
 import { useDirectory } from "../composer/directory.ts";
 import { useOutcome } from "../effects/read.ts";
-import { showDetails, useDetailsShown } from "../state/details.ts";
 import { go } from "../state/navigation.ts";
 import { showSurface, useThreadPanel } from "../state/panel.ts";
-import { IconButton, ToggleButton } from "../ui/button.tsx";
 import { cn } from "../ui/cn.ts";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger, FoldChevron } from "../ui/collapsible.tsx";
 import { Meter } from "../ui/meter.tsx";
-import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover.tsx";
 import { RollingNumber } from "../ui/rolling-number.tsx";
-import { SpendingCard } from "./spending.tsx";
-import { ContextCard } from "./context-card.tsx";
+import { Requests } from "./requests.tsx";
+import { ContextParts } from "./context-parts.tsx";
 import { isCompacting } from "../../core/context.ts";
 import { SubThreadAvatar, WorkedFor } from "./sub-thread.tsx";
 
-/** What the card tells of: the thread, as it is listed, its turns, and where its turns stand, which its repository is read again at. */
+/** What the overview tells of: the thread, as it is listed, its turns, and where its turns stand, which its repository is read again at. */
 export type DetailsProps = {
 	readonly thread: string;
 	readonly row: Listed | undefined;
 	readonly turns: readonly Turn[];
-	/** The thread's compactions, whose requests' spending its card tells among the turns'. */
+	/** The thread's compactions, whose requests' spending is told among the turns'. */
 	readonly compactions: Conversation["compactions"];
 	readonly revision: string;
 };
 
-/**
- * The header's buttons of the card: where the chat has room, one that shows the card beside the column or hides it;
- * where it has not, one that opens it as a popover.
- */
-export function DetailsButtons(props: DetailsProps): ReactNode {
-	const shown = useDetailsShown();
-	return (
-		<>
-			<ToggleButton label="Thread details" pressed={shown} onPressedChange={showDetails} className="hidden details-inline:inline-flex">
-				<SquareMenu className="size-4" />
-			</ToggleButton>
-			<Popover>
-				<PopoverTrigger render={<IconButton label="Thread details" className="details-inline:hidden" />}>
-					<SquareMenu className="size-4" />
-				</PopoverTrigger>
-				<PopoverPopup side="bottom" align="end" className="w-(--details-width) max-w-[calc(100vw-1rem)]">
-					<DetailsCard {...props} />
-				</PopoverPopup>
-			</Popover>
-		</>
-	);
-}
-
-/** The card beside the chat's column, at its top right, where the chat has room for it and the person shows it; fading in as it comes. */
-export function InlineDetails(props: DetailsProps): ReactNode {
-	if (!useDetailsShown()) return null;
-	return (
-		<aside
-			aria-label="Thread details"
-			className="floating absolute top-[calc(var(--topbar-height)+0.25rem)] right-3 z-20 hidden max-h-[calc(100%-var(--topbar-height)-1rem)] w-(--details-width) overflow-y-auto rounded-md transition-[opacity,scale] duration-150 details-inline:block starting:scale-98 starting:opacity-0 motion-reduce:transition-none"
-		>
-			<DetailsCard {...props} />
-		</aside>
-	);
-}
-
-/** The card's sections, a line between each two. */
-function DetailsCard(props: DetailsProps): ReactNode {
+/** The overview: its sections down a column no wider than reads well, a line between each two, scrolled as one. */
+export function Details(props: DetailsProps): ReactNode {
 	const folder = props.row?.manifest.workspace;
 	return (
-		<div className="flex flex-col divide-y divide-border text-ui">
-			<Workspace thread={props.thread} folder={folder} />
-			{folder === undefined ? null : <VersionControl thread={props.thread} folder={folder} revision={props.revision} />}
-			<Lineage thread={props.thread} row={props.row} />
-			<Spending thread={props.thread} row={props.row} turns={props.turns} compactions={props.compactions} />
+		<div className="min-h-0 flex-1 overflow-y-auto">
+			<div className="mx-auto flex max-w-[var(--chat-width)] flex-col divide-y divide-border text-ui">
+				<Workspace thread={props.thread} folder={folder} />
+				{folder === undefined ? null : <VersionControl thread={props.thread} folder={folder} revision={props.revision} />}
+				<Lineage thread={props.thread} row={props.row} />
+				<Spending thread={props.thread} row={props.row} turns={props.turns} compactions={props.compactions} />
+			</div>
 		</div>
 	);
 }
 
-/** A row of the card: its icon, its words and what it says at its end; a button where it opens something. */
+/** A row of the overview: its icon, its words and what it says at its end; a button where it opens something. */
 function DetailRow(props: {
 	readonly icon: ReactNode;
 	readonly label: ReactNode;
@@ -115,8 +78,7 @@ function DetailRow(props: {
 
 /** A row's look, and that of one that opens something. */
 const ROW = "flex h-control w-full min-w-0 items-center gap-2.5 rounded-md px-2 text-left [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground";
-const OPENING =
-	"cursor-pointer hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset data-popup-open:bg-accent";
+const OPENING = "cursor-pointer hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset";
 
 /** A row's icon, its words, and what stands beside them. */
 function RowContent(props: { readonly icon: ReactNode; readonly label: ReactNode; readonly aside?: ReactNode }): ReactNode {
@@ -135,7 +97,7 @@ function Workspace(props: { readonly thread: string; readonly folder: string | u
 	const machine = connection.status === "open" ? connection.environment : undefined;
 	const { folder } = props;
 	return (
-		<section className="p-1.5">
+		<section className="p-2">
 			<DetailRow icon={<Laptop />} label={machine ?? "This machine"} />
 			{folder === undefined ? (
 				<DetailRow icon={<FolderX />} label="Works in no folder" />
@@ -152,7 +114,7 @@ function VersionControl(props: { readonly thread: string; readonly folder: strin
 	if (outcome === undefined) return null;
 	if ("failure" in outcome) {
 		return (
-			<section className="p-1.5">
+			<section className="p-2">
 				<DetailRow icon={<GitBranch />} label={outcome.failure} title={outcome.failure} />
 			</section>
 		);
@@ -160,14 +122,14 @@ function VersionControl(props: { readonly thread: string; readonly folder: strin
 	const repository = outcome.result.repository;
 	if (repository === undefined) {
 		return (
-			<section className="p-1.5">
+			<section className="p-2">
 				<DetailRow icon={<GitBranch />} label="Not a git repository" />
 			</section>
 		);
 	}
 	const tracking = [repository.ahead > 0 ? `↑${String(repository.ahead)}` : "", repository.behind > 0 ? `↓${String(repository.behind)}` : ""].join(" ").trim();
 	return (
-		<section className="p-1.5">
+		<section className="p-2">
 			<DetailRow
 				icon={<GitBranch />}
 				label={repository.branch ?? `Detached at ${repository.head?.slice(0, 7) ?? "no commit"}`}
@@ -210,7 +172,7 @@ function Lineage(props: { readonly thread: string; readonly row: Listed | undefi
 	if (parent === undefined && children.length === 0) return null;
 	const parentRow = rows.find((each) => each.id === parent);
 	return (
-		<section className="p-1.5">
+		<section className="p-2">
 			{parent === undefined ? null : (
 				<DetailRow
 					icon={<CornerLeftUp />}
@@ -247,7 +209,7 @@ function Spending(props: {
 	const usage = props.row?.standing.usage;
 	if (context === undefined && usage === undefined) return null;
 	return (
-		<section className="p-1.5">
+		<section className="p-2">
 			{context === undefined ? null : <ContextRow thread={props.thread} context={context} compacting={isCompacting(props.row)} />}
 			{usage === undefined ? null : <UsageRow usage={usage} turns={props.turns} compactions={props.compactions} />}
 		</section>
@@ -257,55 +219,56 @@ function Spending(props: {
 /** Each fullness's tone. */
 const TONES = { room: "default", filling: "warning", full: "error" } as const;
 
-/** How full the window is: the tokens it holds of the most its model takes, and a meter of it, opening what fills it; while it compacts, so told. */
+/** How full the window is: the tokens it holds of the most its model takes, and a meter of it, unfolding what fills it; while it compacts, so told. */
 function ContextRow(props: { readonly thread: string; readonly context: Context; readonly compacting: boolean }): ReactNode {
 	const { used, window } = props.context;
 	const words = `${tokens(used)} of ${tokens(window)} tokens`;
 	return (
-		<Popover>
-			<PopoverTrigger render={<button type="button" className={cn("flex w-full flex-col gap-1.5 rounded-md px-2 pt-1.5 pb-2 text-left", OPENING)} />}>
+		<Collapsible>
+			<CollapsibleTrigger className={cn("flex w-full flex-col gap-1.5 rounded-md px-2 pt-1.5 pb-2 text-left", OPENING)}>
 				<span className="flex w-full items-center gap-2.5 [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground">
 					<Gauge />
 					<span className="flex-1">{props.compacting ? <span className="shimmer">Compacting</span> : "Context"}</span>
 					<span className="text-xs text-muted-foreground tabular-nums">
 						<RollingNumber value={used} format={TOKENS_FORMAT} /> / {tokens(window)}
 					</span>
+					<FoldChevron />
 				</span>
 				<Meter value={used} max={window} label="Context" valueText={words} tone={TONES[fullnessOf(props.context)]} />
-			</PopoverTrigger>
-			<PopoverPopup side="left" align="start" sideOffset={12} className="w-[min(22rem,calc(100vw-2rem))] p-0">
-				<ContextCard thread={props.thread} window={window} compacting={props.compacting} />
-			</PopoverPopup>
-		</Popover>
+			</CollapsibleTrigger>
+			<CollapsiblePanel>
+				<ContextParts thread={props.thread} window={window} compacting={props.compacting} />
+			</CollapsiblePanel>
+		</Collapsible>
 	);
 }
 
-/** What the thread's requests read and wrote — how much of it came from the cache — and what they cost, opening where it went. */
+/** What the thread's requests read and wrote — how much of it came from the cache — and what they cost, unfolding where it went. */
 function UsageRow(props: { readonly usage: Usage; readonly turns: readonly Turn[]; readonly compactions: Conversation["compactions"] }): ReactNode {
 	const { usage } = props;
 	const cached = cachedShare(usage);
 	const read = `${tokens(usage.input_tokens)} in · ${tokens(usage.output_tokens)} out`;
 	const dollars = usage.cost_nanodollars / 1e9;
 	return (
-		<Popover>
-			<PopoverTrigger
-				render={
-					<button type="button" title={cached === undefined ? read : `${read}, ${String(cached)}% of what was read cached`} className={cn(ROW, OPENING)} />
-				}
-			>
+		<Collapsible>
+			<CollapsibleTrigger title={cached === undefined ? read : `${read}, ${String(cached)}% of what was read cached`} className={cn(ROW, OPENING)}>
 				<RowContent
 					icon={<Coins />}
 					label={usage.cost_nanodollars > 0 ? <RollingNumber value={dollars} format={dollarsFormat(dollars)} /> : "Usage"}
 					aside={
-						<span>
-							<RollingNumber value={usage.input_tokens} format={TOKENS_FORMAT} /> in · <RollingNumber value={usage.output_tokens} format={TOKENS_FORMAT} /> out
-						</span>
+						<>
+							<span>
+								<RollingNumber value={usage.input_tokens} format={TOKENS_FORMAT} /> in · <RollingNumber value={usage.output_tokens} format={TOKENS_FORMAT} />{" "}
+								out
+							</span>
+							<FoldChevron />
+						</>
 					}
 				/>
-			</PopoverTrigger>
-			<PopoverPopup side="left" align="start" sideOffset={12} className="w-[min(40rem,calc(100vw-2rem))] p-0">
-				<SpendingCard usage={usage} turns={props.turns} compactions={props.compactions} />
-			</PopoverPopup>
-		</Popover>
+			</CollapsibleTrigger>
+			<CollapsiblePanel>
+				<Requests usage={usage} turns={props.turns} compactions={props.compactions} />
+			</CollapsiblePanel>
+		</Collapsible>
 	);
 }

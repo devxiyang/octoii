@@ -6,24 +6,22 @@
  * them back down; its place kept as earlier turns are read in above it. Nothing of the thread stands till its latest
  * entries are read; then its turns fade in, as the page first shows them, so a thread opens rather than appears; and
  * each row that comes after fades in as it does, once. Above the turns, where the client holds the latest of the
- * log alone, a button that reads further back. At the bottom of the page floats what stands over the turns — the
- * composer and what docks on it — however few the turns are, the turns scrolling under it, and their end keeping room
- * as tall as it stands, so the last of them is never under it.
+ * log alone, a button that reads further back. The list takes the room between the page's header and what docks at
+ * its foot, and keeps to its end as that room shrinks under a reader who is there.
  */
-import { type AnimationEvent, type ComponentProps, type ReactNode, type RefObject, useRef, useState } from "react";
+import { type AnimationEvent, type ComponentProps, type ReactNode, useRef, useState } from "react";
 import { ArrowDown, ShieldQuestion } from "lucide-react";
 import { type ContextProp, Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import type { TimelineRow } from "../../core/timeline.ts";
 import { AskInline } from "../composer/asks.tsx";
 import { LimitedCard } from "./limited.tsx";
 import { useArrived } from "../effects/arrived.ts";
-import { useRoomKept } from "../effects/room.ts";
 import { cn } from "../ui/cn.ts";
 import { SummedUp, Turn } from "./turn.tsx";
 
 /**
  * What the timeline shows: the thread, and its parent where it is a sub-thread; the rows held, whether they reach the
- * log's start, how to read further back, and what floats at its foot.
+ * log's start, and how to read further back.
  */
 export type TimelineProps = {
 	readonly thread: string;
@@ -35,7 +33,6 @@ export type TimelineProps = {
 	/** How many requests wait on the person, whose cards stand in the turns. */
 	readonly waiting: number;
 	readonly onEarlier: () => void;
-	readonly foot: ReactNode;
 };
 
 /** What the list's head and its turns are given: whether the thread's latest entries were read, whether the turns reach the log's start and there are any, and how to read further back. */
@@ -53,23 +50,16 @@ export function Timeline(props: TimelineProps): ReactNode {
 	const list = useRef<VirtuosoHandle>(null);
 	const [atBottom, setAtBottom] = useState(true);
 	const firstIndex = useFirstIndex(props.rows);
-	const holder = useRef<HTMLDivElement>(null);
-	const scroller = useRef<HTMLElement | null>(null);
-	const atEnd = useRef(true);
-	const keepRoom = useRoomKept(holder, scroller, atEnd);
 	// What came after the thread's latest entries were read fades in as it comes, once: a row the list draws again as it
 	// is scrolled back to stands as it was.
 	const arrived = useArrived(props.read ? props.rows.map((row) => row.key) : undefined);
 	const faded = useRef(new Set<string>());
 	const ends: Ends = { read: props.read, complete: props.complete, empty: props.rows.length === 0, onEarlier: props.onEarlier };
 	return (
-		<div ref={holder} className="relative flex min-h-0 flex-1 flex-col">
+		<div className="relative flex min-h-0 flex-1 flex-col">
 			<Virtuoso<TimelineRow, Ends>
 				ref={list}
-				scrollerRef={(element) => {
-					scroller.current = element instanceof HTMLElement ? element : null;
-				}}
-				className="min-h-0 flex-1"
+				className="min-h-0 flex-1 scrollbar-even"
 				data={props.rows}
 				context={ends}
 				firstItemIndex={firstIndex}
@@ -78,13 +68,10 @@ export function Timeline(props: TimelineProps): ReactNode {
 				// Kept to the end at once as the turns grow while the reader is there — what comes fades in, so a scroll that
 				// glided would chase it, each growth starting another; let be once they scroll up.
 				followOutput={(bottom) => (bottom ? "auto" : false)}
-				atBottomStateChange={(bottom) => {
-					atEnd.current = bottom;
-					setAtBottom(bottom);
-				}}
+				atBottomStateChange={setAtBottom}
 				atBottomThreshold={64}
 				increaseViewportBy={{ top: 1200, bottom: 600 }}
-				components={{ Header: Head, List: Turns, Footer: Room }}
+				components={{ Header: Head, List: Turns }}
 				itemContent={(_, row) => {
 					const fades = arrived(row.key) && !faded.current.has(row.key);
 					const done = (event: AnimationEvent): void => {
@@ -97,9 +84,7 @@ export function Timeline(props: TimelineProps): ReactNode {
 					);
 				}}
 			/>
-			<Foot measure={keepRoom} waiting={props.waiting} list={list} atBottom={atBottom}>
-				{props.foot}
-			</Foot>
+			{atBottom ? null : <Latest waiting={props.waiting} onLatest={() => list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" })} />}
 		</div>
 	);
 }
@@ -177,51 +162,29 @@ function Head(props: ContextProp<Ends>): ReactNode {
 	);
 }
 
-/** The list's end: room as tall as what floats over the turns, as the foot's height is kept, so the last of them stands above it. */
-function Room(): ReactNode {
-	return <div className="h-(--room)" />;
-}
+/** Where the way back down stands: over the list's foot, in its middle, coming in as the reader leaves the end. */
+const LATEST =
+	"absolute bottom-3 left-1/2 z-10 flex h-control -translate-x-1/2 items-center justify-center rounded-full border border-border bg-background shadow-floating transition-[opacity,scale] duration-150 starting:scale-90 starting:opacity-0 motion-reduce:transition-none";
 
-/**
- * The foot, at the bottom of the page whatever the turns: what floats over them, measured for the room the list keeps,
- * and the way back down over it where the reader left the end — saying how many requests wait on the person there,
- * where any do.
- */
-function Foot(props: {
-	readonly measure: (element: HTMLElement | null) => (() => void) | undefined;
-	readonly waiting: number;
-	readonly list: RefObject<VirtuosoHandle | null>;
-	readonly atBottom: boolean;
-	readonly children: ReactNode;
-}): ReactNode {
-	const { measure, waiting, list, atBottom, children } = props;
-	const latest = (): void => list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" });
+/** The way back down to the list's end, where the reader left it — saying how many requests wait on the person there, where any do. */
+function Latest(props: { readonly waiting: number; readonly onLatest: () => void }): ReactNode {
+	if (props.waiting > 0) {
+		return (
+			<button type="button" onClick={props.onLatest} className={cn(LATEST, "gap-1.5 px-3 text-ui whitespace-nowrap text-warning-foreground")}>
+				<ShieldQuestion className="size-4" />
+				{props.waiting === 1 ? "Waiting for you" : `${String(props.waiting)} waiting for you`}
+				<ArrowDown className="size-3.5" />
+			</button>
+		);
+	}
 	return (
-		// The foot lets the turns under it be pointed at, but for what it holds.
-		<div ref={measure} className="pointer-events-none absolute inset-x-0 bottom-0 pt-6 pb-[max(--spacing(4),env(safe-area-inset-bottom))]">
-			<div className="pointer-events-auto relative chat-column">
-				{atBottom ? null : waiting > 0 ? (
-					<button
-						type="button"
-						onClick={latest}
-						className="absolute bottom-full left-1/2 mb-3 flex h-control -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-ui whitespace-nowrap text-warning-foreground shadow-floating transition-[opacity,scale] duration-150 starting:scale-90 starting:opacity-0 motion-reduce:transition-none"
-					>
-						<ShieldQuestion className="size-4" />
-						{waiting === 1 ? "Waiting for you" : `${String(waiting)} waiting for you`}
-						<ArrowDown className="size-3.5" />
-					</button>
-				) : (
-					<button
-						type="button"
-						aria-label="Back to the latest"
-						onClick={latest}
-						className="absolute bottom-full left-1/2 mb-3 flex size-control -translate-x-1/2 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-floating transition-[opacity,scale] duration-150 hover:text-foreground starting:scale-90 starting:opacity-0 motion-reduce:transition-none"
-					>
-						<ArrowDown className="size-4" />
-					</button>
-				)}
-				{children}
-			</div>
-		</div>
+		<button
+			type="button"
+			aria-label="Back to the latest"
+			onClick={props.onLatest}
+			className={cn(LATEST, "w-control text-muted-foreground hover:text-foreground")}
+		>
+			<ArrowDown className="size-4" />
+		</button>
 	);
 }

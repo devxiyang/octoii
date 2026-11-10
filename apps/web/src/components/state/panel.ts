@@ -1,19 +1,21 @@
 /**
- * The right panel, one for the app: where it stands — hidden, beside the chat, or filling the chat's place — and for
- * each thread what it shows — the views of the thread's
- * open in it, in order, and the tab shown; the file its Files view reads, and the folders open in its tree; the changes
- * its Diff view shows — so a thread finds its own as the person comes back to it. Its terminals and its pages in the
- * browser are the node's, a tab each after the views, never kept here. Anything that names a path opens it there: a
- * file chosen in the tree or named in a message is read, a folder a search finds or a message names is opened in the
- * tree. A store of the page's, outside any component, as
- * the window's place is.
+ * The panel, one for the app: where it stands — hidden, beside the page's column, or filling the column's place, as
+ * the frame lays it out — and for each thread what it shows: the views of the thread's open in it, in order, and the
+ * tab shown; the file its Files view reads, and the folders open in its tree; the changes its Diff view shows — so a
+ * thread finds its own as the person comes back to it. Its terminals and its pages in the browser are the node's, a
+ * tab each after the views, never kept here. Anything that names a path opens it there: a file chosen in the tree or
+ * named in a message is read, a folder a search finds or a message names is opened in the tree. A store of the page's,
+ * outside any component, as the window's place is.
  */
 import { useSyncExternalStore } from "react";
 import type { ChangesScope } from "@octoii-works/octoii-client";
 import { childPath, crumbsOf, isWholePath } from "../../core/files.ts";
 
-/** A view of a thread's the panel opens: its files, or the changes in its repository. */
-export type View = "files" | "diff";
+/** A view of a thread's the panel opens: its overview, its files, or the changes in its repository. */
+export type View = "overview" | "files" | "diff";
+
+/** Every view. */
+const VIEWS: readonly string[] = ["overview", "files", "diff"] satisfies readonly View[];
 
 /** What a tab of the panel shows, by its key: a view; one of the thread's terminals, `terminal:` and its id; or one of its pages, `page:` and its id. */
 export type SurfaceKey = View | `terminal:${string}` | `page:${string}`;
@@ -30,14 +32,14 @@ export type ThreadPanel = {
 	readonly scope: ChangesScope | undefined;
 };
 
-/** Where the panel stands: hidden, beside the chat, or filling the chat's place. */
+/** Where the panel stands: hidden, beside the page's column, or filling the column's place. */
 export type PanelPlace = "hidden" | "beside" | "full";
 
 /** The panel: where it stands, and each thread's. */
 type Panel = { readonly place: PanelPlace; readonly threads: ReadonlyMap<string, ThreadPanel> };
 
-/** Where a thread's panel begins: its files open, no file read, no folder open. */
-const FRESH: ThreadPanel = { views: ["files"], shown: undefined, folders: new Set(), scope: undefined };
+/** Where a thread's panel begins: its overview and its files open, the overview shown, no file read, no folder open. */
+const FRESH: ThreadPanel = { views: ["overview", "files"], shown: undefined, folders: new Set(), scope: undefined };
 
 let panel: Panel = { place: "hidden", threads: new Map() };
 const listeners = new Set<() => void>();
@@ -57,7 +59,7 @@ function changeThread(thread: string, place: PanelPlace, changed: (shows: Thread
 	change({ place, threads: new Map(panel.threads).set(thread, changed(panel.threads.get(thread) ?? FRESH)) });
 }
 
-/** Where the panel stands once it shows something: where it stood, beside the chat where it was hidden. */
+/** Where the panel stands once it shows something: where it stood, beside the page's column where it was hidden. */
 function shownPlace(): PanelPlace {
 	return panel.place === "hidden" ? "beside" : panel.place;
 }
@@ -74,7 +76,7 @@ export function pageKey(id: string): SurfaceKey {
 
 /** Whether `key` is a view's, not a terminal's nor a page's. */
 function isView(key: SurfaceKey): key is View {
-	return key === "files" || key === "diff";
+	return VIEWS.includes(key);
 }
 
 /** `place` with the tab of `key` shown: a view opened, where it was not. */
@@ -93,7 +95,7 @@ export function useThreadPanel(thread: string): ThreadPanel {
 	return useSyncExternalStore(subscribe, () => panel.threads.get(thread) ?? FRESH);
 }
 
-/** Stands the panel at `place`: hidden, beside the chat, or filling its place. */
+/** Stands the panel at `place`: hidden, beside the page's column, or filling its place. */
 export function placePanel(place: PanelPlace): void {
 	change({ ...panel, place });
 }

@@ -16,18 +16,17 @@ import { contentOf } from "../core/attachments.ts";
 import { folderName, type Project, projectsOf } from "../core/threads.ts";
 import { Composer } from "../components/composer/composer.tsx";
 import { FolderChooser } from "../components/files/folder-chooser.tsx";
+import { Pane } from "../components/frame/frame.tsx";
 import { go } from "../components/state/navigation.ts";
 import { ChatHeader } from "../components/thread/header.tsx";
 import { Menu, MenuItem, MenuItemLabel, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "../components/ui/menu.tsx";
 import { ProjectMark } from "../components/files/project-mark.tsx";
 import { ServersMenu } from "../components/servers/servers-menu.tsx";
 
-/** What the new thread's page is given: the project's folder asked for, the device's settings, and the sidebar's state. */
+/** What the new thread's page is given: the project's folder asked for, and the device's settings. */
 export type NewThreadScreenProps = {
 	readonly project: string | undefined;
 	readonly device: Device;
-	readonly sidebarHidden: boolean;
-	readonly onShowSidebar: () => void;
 };
 
 /** The folder the person chose to work in, or that they chose none. */
@@ -52,16 +51,11 @@ export function NewThreadScreen(props: NewThreadScreenProps): ReactNode {
 		setChoosing(false);
 	};
 	return (
-		<div className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
-			<ChatHeader
-				title="New thread"
-				{...(folder === undefined ? {} : { project: { folder, name: folderName(folder) } })}
-				sidebarHidden={props.sidebarHidden}
-				onShowSidebar={props.onShowSidebar}
-			/>
+		<Pane>
+			<ChatHeader title="New thread" {...(folder === undefined ? {} : { project: { folder, name: folderName(folder) } })} />
 			<div className="flex flex-1 items-center justify-center px-4 pb-[12vh]">
 				<div className="w-full max-w-[var(--chat-width)]">
-					<h1 className="mb-6 text-center text-title font-normal tracking-tight sm:text-title">
+					<h1 className="mb-6 text-center text-title font-normal tracking-tight">
 						{folder === undefined ? "What should we work on?" : `What should we build in ${folderName(folder)}?`}
 					</h1>
 					{/* The composer stands over the folder's strip, which shows from under its foot. */}
@@ -94,7 +88,7 @@ export function NewThreadScreen(props: NewThreadScreenProps): ReactNode {
 					<FolderChooser open={choosing} onOpenChange={setChoosing} start={folder} projects={projects} onChoose={choose} />
 				</div>
 			</div>
-		</div>
+		</Pane>
 	);
 }
 

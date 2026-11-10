@@ -1,6 +1,6 @@
 /*
- * What the surfaces share beyond their colours: a scroller whose bar is not drawn; the shimmer of work that goes on,
- * still where the person asks for less motion; and code as the views draw it.
+ * What the surfaces share beyond their colours: a scroller whose bar is not drawn, and one whose bar moves nothing;
+ * the shimmer of work that goes on, still where the person asks for less motion; and code as the views draw it.
  */
 
 /* A scroller whose bar is not drawn: it scrolls by the wheel, a touch or the keys alone. */
@@ -9,6 +9,11 @@
 	&::-webkit-scrollbar {
 		display: none;
 	}
+}
+
+/* Room for a scroller's bar kept on both edges, of the scroller and of what stands in a column with it, so the bar moves nothing and both are centred alike. */
+@utility scrollbar-even {
+	scrollbar-gutter: stable both-edges;
 }
 
 /* Text whose work goes on: a band of the text dimmed sweeps across it, by a mask, so the text keeps its own colour. */

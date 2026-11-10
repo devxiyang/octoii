@@ -1,21 +1,20 @@
 /**
- * The sidebar: the brand, and on its right the button that hides it; search, a project filter and a new thread, the project filtered
+ * The sidebar: the brand, and on its right the frame's button that hides it; search, a project filter and a new thread, the project filtered
  * on named under them where one is; the threads of every project in one list, each card naming its project — those
  * pinned atop, then those open to the person, what asks them first, then those that work under their heading, and at
  * the foot, folded, those snoozed and the earlier, a line each, those archived not at all — a sub-thread on its
- * parent's card, by their count and how they stand; and settings at its foot. Beside the chat, its right edge drags it
- * wider or narrower, the width kept for the device; where the page is narrow, it is a drawer over the page instead.
+ * parent's card, by their count and how they stand; and settings at its foot.
  */
 import { type ReactNode, useRef, useState } from "react";
 import type { Listed } from "@octoii-works/octoii-client";
 import { useThreads } from "@octoii-works/octoii-client/react";
-import { Activity, AlarmClock, FolderOpen, History, ListFilter, PanelLeft, Pin, Search, Settings, SquarePen, X } from "lucide-react";
+import { Activity, AlarmClock, FolderOpen, History, ListFilter, Pin, Search, Settings, SquarePen, X } from "lucide-react";
 import type { Overlay, Route } from "../../core/route.ts";
 import { lineOf, matchingRows, type Project, projectOf, projectsOf, rowsBySection, standingsOf, subThreadsBy } from "../../core/threads.ts";
 import { useArrived } from "../effects/arrived.ts";
 import { useGlide } from "../effects/glide.ts";
 import { useNow } from "../effects/now.ts";
-import { useDevice } from "../state/device.ts";
+import { HideSidebar } from "../frame/frame.tsx";
 import { go } from "../state/navigation.ts";
 import { IconButton } from "../ui/button.tsx";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger, FoldChevron } from "../ui/collapsible.tsx";
@@ -23,47 +22,16 @@ import { Input } from "../ui/input.tsx";
 import { Menu, MenuItemLabel, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "../ui/menu.tsx";
 import { ProjectMark } from "../files/project-mark.tsx";
 import { cn } from "../ui/cn.ts";
-import { Drawer, DrawerPopup, DrawerSwipeArea, DrawerTitle } from "../ui/drawer.tsx";
-import { useDragSize } from "../ui/resize.tsx";
 import { ThreadCard, ThreadLine } from "./thread-row.tsx";
 
-/** What the sidebar is given: the place shown, and how it hides and opens settings over the chat. */
+/** What the sidebar is given: the place shown, and how it opens settings over the page. */
 export type SidebarProps = {
 	readonly route: Route;
-	readonly onHide: () => void;
 	readonly onOverlay: (over: Overlay) => void;
 };
 
-/** How narrow and how wide the sidebar may be dragged. */
-const SIDEBAR_BOUNDS = { min: 200, max: 480, grows: "right" } as const;
-
-/** The sidebar beside the chat, its right edge dragged to make it wider or narrower. */
+/** The sidebar, as the frame stands it: beside the page, or in a drawer over it. */
 export function Sidebar(props: SidebarProps): ReactNode {
-	const { device, set } = useDevice();
-	const { size: width, edge } = useDragSize(device.sidebar_width, SIDEBAR_BOUNDS, (width) => set({ sidebar_width: width }));
-	return (
-		<aside style={{ width }} className="relative flex h-full shrink-0 flex-col border-e border-border bg-sidebar text-foreground">
-			{edge}
-			<SidebarBody {...props} />
-		</aside>
-	);
-}
-
-/** The sidebar as a drawer over the page, swiped in from its left edge; open while `open` says, closed as `onHide` asks. */
-export function SidebarDrawer(props: SidebarProps & { readonly open: boolean; readonly onOpenChange: (open: boolean) => void }): ReactNode {
-	return (
-		<Drawer open={props.open} onOpenChange={props.onOpenChange}>
-			<DrawerSwipeArea />
-			<DrawerPopup className="bg-sidebar text-foreground">
-				<DrawerTitle className="sr-only">Threads</DrawerTitle>
-				<SidebarBody route={props.route} onHide={props.onHide} onOverlay={props.onOverlay} />
-			</DrawerPopup>
-		</Drawer>
-	);
-}
-
-/** What the sidebar holds, beside the chat or in a drawer. */
-function SidebarBody(props: SidebarProps): ReactNode {
 	const [query, setQuery] = useState("");
 	const [folder, setFolder] = useState<string | undefined>(undefined);
 	const rows = useThreads();
@@ -77,9 +45,7 @@ function SidebarBody(props: SidebarProps): ReactNode {
 		<>
 			<div className="flex h-[var(--topbar-height)] shrink-0 items-center gap-1.5 px-2">
 				<span className="min-w-0 flex-1 ps-2 text-ui font-semibold tracking-tight">Octoii</span>
-				<IconButton label="Hide sidebar" shortcut="⌘B" onClick={props.onHide}>
-					<PanelLeft className="size-4" />
-				</IconButton>
+				<HideSidebar />
 			</div>
 			<div className="flex items-center gap-1 px-2 pb-2">
 				<label className="group flex h-control min-w-0 flex-1 items-center gap-2 rounded-md px-2 focus-within:ring-1 focus-within:ring-ring hover:bg-accent">

@@ -14,16 +14,9 @@
  * tint. One hairline colour; a shadow only for what floats over the page; three radii, five sizes of type, three inks.
  */
 
-/*
- * The chat's column: as wide as the device sets it, centred, its gutter on either side where the window is narrower;
- * where the thread's details card stands beside it, centred in the room the card leaves, `--details-room`, which the
- * chat sets while the card is shown.
- */
+/* The chat's column: as wide as the device sets it, centred, its gutter on either side where its room is narrower. */
 @utility chat-column {
 	@apply mx-auto w-full max-w-[calc(var(--chat-width)+var(--chat-gutter)*2)] px-(--chat-gutter);
-	@variant details-inline {
-		margin-left: max(0px, calc((100% - var(--details-room, 0px) - var(--chat-width) - var(--chat-gutter) * 2) / 2));
-	}
 }
 
 /* A card in the flow of a page, for what asks the person to act or stands apart: a hairline, no shadow. */
