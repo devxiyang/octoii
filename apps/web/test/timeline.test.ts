@@ -210,9 +210,9 @@ describe("a thread's timeline", () => {
 				],
 			},
 		]);
-		expect(turn?.writing).toEqual({ words: "Hello", calls: [{ id: "c3", tool: "grep" }] });
-		// Of the words being written, the reply shows the blocks that are whole: none yet.
-		expect(turn === undefined ? undefined : replyOf(turn)).toBe("");
+		expect(turn?.writing).toEqual({ request: "q2", words: "Hello", calls: [{ id: "c3", tool: "grep" }] });
+		// The reply shows the words being written as they are.
+		expect(turn === undefined ? undefined : replyOf(turn)).toBe("Hello");
 	});
 
 	it("gives a stopped turn's calls that came to no result as stopped, and a failed turn's reason", () => {

@@ -39,7 +39,7 @@ const turnOf = (given: Partial<TimelineTurn> = {}): TimelineTurn => ({
 	work: [],
 	answer: undefined,
 	changes: [],
-	writing: { words: "", calls: [] },
+	writing: { request: undefined, words: "", calls: [] },
 	asking: undefined,
 	asks: [],
 	ending: { state: "replied" },
@@ -67,9 +67,9 @@ describe("the timeline's rows", () => {
 			"said message said:i2",
 			"work message work:r1:thought",
 			"work line work:c1",
-			"work line work:r2",
+			"work line words:r2",
 			"work line work:c2",
-			"reply part reply:t1",
+			"reply part words:r3",
 			"end part end:t1",
 		]);
 	});
@@ -113,10 +113,12 @@ describe("the timeline's rows", () => {
 			turn: turnOf({ said: [words], ending: { state: "working" }, endedAt: undefined, ...given }),
 		});
 		const held = steadyRows(rowsOf([working({ work: [line] })]), new Map());
-		// Words being written whose block is not whole yet change nothing shown: every row stays the same object.
-		const same = steadyRows(rowsOf([working({ work: [line], writing: { words: "Fix", calls: [] } })]), held.byKey).rows;
-		expect(same).toEqual(held.rows);
-		same.forEach((row, place) => expect(row).toBe(held.rows[place] as TimelineRow));
+		// Words being written are a reply row of their own, known by the request writing them; the rows that were stay the same objects.
+		const writing = steadyRows(rowsOf([working({ work: [line], writing: { request: "q1", words: "Fix", calls: [] } })]), held.byKey).rows;
+		expect(writing.map((row) => row.key)).toEqual(["said:i1", "work:c1", "words:q1", "end:t1"]);
+		expect(writing[2]?.kind === "reply" ? [writing[2].text, writing[2].writing] : []).toEqual(["Fix", true]);
+		expect([writing[0], writing[1], writing[3]]).toEqual([held.rows[0], held.rows[1], held.rows[2]] as TimelineRow[]);
+		[writing[0], writing[1], writing[3]].forEach((row, place) => expect(row).toBe(held.rows[place] as TimelineRow));
 		// A call that joins makes a row of its own; the rows that were stay the same objects.
 		const grown = steadyRows(rowsOf([working({ work: [line, { kind: "web-search", key: "w1", query: "zig" }] })]), held.byKey).rows;
 		expect(grown.map((row) => row.key)).toEqual(["said:i1", "work:c1", "work:w1", "end:t1"]);

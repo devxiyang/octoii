@@ -1,6 +1,8 @@
 /**
  * The shelf: what the hooks of one client follow, by key, each taken when a component first reads it and kept while a
  * component subscribes, then released `REACT_RELEASE_MS` after the last one goes, or after a read no subscribe follows.
+ * What a key follows reaches its readers once a frame: the changes that come within a frame — a reply's words as they
+ * stream, many to a frame — told together, as the page next draws.
  */
 import { REACT_RELEASE_MS } from "../constants.ts";
 import type { Followable } from "../followed.ts";
@@ -12,7 +14,10 @@ export type Binding<View> = {
 	readonly snapshot: () => View;
 };
 
-/** One followed thing on the shelf, its view as of its last change, and who holds it. */
+/** Runs a callback as the page next draws: what cancels it. */
+export type Frame = (callback: () => void) => () => void;
+
+/** One followed thing on the shelf, its view as of the last frame it changed in, who holds it, and the frame its readers wait on. */
 type Shelved = {
 	readonly followable: Followable<unknown>;
 	view: unknown;
@@ -20,6 +25,7 @@ type Shelved = {
 	readonly listeners: Set<() => void>;
 	stop: () => void;
 	cancelRelease: (() => void) | undefined;
+	cancelFrame: (() => void) | undefined;
 };
 
 /** The followed things of one client, by key. */
@@ -27,9 +33,11 @@ export class Shelf {
 	private readonly shelved = new Map<string, Shelved>();
 	private readonly bindings = new Map<string, Binding<unknown>>();
 	private readonly clock: Clock;
+	private readonly frame: Frame;
 
-	constructor(clock: Clock) {
+	constructor(clock: Clock, frame: Frame) {
 		this.clock = clock;
+		this.frame = frame;
 	}
 
 	/** The binding of a key, taking what it follows with `take` when it is not on the shelf. */
@@ -71,10 +79,21 @@ export class Shelf {
 		const held = this.shelved.get(key);
 		if (held !== undefined) return held;
 		const followable = take();
-		const shelved: Shelved = { followable, view: followable.view(), holders: 0, listeners: new Set(), stop: () => undefined, cancelRelease: undefined };
+		const shelved: Shelved = {
+			followable,
+			view: followable.view(),
+			holders: 0,
+			listeners: new Set(),
+			stop: () => undefined,
+			cancelRelease: undefined,
+			cancelFrame: undefined,
+		};
 		shelved.stop = followable.subscribe(() => {
-			shelved.view = followable.view();
-			for (const listener of [...shelved.listeners]) listener();
+			shelved.cancelFrame ??= this.frame(() => {
+				shelved.cancelFrame = undefined;
+				shelved.view = followable.view();
+				for (const listener of [...shelved.listeners]) listener();
+			});
 		});
 		this.shelved.set(key, shelved);
 		this.releaseLater(key, shelved);
@@ -86,6 +105,7 @@ export class Shelf {
 			if (shelved.holders > 0 || this.shelved.get(key) !== shelved) return;
 			this.shelved.delete(key);
 			this.bindings.delete(key);
+			shelved.cancelFrame?.();
 			shelved.stop();
 			shelved.followable.release();
 		}, REACT_RELEASE_MS);

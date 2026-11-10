@@ -46,7 +46,7 @@ export type TurnEnd = {
 export type TimelineRow =
 	| { readonly kind: "said"; readonly key: string; readonly room: Room; readonly said: Said }
 	| { readonly kind: "work"; readonly key: string; readonly room: Room; readonly laid: Laid }
-	| { readonly kind: "reply"; readonly key: string; readonly room: Room; readonly text: string }
+	| { readonly kind: "reply"; readonly key: string; readonly room: Room; readonly text: string; readonly writing: boolean }
 	| { readonly kind: "end"; readonly key: string; readonly room: Room; readonly end: TurnEnd }
 	| { readonly kind: "summed-up"; readonly key: string; readonly room: Room }
 	| { readonly kind: "ask"; readonly key: string; readonly room: Room; readonly ask: Ask }
@@ -86,9 +86,11 @@ function turnRows(turn: TimelineTurn): readonly TimelineRow[] {
 		return kind === "work" && last.kind === "work" ? "line" : "part";
 	};
 	for (const said of turn.said) rows.push({ kind: "said", key: `said:${said.key}`, room: roomAfter("said"), said });
-	for (const laid of laidOut(turn.work)) rows.push({ kind: "work", key: `work:${laidKey(laid)}`, room: roomAfter("work"), laid });
+	for (const laid of laidOut(turn.work)) rows.push({ kind: "work", key: workKey(laid), room: roomAfter("work"), laid });
 	const reply = replyOf(turn);
-	if (reply !== "") rows.push({ kind: "reply", key: `reply:${turn.key}`, room: roomAfter("reply"), text: reply });
+	const writing = turn.writing.words !== "";
+	const wrote = writing ? turn.writing.request : turn.answer?.key;
+	if (reply !== "") rows.push({ kind: "reply", key: `words:${wrote ?? turn.key}`, room: roomAfter("reply"), text: reply, writing });
 	const end = endOf(turn, reply);
 	if (end !== undefined) rows.push({ kind: "end", key: `end:${turn.key}`, room: roomAfter("end"), end });
 	if (turn.ending.state !== "working") laidTurns.set(turn, rows);
@@ -96,9 +98,17 @@ function turnRows(turn: TimelineTurn): readonly TimelineRow[] {
 }
 
 /** The key of what is laid out: a stretch's, delegations', or its step's. */
-export function laidKey(laid: Laid): string {
+function laidKey(laid: Laid): string {
 	if (laid.kind !== "step") return laid.key;
 	return laid.step.kind === "call" ? laid.step.id : laid.step.key;
+}
+
+/**
+ * The key of a part of the work's row: words on the way known by the request that wrote them, as the reply being
+ * written is — so words that turn out to be on the way, as calls follow them, stay the row they were.
+ */
+function workKey(laid: Laid): string {
+	return laid.kind === "step" && laid.step.kind === "words" ? `words:${laid.step.key}` : `work:${laidKey(laid)}`;
 }
 
 /** The end of `turn`, whose reply is `reply`; none for a part the person steered on that changed nothing and waits on nothing. */
@@ -143,7 +153,7 @@ function sameRow(a: TimelineRow, b: TimelineRow): boolean {
 		case "work":
 			return b.kind === "work" && sameLaid(a.laid, b.laid);
 		case "reply":
-			return b.kind === "reply" && a.text === b.text;
+			return b.kind === "reply" && a.text === b.text && a.writing === b.writing;
 		case "end":
 			return b.kind === "end" && sameEnd(a.end, b.end);
 		case "summed-up":

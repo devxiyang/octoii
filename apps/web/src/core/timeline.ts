@@ -16,7 +16,6 @@ import { type Ask, type Call, type Conversation, type Entry, type Limited, match
 type Compaction = Conversation["compactions"][number];
 import { Type } from "typebox";
 import { type Attachment, attachmentsOf } from "./attachments.ts";
-import { settledOf } from "./blocks.ts";
 import { type CallState, printedOf } from "./calls.ts";
 import { duration, mintedAt } from "./time.ts";
 import { type Aside, givenOf, summaryOf, toolOf, verbOf, type WorkKind } from "./tools.ts";
@@ -94,8 +93,12 @@ export type Said = {
 	readonly attachments: readonly Attachment[];
 };
 
-/** What streams of the request a turn waits on: the words being written, and the calls being formed, by their tools. */
-export type Writing = { readonly words: string; readonly calls: readonly { readonly id: string; readonly tool: string }[] };
+/** What streams of the request a turn waits on: the request, the words being written, and the calls being formed, by their tools. */
+export type Writing = {
+	readonly request: string | undefined;
+	readonly words: string;
+	readonly calls: readonly { readonly id: string; readonly tool: string }[];
+};
 
 /** A file a turn's edits and writes changed: its path, as a call named it, and the lines they added and took out. */
 export type Changed = { readonly path: string; readonly added: number; readonly removed: number };
@@ -280,7 +283,7 @@ function partOf(turn: Turn, part: Part, next: Part | undefined, place: number, i
 		work,
 		answer,
 		changes: changesOf(work),
-		writing: writingOf(waiting?.streaming ?? []),
+		writing: { request: waiting?.request, ...writingOf(waiting?.streaming ?? []) },
 		asking: waiting === undefined ? undefined : mintedAt(waiting.request),
 		asks: [],
 		ending: steeredAt === undefined ? endingOf(turn) : { state: "steered" },
@@ -332,9 +335,10 @@ function workOf(
 			work.push({ kind: "thought", key: `${step.reply.id}:thought`, text: thought, took: mintedAt(step.reply.id) - mintedAt(step.request) });
 		}
 		if (step.reply !== undefined && text !== "") {
+			// Words are known by the request that wrote them, as they were while being written: an answer and words on the way alike.
 			if (answer !== undefined) work.push({ kind: "words", ...answer });
-			answer = step.calls.length > 0 ? undefined : { key: step.reply.id, text };
-			if (step.calls.length > 0) work.push({ kind: "words", key: step.reply.id, text });
+			answer = step.calls.length > 0 ? undefined : { key: step.request, text };
+			if (step.calls.length > 0) work.push({ kind: "words", key: step.request, text });
 		}
 		if (step.failure !== undefined) work.push({ kind: "failure", key: step.failure.id, text: failureText(step.failure.response) });
 		if (step.reply !== undefined) work.push(...searchesOf(step.reply.response));
@@ -510,7 +514,7 @@ export function declinedText(call: CallLine): string {
 }
 
 /** What streams of a request, read as the reply being written: each output item by its place, words as they grow. */
-function writingOf(events: readonly unknown[]): Writing {
+function writingOf(events: readonly unknown[]): Omit<Writing, "request"> {
 	const items = new Map<number, { readonly words: string } | { readonly id: string; readonly tool: string }>();
 	for (const event of events) {
 		if (matches(TextDeltaSchema, event)) {
@@ -643,9 +647,9 @@ function failureText(response: unknown): string {
 	return matches(ErrorSchema, response) ? response.error.message : "The model's answer came to nothing.";
 }
 
-/** The words a turn's reply shows: its answer, and of the words being written, those whose blocks are whole. */
+/** The words a turn's reply shows: its answer, and the words being written. */
 export function replyOf(turn: TimelineTurn): string {
-	return [turn.answer?.text ?? "", settledOf(turn.writing.words)].filter((words) => words !== "").join("\n\n");
+	return [turn.answer?.text ?? "", turn.writing.words].filter((words) => words !== "").join("\n\n");
 }
 
 /** A thread's title where it has none: the start of its first words, as read. */

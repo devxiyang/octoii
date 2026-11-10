@@ -6,7 +6,7 @@
  */
 import { type CSSProperties, type ReactNode, useState } from "react";
 import { File } from "@pierre/diffs/react";
-import { codeFoldOf, languageOf } from "../../core/code.ts";
+import { codeFoldOf, languageOf, writtenFoldOf } from "../../core/code.ts";
 import { DiffLines } from "../diff/diff-lines.tsx";
 import { CODE_THEMES, useDarkPage } from "../effects/theme.ts";
 import { CopyButton } from "../ui/copy-button.tsx";
@@ -43,6 +43,28 @@ export function CodeBlock(props: CodeBlockProps): ReactNode {
 				>
 					{whole ? "Show fewer lines" : `Show all ${String(fold.lines)} lines`}
 				</button>
+			)}
+		</div>
+	);
+}
+
+/**
+ * A code block still being written: in the same well, its lines plain and as tall as they will be coloured, so nothing
+ * moves as it is coloured once it is whole; past a long block's head, that head alone and how many lines it holds, where
+ * the whole block's button stands — so it grows only as the whole block may, and never shrinks as it folds.
+ */
+export function CodeBeingWritten(props: CodeBlockProps): ReactNode {
+	const language = languageOf(props.language);
+	const fold = writtenFoldOf(props.code);
+	const shown = fold === undefined ? props.code : fold.head;
+	return (
+		<div className="well my-3 overflow-hidden">
+			<div className="flex h-control items-center ps-3 text-xs text-muted-foreground">{language?.name ?? props.language}</div>
+			<div style={{ "--code-lines": shown.split("\n").length }} className="code-well">
+				<pre className="overflow-x-auto py-(--diffs-gap-block) ps-[1ch] leading-(--diffs-line-height) [tab-size:var(--diffs-tab-size,2)]">{shown}</pre>
+			</div>
+			{fold === undefined ? null : (
+				<div className="flex h-control w-full items-center border-t border-border px-3 text-xs text-muted-foreground tabular-nums">{fold.lines} lines</div>
 			)}
 		</div>
 	);

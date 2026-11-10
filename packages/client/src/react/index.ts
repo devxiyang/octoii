@@ -10,7 +10,9 @@ import { type Conversation, conversationOf } from "../conversation.ts";
 import type { Followable, Followed } from "../followed.ts";
 import type { ThreadView } from "../thread.ts";
 import type { ThreadsView } from "../threads.ts";
-import { Shelf } from "./shelf.ts";
+import { type Frame, Shelf } from "./shelf.ts";
+
+export type { Frame } from "./shelf.ts";
 
 /** The client and its shelf, as the provider gives them. */
 type Provided = { readonly client: Client; readonly shelf: Shelf };
@@ -20,11 +22,14 @@ const ClientContext = createContext<Provided | undefined>(undefined);
 /** Each client's shelf, made once, so a provider that renders again keeps what its hooks follow. */
 const shelves = new WeakMap<Client, Shelf>();
 
-/** Gives the components below it a client. */
-export function ClientProvider(props: { readonly client: Client; readonly children: ReactNode }): ReactNode {
+/**
+ * Gives the components below it a client, what it follows told them once a frame: `frame` runs a callback as the page
+ * next draws.
+ */
+export function ClientProvider(props: { readonly client: Client; readonly frame: Frame; readonly children: ReactNode }): ReactNode {
 	let shelf = shelves.get(props.client);
 	if (shelf === undefined) {
-		shelf = new Shelf(props.client.clock);
+		shelf = new Shelf(props.client.clock, props.frame);
 		shelves.set(props.client, shelf);
 	}
 	return createElement(ClientContext.Provider, { value: { client: props.client, shelf } }, props.children);

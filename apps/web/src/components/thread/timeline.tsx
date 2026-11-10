@@ -2,11 +2,11 @@
  * A thread's timeline: its rows in a column of the chat's width — each turn laid out flat, its words, each part of its
  * work, its reply and its end, and what is the thread's own between turns — in the order their ids give, on a list
  * that draws the rows in view alone, each as tall as it measures, so a long thread, its images among it, costs what is
- * seen. It opens at its end and keeps to it as it grows while the reader is there — at once, as a glide would chase
- * each growth and the rows below what grows would be seen to move — and lets be once they scroll up, a button bringing
- * them back down; what the person last sent stands near the top, the reply growing under it, space kept below it till
- * the reply fills the room; a row above what is read that grows or shrinks moves nothing read, as earlier turns read in
- * above it do not.
+ * seen. It opens at its end and keeps to it as it grows while the reader is there — gliding while the thread works,
+ * where motion is not asked to be less, as the list follows a reply that streams only so without moving what is read
+ * back; at once otherwise — and lets be once they scroll up, a button bringing them back down; what the person last
+ * sent stands near the top, the reply growing under it, space kept below it till the reply fills the room; a row above
+ * what is read that grows or shrinks moves nothing read, as earlier turns read in above it do not.
  * Nothing of the thread stands till its latest entries are read; then its rows fade in, so a thread opens rather than
  * appears; and each row that comes after fades in as it does, once. Above the rows, where the client holds the latest
  * of the log alone, a button that reads further back. The list takes the room between the page's header and what
@@ -38,6 +38,8 @@ export type TimelineProps = {
 	/** Whether the thread's latest entries were read: till they are, nothing of it stands. */
 	readonly read: boolean;
 	readonly complete: boolean;
+	/** Whether the thread works: its end followed gliding as it grows. */
+	readonly working: boolean;
 	/** How many requests wait on the person, whose lines stand in the turns. */
 	readonly waiting: number;
 	/** The input the person last sent, by the id it was delivered by: its words are kept near the top as the reply grows under them. */
@@ -54,6 +56,9 @@ const SENT_OFFSET = 16;
 
 /** Kept to the end as the rows change, each grows or the room does — at once. */
 const FOLLOW = { animated: false, on: { dataChange: true, itemLayout: true, layout: true } } as const satisfies MaintainScrollAtEndOptions;
+
+/** Kept to the end as `FOLLOW` keeps it, gliding: while the thread works. */
+const FOLLOW_GLIDING = { ...FOLLOW, animated: true } as const satisfies MaintainScrollAtEndOptions;
 
 /** What is read stays where it stands as rows above it grow or shrink and as rows are read in above them. */
 const KEEP_READ = { data: true, size: true } as const;
@@ -100,7 +105,7 @@ export function Timeline({ ref, ...props }: TimelineProps): ReactNode {
 					renderItem={drawRow}
 					estimatedItemSize={40}
 					initialScrollAtEnd
-					maintainScrollAtEnd={FOLLOW}
+					maintainScrollAtEnd={props.working && !lessMotion ? FOLLOW_GLIDING : FOLLOW}
 					maintainVisibleContentPosition={KEEP_READ}
 					{...(sent < 0 ? {} : { anchoredEndSpace: { anchorIndex: sent, anchorOffset: SENT_OFFSET } })}
 					onScroll={onScroll}
@@ -173,7 +178,7 @@ function Row(props: { readonly thread: string; readonly parent: string | undefin
 				</div>
 			);
 		case "reply":
-			return <Reply text={row.text} className={WORDS} />;
+			return <Reply text={row.text} writing={row.writing} className={WORDS} />;
 		case "end":
 			return <TurnEndPart end={row.end} />;
 		case "summed-up":

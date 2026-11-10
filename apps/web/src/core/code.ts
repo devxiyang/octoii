@@ -33,5 +33,19 @@ export type CodeFold = { readonly head: string; readonly lines: number };
 export function codeFoldOf(code: string): CodeFold | undefined {
 	const lines = code.split("\n");
 	if (lines.length <= WHOLE_LINES) return undefined;
+	return headOf(lines);
+}
+
+/**
+ * The fold of code still being written: its head as a long block's fold has it, once it holds more — so what is shown
+ * never holds more lines than the block may once whole, and nothing shrinks as it is folded.
+ */
+export function writtenFoldOf(code: string): CodeFold | undefined {
+	const lines = code.split("\n");
+	return lines.length <= HEAD_LINES ? undefined : headOf(lines);
+}
+
+/** The head of code's `lines`, ending on a line that says something, and how many lines it stands for. */
+function headOf(lines: readonly string[]): CodeFold {
 	return { head: lines.slice(0, HEAD_LINES).join("\n").trimEnd(), lines: lines.length };
 }

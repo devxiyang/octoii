@@ -73,6 +73,7 @@ export function ThreadScreen(props: ThreadScreenProps): ReactNode {
 							items={items}
 							read={conversation.read}
 							complete={conversation.complete}
+							working={conversation.status === "running"}
 							waiting={conversation.asks.length}
 							sent={sent}
 							onEarlier={() => void client.readOlder(thread).catch((error: unknown) => failed("Earlier messages could not be read", error))}

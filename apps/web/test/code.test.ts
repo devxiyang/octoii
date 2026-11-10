@@ -1,6 +1,6 @@
 /** A message's code block: the language its fence names, and the fold of a long one. */
 import { describe, expect, it } from "bun:test";
-import { codeFoldOf, languageOf } from "../src/core/code.ts";
+import { codeFoldOf, languageOf, writtenFoldOf } from "../src/core/code.ts";
 
 /** A block of `count` lines, each saying which it is. */
 function block(count: number): string {
@@ -33,5 +33,12 @@ describe("a code block's fold", () => {
 		const fold = codeFoldOf(lines.join("\n"));
 		expect(fold?.head.split("\n").at(-1)).toBe("line 18");
 		expect(fold?.lines).toBe(40);
+	});
+
+	it("folds code still being written to its head once it runs past it, so it never shows more than the whole block may", () => {
+		expect(writtenFoldOf(block(20))).toBeUndefined();
+		const fold = writtenFoldOf(block(21));
+		expect(fold?.lines).toBe(21);
+		expect(fold?.head).toBe(block(20));
 	});
 });
