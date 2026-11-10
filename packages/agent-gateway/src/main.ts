@@ -135,7 +135,7 @@ async function main(): Promise<void> {
 			positions: await Positions.open(join(state, "claude", "positions.jsonl")),
 			run: query,
 			environment,
-			signIn: `${configuration === undefined ? "" : `CLAUDE_CONFIG_DIR=${shellPath(configuration)} `}${argument("claude") ?? "claude"}`,
+			signIn: `${configuration === undefined ? "" : `CLAUDE_CONFIG_DIR=${shellPath(configuration)} `}${argument("claude") ?? "claude"} auth login`,
 			signOut: configuration === undefined ? undefined : () => signOut(claude, environment),
 			idleMs: IDLE_MS,
 			holds: await Holds.open(join(state, "claude", "holds.jsonl")),
