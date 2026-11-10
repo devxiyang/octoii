@@ -1,8 +1,7 @@
 /**
  * A provider in use, as settings show it beside the list: its mark and name; how it stands, as it is asked — who it is
- * connected as, or what is wrong and how to put it right; what connects it — its key, replaced as another is pasted;
- * its sign-in, given again here or from another device's browser; or its agent's login, run in a terminal here; an
- * account's name, kept as it is changed; another
+ * connected as, or what is wrong and how to put it right; what connects it — its key, replaced as another is pasted, or
+ * its sign-in, given again here or from another device's browser; an account's name, kept as it is changed; another
  * account of it to add; and what takes it out of use — its key forgotten, its sign-in, or the account itself — asked
  * first.
  */
@@ -18,9 +17,9 @@ import { cn } from "../ui/cn.ts";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger, FoldChevron } from "../ui/collapsible.tsx";
 import { Field } from "../ui/input.tsx";
 import { VendorMark } from "../ui/vendor-mark.tsx";
-import { AgentLogin, useSignIn } from "./signing-in.tsx";
+import { useSignIn } from "./add-provider.tsx";
 import { CodedWords } from "./coded-words.tsx";
-import { BlockRow, Row } from "./layout.tsx";
+import { Row } from "./layout.tsx";
 
 /** What the details are given: the provider and how it stands, and who is told of a change, of another account to add, and of going back to the list. */
 export type ProviderDetailsProps = {
@@ -58,14 +57,6 @@ export function ProviderDetails(props: ProviderDetailsProps): ReactNode {
 			/>
 			{provider.connects === "api_key" ? <KeyRow provider={provider} {...changes} /> : null}
 			{provider.connects === "sign_in" ? <SignInRows provider={provider} {...changes} /> : null}
-			{provider.connects === "agent" ? (
-				<BlockRow
-					title="Sign in"
-					description={`${provider.through ?? "Its agent"} signs in in a terminal here, its login kept on this computer apart from any other account's.`}
-				>
-					<AgentLogin provider={provider} signedIn={props.status?.connected === true} onDone={props.onChanged} onFailed={changes.onFailed} />
-				</BlockRow>
-			) : null}
 			{provider.account === undefined ? null : <NameRow provider={provider} {...changes} />}
 			{takesAccounts(provider) ? (
 				<Row title="Other accounts" description={`Another ${provider.name} account, connected on its own, its models told apart by its name.`}>

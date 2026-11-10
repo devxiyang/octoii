@@ -12,7 +12,6 @@ const ai = @import("ai");
 const Connection = @import("Connection.zig");
 const Waits = @import("../runtime.zig").Waits;
 const Clients = @import("Clients.zig");
-const Terminals = @import("../terminals.zig");
 const Accounts = @import("../accounts.zig");
 const relist = @import("../agent.zig").models.relist;
 
@@ -150,50 +149,14 @@ const Refresh = struct {
 };
 
 /// A sign-in to a provider begun, off the loop: where the person signs in, the attempt waiting here for the browser's
-/// return in place of one begun before; or, for a provider reached through an agent the person signs in to themselves,
-/// a terminal of its own running the agent's login.
+/// return in place of one begun before.
 pub fn signIn(connection: *Connection, _: Allocator, id: []const u8, given: struct { provider: []const u8 }) !void {
     const clients = connection.clients;
     const provider = clients.models.provider(given.provider) orelse return error.UnknownProvider;
-    if (provider.driver.login != null) return connection.answerFromJob(id, LogIn, .{ .provider = given.provider });
     if (provider.driver.sign_in == null) return error.NotSignedInTo;
     const redirect = clients.providers.redirect orelse return error.NoSignInReturn;
     return connection.answerFromJob(id, SignIn, .{ .provider = given.provider, .redirect = redirect });
 }
-
-/// The size a login's terminal opens at, which the views that follow it size anew.
-const login_size: Terminals.Size = .{ .rows = 24, .cols = 80 };
-
-/// An agent's login, asked of its provider's driver off the loop, then run on the loop in a terminal of its own, in the
-/// person's home folder; answered with the terminal's id, or the driver's words where it could not tell the program.
-const LogIn = struct {
-    pub const Given = struct { provider: []const u8 };
-
-    clients: *Clients,
-    provider: []const u8,
-
-    pub fn of(_: Allocator, clients: *Clients, given: Given) !LogIn {
-        return .{ .clients = clients, .provider = given.provider };
-    }
-
-    pub fn run(work: *LogIn, arena: Allocator, _: *Waits) anyerror!ai.Models.LoginTold {
-        return work.clients.models.login(arena, work.provider);
-    }
-
-    pub fn answer(work: *LogIn, arena: Allocator, connection: *Connection, id: []const u8, outcome: anyerror!ai.Models.LoginTold) void {
-        const told = outcome catch |err| return connection.refuseFailed(arena, id, err);
-        const login = switch (told) {
-            .failed => |failure| return connection.refuse(arena, id, "sign-in-failed", failure.message),
-            .program => |program| program,
-        };
-        const terminals = work.clients.terminals;
-        const variables = arena.alloc(Terminals.Variable, login.environment.len) catch |err| return connection.refuseFailed(arena, id, err);
-        for (login.environment, variables) |given, *made| made.* = .{ .name = given.name, .value = given.value };
-        const program: Terminals.Program = .{ .argv = login.argv, .cwd = terminals.home(), .variables = variables };
-        const terminal = terminals.run(arena, program, login_size) catch |err| return connection.refuseFailed(arena, id, err);
-        connection.answer(arena, id, .{ .terminal = terminal.id }) catch |err| connection.refuseFailed(arena, id, err);
-    }
-};
 
 const SignIn = struct {
     pub const Given = struct { provider: []const u8, redirect: []const u8 };

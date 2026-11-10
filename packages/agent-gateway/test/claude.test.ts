@@ -250,7 +250,7 @@ function claudeOf(
 		holds: kept.holds ?? emptyHolds,
 		sessions: kept.folder ?? new Folder(),
 		now: () => kept.now ?? 0,
-		login: { argv: ["claude", "auth", "login"], environment: [] },
+		signIn: "claude",
 		signOut: kept.signOut,
 		windows: kept.windows ?? new KeptInMemory(),
 	});
@@ -591,10 +591,7 @@ describe("Claude through Claude Code", () => {
 		const signedOut = claudeOf(positions, []);
 		const nobody = await handlerOf({ claude: signedOut })(new Request("http://gateway/claude/v1/account"));
 		expect(nobody.status).toBe(401);
-		expect(await nobody.json()).toMatchObject({ error: { type: "authentication_error", message: "Claude Code is not signed in on this computer." } });
-		// The program that signs it in, as the host runs it in a terminal for the person.
-		const login = await handlerOf({ claude: signedOut })(new Request("http://gateway/claude/v1/login"));
-		expect(await login.json()).toEqual({ argv: ["claude", "auth", "login"], environment: [] });
+		expect(await nobody.json()).toMatchObject({ error: { type: "authentication_error", message: expect.stringContaining("run `claude` in a terminal") } });
 		signedIn.close();
 		signedOut.close();
 	});

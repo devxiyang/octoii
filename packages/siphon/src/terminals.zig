@@ -2,10 +2,9 @@
 //! panes: each a login shell of the person's in its thread's folder, on a terminal Beak keeps — which answers its
 //! program's queries, keeps the title it sets and draws itself again whole. Each is numbered in its thread as tmux
 //! numbers windows, the lowest number free; sized as its host sizes it; gone as its program ends, as a pane with no
-//! `remain-on-exit`; let go of as it is closed, Beak hanging up on it and reaping it; and closed with its thread. A
-//! terminal of no thread runs a program the host runs for the person, as an agent's login, followed by its id alone.
-//! What listens is told as a thread's terminals come, take titles and go, and as each writes. The loop alone touches
-//! them, told of their output, titles and ends as it pumps.
+//! `remain-on-exit`; let go of as it is closed, Beak hanging up on it and reaping it; and closed with its thread. What
+//! listens is told as a thread's terminals come, take titles and go, and as each writes. The loop alone touches them,
+//! told of their output, titles and ends as it pumps.
 const Terminals = @This();
 
 const std = @import("std");
@@ -48,8 +47,8 @@ pub const Size = struct {
     }
 };
 
-/// A terminal: its id, its thread — empty for a terminal of none — and its number there; the command Beak runs it as;
-/// its size; the bytes it wrote so far, where the next begins; and the title its program set, empty where none.
+/// A terminal: its id, its thread and its number there; the command Beak runs it as; its size; the bytes it wrote so
+/// far, where the next begins; and the title its program set, empty where none.
 pub const Terminal = struct {
     terminals: *Terminals,
     id: []const u8,
@@ -136,59 +135,30 @@ fn free(terminals: *Terminals, terminal: *Terminal) void {
     terminals.allocator.destroy(terminal);
 }
 
-/// Tells what listens of the terminals of `thread`; a terminal of no thread is told of to none.
 fn changed(terminals: *const Terminals, thread: []const u8) void {
-    if (thread.len == 0) return;
     if (terminals.listener) |listener| listener.changed(listener.context, thread);
 }
-
-/// A variable a terminal's program has in its environment, beside the terminal's own.
-pub const Variable = struct { name: []const u8, value: []const u8 };
-
-/// What a terminal runs: its arguments, the first the program; the folder it starts in; and what its environment holds
-/// beside the terminal's own.
-pub const Program = struct { argv: []const []const u8, cwd: []const u8, variables: []const Variable = &.{} };
 
 /// A terminal opened for the thread `thread`, `size` big: the person's login shell in the thread's folder, else in
 /// their home folder.
 pub fn open(terminals: *Terminals, arena: Allocator, thread: []const u8, size: Size) !*Terminal {
+    const machine = terminals.machine.handle orelse return error.NoMachine;
     const shell = terminals.machine.shell orelse return error.NoShell;
     const manifest = threads.manifestOf(terminals.runtime.volume, &arena, try threads.pathOf(arena, thread)) catch |err| switch (err) {
         error.NotFound => return error.NoSuchThread,
         else => return err,
     };
-    return terminals.start(arena, thread, .{ .argv = &.{ shell, "-l" }, .cwd = manifest.workspace orelse terminals.home() }, size);
-}
-
-/// A terminal of no thread running `program`, `size` big — a program the host runs for the person, as an agent's
-/// login — gone as its program ends.
-pub fn run(terminals: *Terminals, arena: Allocator, program: Program, size: Size) !*Terminal {
-    return terminals.start(arena, "", program, size);
-}
-
-/// The person's home folder on the machine the terminals run on, else its root.
-pub fn home(terminals: *const Terminals) []const u8 {
-    return terminals.machine.home orelse "/";
-}
-
-/// A terminal of the thread `thread` — or of none, where it is empty — running `program`, `size` big.
-fn start(terminals: *Terminals, arena: Allocator, thread: []const u8, program: Program, size: Size) !*Terminal {
-    const machine = terminals.machine.handle orelse return error.NoMachine;
-    const argv = try arena.alloc(h.beak_bytes, program.argv.len);
-    for (program.argv, argv) |given, *made| made.* = beak.bytes(given);
-    const own = [_]h.beak_label{
+    const argv = [_]h.beak_bytes{ beak.bytes(shell), beak.bytes("-l") };
+    const variables = [_]h.beak_label{
         .{ .name = beak.bytes("TERM"), .value = beak.bytes("xterm-256color") },
         .{ .name = beak.bytes("COLORTERM"), .value = beak.bytes("truecolor") },
     };
-    const variables = try arena.alloc(h.beak_label, own.len + program.variables.len);
-    @memcpy(variables[0..own.len], &own);
-    for (program.variables, variables[own.len..]) |given, *made| made.* = .{ .name = beak.bytes(given.name), .value = beak.bytes(given.value) };
     var spawn = std.mem.zeroes(h.beak_spawn);
     spawn.machine = machine;
-    spawn.argv = argv.ptr;
+    spawn.argv = &argv;
     spawn.argv_count = argv.len;
-    spawn.cwd = beak.bytes(program.cwd);
-    spawn.variables = variables.ptr;
+    spawn.cwd = beak.bytes(manifest.workspace orelse terminals.machine.home orelse "/");
+    spawn.variables = &variables;
     spawn.variable_count = variables.len;
     spawn.mode = h.BEAK_SPAWN_TERMINAL;
     spawn.rows = size.rows;

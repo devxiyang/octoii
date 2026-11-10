@@ -4,29 +4,12 @@
  * screen drawn anew at the size the node sizes it to, then what it writes; the person's keys and the room's size, as it
  * settles, sent to it; its colours the page's own, taken again as the theme changes.
  */
-import { useCallback, useEffect, useEffectEvent } from "react";
-import { ClientError, type TerminalView } from "@octoii-works/octoii-client";
+import { useCallback } from "react";
+import type { TerminalView } from "@octoii-works/octoii-client";
 import { useClient } from "@octoii-works/octoii-client/react";
 import { type GridCells, mountTerminal, type TerminalColors, type TerminalSurface } from "@octoii-works/octoii-terminal";
 import { ANSI_DARK, ANSI_LIGHT, TERMINAL_FONT_SIZE } from "../../core/terminal.ts";
 import { failed } from "../state/notices.ts";
-
-/**
- * Closes the terminal `terminal` as the view that shows it goes — one that lives no longer than where the person uses
- * it, as a login's — one whose program ended having gone with it; what else failed told to `onFailed`.
- */
-export function useClosedWithView(terminal: string, onFailed: (error: unknown) => void): void {
-	const client = useClient();
-	const failure = useEffectEvent(onFailed);
-	useEffect(
-		() => () => {
-			client.closeTerminal(terminal).catch((error: unknown) => {
-				if (!(error instanceof ClientError && error.code === "no-such-terminal")) failure(error);
-			});
-		},
-		[client, terminal],
-	);
-}
 
 /** The ref that mounts the terminal `terminal` in the element it is given, and takes it out as the element goes. */
 export function useTerminalView(terminal: string): (element: HTMLDivElement | null) => (() => void) | undefined {

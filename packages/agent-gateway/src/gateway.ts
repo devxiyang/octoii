@@ -2,8 +2,7 @@
  * The gateway's HTTP, as its channel carries it: Anthropic's Messages API for each agent behind it, under the agent's
  * name — `POST /claude/v1/messages` answers a conversation, the one its `conversation-id` names; `GET /claude/v1/models`
  * lists the models the agent offers; `GET /claude/v1/account` tells who the agent is signed in as, and `DELETE` signs
- * it out of an account the person added, as the person removed it — never out of the person's own; `GET /claude/v1/login`
- * tells the program that signs it in, for the host to run in a terminal for the person;
+ * it out of an account the person added, as the person removed it — never out of the person's own;
  * `DELETE /claude/v1/conversations/{id}` lets go of what a conversation that ended holds.
  */
 import { errorResponse, RequestSchema } from "./anthropic.ts";
@@ -21,7 +20,6 @@ export function handlerOf(agents: Agents): Handler {
 		if (path === "/claude/v1/messages" && request.method === "POST") return messages(agents.claude, request);
 		if (path === "/claude/v1/models" && request.method === "GET") return models(agents.claude);
 		if (path === "/claude/v1/account" && request.method === "GET") return account(agents.claude);
-		if (path === "/claude/v1/login" && request.method === "GET") return Response.json(agents.claude.login);
 		if (path === "/claude/v1/account" && request.method === "DELETE") return signedOut(agents.claude);
 		const ended = CONVERSATION.exec(path)?.[1];
 		if (ended !== undefined && request.method === "DELETE") return forgotten(agents.claude, ended);
@@ -66,7 +64,8 @@ function decodedOf(escaped: string): string | undefined {
 async function account(claude: Claude): Promise<Response> {
 	try {
 		const signed = await claude.account();
-		if (signed === undefined) return errorResponse("authentication_error", "Claude Code is not signed in on this computer.");
+		if (signed === undefined)
+			return errorResponse("authentication_error", `Claude Code is not signed in on this computer: run \`${claude.signIn}\` in a terminal and sign in.`);
 		const { account: info, limits } = signed;
 		return Response.json({ email: info.email, organization: info.organization ?? null, subscription_type: info.subscriptionType ?? null, limits });
 	} catch (error) {

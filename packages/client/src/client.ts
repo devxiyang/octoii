@@ -28,7 +28,6 @@ import type {
 	ResultOf,
 	Settings,
 	SettingsChange,
-	SignInStarted,
 	State,
 } from "./protocol.ts";
 import { type TerminalHandlers, TerminalFollows, type TerminalSize, type TerminalView } from "./terminals.ts";
@@ -79,8 +78,8 @@ export type Client = {
 	providers(): Promise<readonly Provider[]>;
 	/** How the provider `id` stands, as it is asked. */
 	providerStatus(id: string): Promise<ProviderStatus>;
-	/** Begins a sign-in to the provider `id`: where the person signs in, or the terminal that runs its agent's login. */
-	signIn(id: string): Promise<SignInStarted>;
+	/** Begins a sign-in to the provider `id`: where the person signs in. */
+	signIn(id: string): Promise<string>;
 	/** Finishes the sign-in that waits, from the address the browser was sent back to: the provider signed in to. */
 	finishSignIn(redirect: string): Promise<string>;
 	/** Lists the providers' models again. */
@@ -193,7 +192,7 @@ export function createClient(options: ClientOptions): Client {
 		},
 		providers: async () => (await connection.call("providers.list", {})).providers,
 		providerStatus: (id) => connection.call("providers.status", { provider: id }),
-		signIn: (id) => connection.call("providers.sign-in", { provider: id }),
+		signIn: async (id) => (await connection.call("providers.sign-in", { provider: id })).url,
 		finishSignIn: async (redirect) => (await connection.call("providers.finish-sign-in", { redirect })).provider,
 		refreshModels: async () => {
 			await connection.call("models.refresh", {});

@@ -66,10 +66,10 @@ export function Row(props: RowProps): ReactNode {
 	);
 }
 
-/** A row whose control needs the width: its title and words, the control under them, as wide as it is or takes. */
+/** A row whose control needs the width: its title and words, the control under them. */
 export function BlockRow(props: RowProps): ReactNode {
 	return (
-		<div id={props.anchor} className="flex scroll-mt-4 flex-col items-start gap-3 px-3.5 py-3">
+		<div id={props.anchor} className="flex scroll-mt-4 flex-col gap-3 px-3.5 py-3">
 			<RowWords title={props.title} description={props.description} />
 			{props.children}
 		</div>

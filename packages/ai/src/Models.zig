@@ -501,21 +501,6 @@ pub fn signIn(models: *Models, arena: Allocator, id: []const u8, options: driver
     } };
 }
 
-/// The program that signs the agent of a provider in, as its driver tells it, or the failure it ended with.
-pub const LoginTold = union(enum) { program: driver.Login, failed: failure.Failure };
-
-/// The program that signs the agent of the provider `id` in, in `arena`, for a driver reached through an agent the
-/// person signs in to themselves.
-pub fn login(models: *Models, arena: Allocator, id: []const u8) Allocator.Error!LoginTold {
-    const serving = models.provider(id) orelse return .{ .failed = try .format(arena, .invalid_request, "The host has no provider {s}", .{id}) };
-    const tell = serving.driver.login orelse return .{ .failed = try .format(arena, .invalid_request, "The provider {s} has no agent of its own to sign in to", .{id}) };
-    var call = models.hostCall(arena, serving);
-    return .{ .program = tell(&call) catch |err| switch (err) {
-        error.OutOfMemory => return error.OutOfMemory,
-        error.Failed => return .{ .failed = call.failure.? },
-    } };
-}
-
 /// Finishes `sign_in` of the provider `id` from the address the browser was sent back to, storing its credential;
 /// the failure it ends with, where it does not finish.
 pub fn finishSignIn(models: *Models, arena: Allocator, id: []const u8, sign_in: driver.SignIn, redirect: []const u8) Allocator.Error!?failure.Failure {
