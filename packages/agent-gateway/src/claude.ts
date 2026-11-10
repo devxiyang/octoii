@@ -21,6 +21,7 @@
  * from Claude Code's folder — its own cleanup removed it, or the person did — is forgotten as it is found gone, and its
  * conversation told the agent whole again: a replica whose offset is gone syncs in full.
  */
+import type { Login } from "./login.ts";
 import type { AccountInfo, ModelInfo, Options, Query } from "@anthropic-ai/claude-agent-sdk";
 import { type Static, Type } from "typebox";
 import { errorResponse, type Message, type Request, systemText, type Tool } from "./anthropic.ts";
@@ -49,8 +50,8 @@ export type ClaudeOptions = {
 	readonly sessions: Sessions;
 	/** The time, in milliseconds since the epoch, as `Date.now` tells it. */
 	readonly now: () => number;
-	/** The command a person signs Claude Code in with, for the account the gateway answers for. */
-	readonly signIn: string;
+	/** The program that signs Claude Code in, for the account the gateway answers for. */
+	readonly login: Login;
 	/**
 	 * How Claude Code is signed out of the account the gateway answers for, where it is one the person added, as the
 	 * person removes it; none for the person's own, whose login is theirs to sign out of.
@@ -254,9 +255,9 @@ export class Claude {
 		return this.#keeping;
 	}
 
-	/** The command a person signs Claude Code in with, for the account the gateway answers for. */
-	get signIn(): string {
-		return this.#options.signIn;
+	/** The program that signs Claude Code in, for the account the gateway answers for. */
+	get login(): Login {
+		return this.#options.login;
 	}
 
 	/** Whether Claude Code may be signed out here: the gateway answers for an account the person added, not their own. */
