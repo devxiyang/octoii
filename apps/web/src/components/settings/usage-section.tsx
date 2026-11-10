@@ -1,48 +1,52 @@
 /**
- * Usage: how much of each plan's limits its accounts have left, pooled by the node's providers — a card for each window,
+ * Usage, a section of the models' settings: how much of each plan's limits its accounts have left, pooled by the node's providers — a card for each window,
  * how much its accounts have left together large on it, how they spend it against its time beside, and what its next
  * reset gives back; then a bar with a segment for each account, in its monogram's hue: what it has left filled, what it
  * used hatched where it is given back, a tick where it would stand were it used evenly, and how long till it is given
- * again — its details on hovering it. Asked of the node as the page opens, again as a connection opens, and on asking.
+ * again — its details on hovering it. Asked again on asking.
  */
-import { type CSSProperties, type ReactNode, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import type { Provider, ProviderStatus } from "@octoii-works/octoii-client";
 import { Gauge, RefreshCw, TrendingDown, TrendingUp } from "lucide-react";
 import { wakeLabel } from "../../core/time.ts";
 import { countdown, type Pace, type UsageSegment, type UsageWindow, usageOf } from "../../core/usage.ts";
 import { vendorOfProvider } from "../../core/vendors.ts";
 import { useNow } from "../effects/now.ts";
-import { useRead } from "../effects/read.ts";
-import { useStatuses } from "../effects/statuses.ts";
 import { Button } from "../ui/button.tsx";
 import { cn } from "../ui/cn.ts";
 import { hueClassOf } from "../ui/monogram.tsx";
 import { VendorMark } from "../ui/vendor-mark.tsx";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover.tsx";
 import { Tip } from "../ui/tooltip.tsx";
-import { Page, SectionHeading } from "./layout.tsx";
+import { SectionHeading } from "./layout.tsx";
 
-/** The page. */
-export function UsagePage(): ReactNode {
-	const [asked, setAsked] = useState(0);
-	const providers = useRead("providers.list", {})?.providers;
-	const statuses = useStatuses(providers, asked);
+/** What the section is given: the node's providers, how those whose standing matters stand, and who asks them again. */
+export type UsageSectionProps = {
+	readonly providers: readonly Provider[] | undefined;
+	readonly statuses: ReadonlyMap<string, ProviderStatus> | undefined;
+	readonly onRefresh: () => void;
+};
+
+/** The section. */
+export function UsageSection(props: UsageSectionProps): ReactNode {
+	const { providers, statuses } = props;
 	const now = useNow(60_000);
 	const groups = providers === undefined || statuses === undefined ? undefined : usageOf(providers, statuses, now);
 	return (
-		<Page>
+		<section id="setting-usage" className="flex scroll-mt-4 flex-col gap-3">
 			<SectionHeading
 				title="Usage"
 				action={
-					<Button size="xs" variant="ghost-muted" disabled={statuses === undefined} onClick={() => setAsked((count) => count + 1)} className="group/again">
+					<Button size="xs" variant="ghost-muted" disabled={statuses === undefined} onClick={props.onRefresh} className="group/again -me-2">
 						<RefreshCw className="group-disabled/again:animate-spin" />
-						Ask again
+						Refresh
 					</Button>
 				}
 			/>
-			{groups === undefined ? <p className="px-1 text-xs text-muted-foreground">Asking the providers…</p> : null}
+			{groups === undefined ? <p className="card px-4 py-8 text-center text-ui text-muted-foreground">Checking the plans…</p> : null}
 			{groups?.length === 0 ? (
-				<p className="px-1 text-xs text-balance text-muted-foreground">
-					No provider tells how much of its plan is used. Claude does, once Claude Code is signed in.
+				<p className="card px-4 py-8 text-center text-ui text-balance text-muted-foreground">
+					No provider in use tells how much of its plan is used. Claude does, once Claude Code is signed in.
 				</p>
 			) : null}
 			{groups?.map((group) => (
@@ -53,7 +57,7 @@ export function UsagePage(): ReactNode {
 					))}
 				</section>
 			))}
-		</Page>
+		</section>
 	);
 }
 

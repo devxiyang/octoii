@@ -87,7 +87,7 @@ export function ModelList(props: ModelListProps): ReactNode {
 						size="xs"
 						onClick={() => {
 							props.onClose();
-							go(withSettings(route, "providers"));
+							go(withSettings(route, "models"));
 						}}
 					>
 						<Settings2 />

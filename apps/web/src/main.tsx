@@ -14,7 +14,7 @@ const failed = await pairFromAddress(sameOrigin);
 if (window.location.pathname === SIGN_IN_PATH) {
 	keepSignInReturn(window.location.href);
 	// The issuer's code leaves the address, and the page opens where the sign-in is finished.
-	window.history.replaceState(null, "", `/${routeAddress(withSettings(HOME, "providers"))}`);
+	window.history.replaceState(null, "", `/${routeAddress(withSettings(HOME, "models"))}`);
 }
 if (failed === undefined) showApp(root, sameOrigin);
 else showPairing(root, sameOrigin, failed);

@@ -1,12 +1,12 @@
 /**
- * The threads' settings, the environment's, which every device of the node shares: the mode a new thread starts in
- * where it is made with none; the model that judges calls in auto, chosen from the models as the composer's chip opens
- * them, or none; and what the person always allowed in each project, each taken back on its own.
+ * Threads: what every device of the node shares of them — the mode a new thread starts in where it is made with none;
+ * the model that judges calls in auto, chosen from the models as the composer's chip opens them, or none; what the
+ * person always allowed in each project, each taken back on its own — and the threads the person archived.
  */
 import { type ReactNode, useState, useTransition } from "react";
 import type { Action, Grants, Mode } from "@octoii-works/octoii-client";
 import { useClient, useSettings } from "@octoii-works/octoii-client/react";
-import { ChevronDown, FilePen, FolderGit2, SquareTerminal, Wrench, X } from "lucide-react";
+import { ChevronsUpDown, FilePen, FolderGit2, SquareTerminal, Wrench, X } from "lucide-react";
 import { MODES, modeOffered, modeShown } from "../../core/modes.ts";
 import { modelLabel, providerName, providerOf } from "../../core/models.ts";
 import { folderName } from "../../core/threads.ts";
@@ -16,35 +16,47 @@ import { ModelList } from "../composer/model-list.tsx";
 import { useOutcome } from "../effects/read.ts";
 import { failed } from "../state/notices.ts";
 import { Button, IconButton } from "../ui/button.tsx";
+import { cn } from "../ui/cn.ts";
 import { VendorMark } from "../ui/vendor-mark.tsx";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover.tsx";
-import { Select } from "../ui/select.tsx";
+import { PICKER_TRIGGER, Select } from "../ui/select.tsx";
+import { ArchiveSection } from "./archive-section.tsx";
 import { Page, Row, Section } from "./layout.tsx";
 
-/** Threads: nothing until the node told of its settings. */
+/** The page: its permissions nothing until the node told of its settings. */
 export function ThreadsPage(): ReactNode {
 	const client = useClient();
 	const settings = useSettings();
-	if (settings === undefined) return null;
-	const { thread_mode: mode, review_model: reviewModel } = settings.environment;
+	const environment = settings?.environment;
 	const choose = (next: Mode): void => {
 		client.setSettings({ environment: { thread_mode: next } }).catch((error: unknown) => failed("The setting could not be kept", error));
 	};
-	const modes = MODES.filter((each) => modeOffered(each, reviewModel) || each === mode);
 	return (
-		<Page>
-			<Section title="New threads">
-				<Row title="Mode" description={`How a new thread's calls go ahead: ${modeShown(mode).description}`}>
-					<Select label="Mode" value={mode} onValueChange={choose} items={modes.map((each) => ({ value: each, label: modeShown(each).label }))} />
-				</Row>
-				<Row
-					title="Review model"
-					description="The model that judges a call in auto before it runs, where the thread would otherwise ask you. With none, auto is not offered."
-				>
-					<ReviewModel model={reviewModel} />
-				</Row>
-			</Section>
+		<Page title="Threads" description="How a new thread's calls go ahead, what you always allowed, and the threads you put away.">
+			{environment === undefined ? null : (
+				<Section title="Permissions" description="A thread's own mode, chosen in its composer, is kept for it." anchor="setting-mode">
+					<Row title="New threads start in" description={modeShown(environment.thread_mode).description}>
+						<Select
+							label="Mode"
+							value={environment.thread_mode}
+							onValueChange={choose}
+							items={MODES.filter((each) => modeOffered(each, environment.review_model) || each === environment.thread_mode).map((each) => ({
+								value: each,
+								label: modeShown(each).label,
+							}))}
+						/>
+					</Row>
+					<Row
+						title="Review model"
+						description="Judges a call in Auto before it runs, where the thread would otherwise ask you. Auto is offered once one is named."
+						anchor="setting-review-model"
+					>
+						<ReviewModel model={environment.review_model} />
+					</Row>
+				</Section>
+			)}
 			<ProjectGrants />
+			<ArchiveSection />
 		</Page>
 	);
 }
@@ -61,16 +73,16 @@ function ReviewModel(props: { readonly model: string | undefined }): ReactNode {
 	return (
 		<>
 			<Popover open={open} onOpenChange={setOpen}>
-				<PopoverTrigger render={<Button variant="outline" size="sm" className="max-w-72 min-w-0 justify-start gap-1.5 font-normal" />}>
+				<PopoverTrigger className={cn(PICKER_TRIGGER, "max-w-72")}>
 					{model === undefined ? (
 						<span className="text-muted-foreground">None</span>
 					) : (
-						<>
+						<span className="flex min-w-0 items-center gap-1.5">
 							<VendorMark vendor={vendorOfReference(directory, model)} name={providerName(directory, providerOf(model))} />
 							<span className="min-w-0 truncate">{modelLabel(model, directory)}</span>
-						</>
+						</span>
 					)}
-					<ChevronDown className="-me-0.5 size-3.5 opacity-70" />
+					<ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
 				</PopoverTrigger>
 				<PopoverPopup side="bottom" align="end" className="flex w-[min(34rem,calc(100vw-2rem))] flex-col overflow-hidden">
 					<ModelList
@@ -120,12 +132,12 @@ function ProjectGrants(): ReactNode {
 			}
 		});
 	return (
-		<Section title="Always allowed">
+		<Section title="Always allowed" description="What you allowed always as a thread asked, kept for its project." anchor="setting-allowed">
 			{projects.length === 0 ? (
-				<Row title="Nothing yet" description="What you allow always, as a thread asks, is kept for its project and shown here." />
+				<Row title="Nothing yet" description="Choose “Always” as a thread asks, and it is kept here." />
 			) : (
 				projects.map((grants) => (
-					<div key={grants.folder} className="flex flex-col gap-1 px-3 py-3 sm:px-4">
+					<div key={grants.folder} className="flex flex-col gap-1 px-3.5 py-3">
 						<p className="flex items-center gap-2 text-ui font-medium" title={grants.folder}>
 							<FolderGit2 className="size-4 text-muted-foreground" />
 							{folderName(grants.folder)}

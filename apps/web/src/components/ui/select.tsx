@@ -18,6 +18,10 @@ export type SelectProps<Value extends string> = {
 	readonly className?: string;
 };
 
+/** How a control that picks one of some values reads, closed: the value chosen, and the mark that opens the others. */
+export const PICKER_TRIGGER =
+	"flex h-control min-w-36 cursor-pointer items-center justify-between gap-2 rounded-md border border-input px-2.5 text-ui text-foreground outline-none select-none hover:bg-accent focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring data-popup-open:bg-accent";
+
 /** A select of a few named values. */
 export function Select<Value extends string>(props: SelectProps<Value>) {
 	return (
@@ -29,14 +33,7 @@ export function Select<Value extends string>(props: SelectProps<Value>) {
 				if (chosen !== undefined) props.onValueChange(chosen.value);
 			}}
 		>
-			<SelectPrimitive.Trigger
-				aria-label={props.label}
-				className={cn(
-					"flex h-control min-w-36 cursor-pointer items-center justify-between gap-2 rounded-md border border-input px-2.5 text-ui text-foreground outline-none select-none hover:bg-accent focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring data-popup-open:bg-accent",
-					props.className,
-				)}
-				data-slot="select-trigger"
-			>
+			<SelectPrimitive.Trigger aria-label={props.label} className={cn(PICKER_TRIGGER, props.className)} data-slot="select-trigger">
 				<SelectPrimitive.Value className="truncate" />
 				<SelectPrimitive.Icon className="text-muted-foreground">
 					<ChevronsUpDown className="size-3.5" />
