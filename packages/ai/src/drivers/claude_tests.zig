@@ -43,6 +43,9 @@ const Gateway = struct {
         }
         try gateway.asked.append(gateway.arena, try gateway.arena.print("{s}{s}", .{ request.url, if (keyed) " keyed" else "" }));
         if (std.mem.endsWith(u8, request.url, "/v1/models")) return answered(gateway, 200, gateway.listing orelse return error.Transport);
+        if (std.mem.endsWith(u8, request.url, "/v1/login")) return answered(gateway, 200,
+            \\{"argv":["/usr/local/bin/claude","auth","login"],"environment":[{"name":"CLAUDE_CONFIG_DIR","value":"/state/accounts/a/logins/claude"}]}
+        );
         if (std.mem.endsWith(u8, request.url, "/v1/account")) {
             if (gateway.account) |account| return answered(gateway, 200, account);
             return answered(gateway, 401, "{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"Claude Code is not signed in on this computer: run `claude` and sign in.\"}}");
@@ -158,6 +161,22 @@ test "a request names its conversation to the gateway, and an ended conversation
     try std.testing.expectEqualStrings("01a1c112-3830-78f7-9a37-442a361894eb", gateway.conversation.?);
     try models.forgetConversation(arena, "01a1c112-3830-78f7-9a37-442a361894eb");
     try std.testing.expectEqualStrings("DELETE " ++ claude.base_url ++ "/conversations/01a1c112-3830-78f7-9a37-442a361894eb", gateway.asked.items[gateway.asked.items.len - 1]);
+}
+
+test "the program that signs Claude Code in is the gateway's to tell" {
+    var arena_allocator = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    var gateway: Gateway = .{ .arena = arena, .listing = opus_and_sonnet };
+    const models = try modelsOver(arena, &gateway);
+    const program = (try models.login(arena, "claude")).program;
+    try std.testing.expectEqual(@as(usize, 3), program.argv.len);
+    try std.testing.expectEqualStrings("/usr/local/bin/claude", program.argv[0]);
+    try std.testing.expectEqualStrings("login", program.argv[2]);
+    try std.testing.expectEqualStrings("CLAUDE_CONFIG_DIR", program.environment[0].name);
+    try std.testing.expectEqualStrings("gateway://claude/v1/login", gateway.asked.items[gateway.asked.items.len - 1]);
+    // A provider the host does not have tells none.
+    try std.testing.expect((try models.login(arena, "nowhere")) == .failed);
 }
 
 test "an account the person added is reached at its own address on the gateway, and let go of there as it is removed" {

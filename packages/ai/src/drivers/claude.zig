@@ -5,7 +5,8 @@
 //! Each request names its conversation, by which the gateway keeps the conversation's session of Claude Code, and lets
 //! it go once the conversation ended. An account the person added is another login of Claude Code's, kept apart by the
 //! gateway under the account's id, at `gateway://claude/accounts/{id}/v1`; once the person removes it, the gateway is
-//! asked to let it go, `DELETE gateway://claude/accounts/{id}`.
+//! asked to let it go, `DELETE gateway://claude/accounts/{id}`. The program that signs Claude Code in, the person's own
+//! login or an account's, is the gateway's to tell, for the host to run in a terminal for the person.
 const std = @import("std");
 const foundation = @import("foundation");
 const vocabulary = @import("vocabulary");
@@ -28,6 +29,7 @@ pub const driver: seam.Driver = .{
     .text = text,
     .list = list,
     .status = status,
+    .login = login,
     .forget_conversation = forgetConversation,
     .forget_account = forgetAccount,
     .instance = instance,
@@ -101,6 +103,17 @@ fn status(call: *Call) Error!seam.Status {
     const account = try http.parse(Account, call, body, "account");
     const plan = account.subscription_type orelse return .{ .connected = true, .account = account.email, .limits = account.limits };
     return .{ .connected = true, .account = try call.arena.print("{s} ({s})", .{ account.email, plan }), .limits = account.limits };
+}
+
+/// The program that signs Claude Code in for the account the call's provider is, as the gateway tells it: `claude auth
+/// login`, an account the person added with its own configuration.
+fn login(call: *Call) Error!seam.Login {
+    const url = try call.arena.print("{s}/login", .{call.baseUrl(base_url)});
+    const response = try http.send(call, .{ .url = url });
+    if (response.status < 200 or response.status >= 300) return call.fail(try http.failureOf(call, response, anthropic.details));
+    defer response.close();
+    const body = response.body.allocRemaining(call.arena, .limited(account_bytes_max)) catch return http.readFailure(call, response);
+    return http.parse(seam.Login, call, body, "login");
 }
 
 fn modelsUrl(call: *Call) Error![]const u8 {

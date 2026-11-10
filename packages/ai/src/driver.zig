@@ -51,6 +51,9 @@ pub const Driver = struct {
     status: ?StatusCall = null,
     /// Begins a sign-in in a browser, for a driver whose provider is reached by one.
     sign_in: ?SignInCall = null,
+    /// Tells the program that signs the provider's agent in, run in a terminal for the person, for a driver reached
+    /// through an agent the person signs in to themselves.
+    login: ?LoginCall = null,
     /// Lets go of what the provider keeps of a conversation that ended, for a driver whose provider keeps one.
     forget_conversation: ?ForgetConversationCall = null,
     /// Lets go of what the provider keeps of an account the person removed — the call's provider — for a driver whose
@@ -126,6 +129,16 @@ pub const SignIn = struct {
 
 /// A driver's sign-in: the address where the person signs in, and how it ends.
 pub const SignInCall = *const fn (call: *Call, options: SignInOptions) Error!SignIn;
+
+/// A variable a program's environment holds.
+pub const Variable = struct { name: []const u8, value: []const u8 };
+
+/// The program that signs a provider's agent in: its arguments, the first the program, and what its environment holds
+/// beside the person's.
+pub const Login = struct { argv: []const []const u8, environment: []const Variable = &.{} };
+
+/// A driver's program that signs its agent in, in `call`'s arena; or `Failed`, with the failure left in `call`.
+pub const LoginCall = *const fn (call: *Call) Error!Login;
 
 /// A driver's text call: the provider's stream of the request, begun; or `Failed`, with the failure left in `call`.
 pub const TextCall = *const fn (call: *Call, model: *const Model, request: *const vocabulary.ResponsesRequest) Error!TextSource;
