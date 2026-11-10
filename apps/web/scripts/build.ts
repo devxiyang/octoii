@@ -28,6 +28,8 @@ async function buildPage(entry: string, outdir: string): Promise<void> {
 		splitting: true,
 		// React's production build: a third of the development build's size, without its checks.
 		define: { "process.env.NODE_ENV": JSON.stringify("production") },
+		// Each component and hook kept as it was where what it reads did not change, as the compiler sees it, rather than by hand.
+		reactCompiler: true,
 		plugins: [tailwind],
 	});
 	if (result.success) return;
