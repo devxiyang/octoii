@@ -18,7 +18,7 @@ import { Type } from "typebox";
 import { type Attachment, attachmentsOf } from "./attachments.ts";
 import { settledOf } from "./blocks.ts";
 import { type CallState, printedOf } from "./calls.ts";
-import { mintedAt } from "./time.ts";
+import { duration, mintedAt } from "./time.ts";
 import { type Aside, givenOf, summaryOf, toolOf, verbOf, type WorkKind } from "./tools.ts";
 
 /**
@@ -357,7 +357,7 @@ function lineOf(call: Call, turn: Turn, step: string, asks: readonly Ask[], ask:
 	const tool = toolOf(call.name);
 	const given = givenOf(call.arguments);
 	const fiber = call.result?.call ?? call.fiber?.key;
-	const state = call.result === undefined ? liveState(call, turn) : CALL_STATES[call.result.status];
+	const state = call.result === undefined ? liveState(call, turn, ask) : CALL_STATES[call.result.status];
 	const output = call.result === undefined ? undefined : outputOf(call.result.call_output);
 	const printed = call.result === undefined ? printedOf(call.streaming) : undefined;
 	const told = { tool: call.name, arguments: call.arguments, output, printed, state };
@@ -424,15 +424,42 @@ export function laidOut(work: readonly Work[]): readonly Laid[] {
 	return laid;
 }
 
-/** How many calls `work` made, a script's own among them. */
-export function callsIn(work: readonly Work[]): number {
-	return work.reduce((count, step) => (step.kind === "call" ? count + 1 + callsIn(step.calls) : count), 0);
+/** Whether `turn` waits on the person: a call of its work — or one a call made — waits for their answer, or something no call asks does. */
+export function waitsOnPerson(turn: TimelineTurn): boolean {
+	return turn.asks.length > 0 || waitingIn(turn.work);
 }
 
-/** How a call with no result stands: stopped with its turn, waiting where its fiber waits on the person, else running. */
-function liveState(call: Call, turn: Turn): CallState {
+/** Whether a call of `work`, or one a call of it made, waits for the person's answer. */
+function waitingIn(work: readonly Work[]): boolean {
+	return work.some((step) => step.kind === "call" && (step.state === "waiting" || waitingIn(step.calls)));
+}
+
+/**
+ * What a turn that works does now, in words: waits on the person; forms a call, by its tool's verb, and how many more
+ * it forms; thinks, while the request it waits on has written nothing; or works.
+ */
+export function doingOf(turn: TimelineTurn): string {
+	if (waitsOnPerson(turn)) return "Waiting for you";
+	const [forming, ...more] = turn.writing.calls;
+	if (forming !== undefined) {
+		const verb = verbOf({ tool: forming.tool, state: "running" }) ?? `Calling ${forming.tool}`;
+		return more.length === 0 ? verb : `${verb}, and ${String(more.length)} more`;
+	}
+	if (turn.asking !== undefined && turn.writing.words === "") return "Thinking";
+	return "Working";
+}
+
+/** How long a turn that ended worked, in words, or that the person stopped it and after how long; none where how long it worked is not known. */
+export function workedText(turn: TimelineTurn): string | undefined {
+	const took = turn.startedAt === undefined || turn.endedAt === undefined ? undefined : duration(turn.endedAt - turn.startedAt);
+	if (turn.ending.state === "stopped") return took === undefined ? "Stopped" : `Stopped after ${took}`;
+	return took === undefined ? undefined : `Worked for ${took}`;
+}
+
+/** How a call with no result stands: stopped with its turn; waiting where the person is asked for it, `ask`, or its fiber waits on them; else running. */
+function liveState(call: Call, turn: Turn, ask: Ask | undefined): CallState {
 	if (turn.end !== undefined) return "stopped";
-	return call.fiber?.requests.some((request) => request.answer !== undefined) === true ? "waiting" : "running";
+	return ask !== undefined || call.fiber?.requests.some((request) => request.answer !== undefined) === true ? "waiting" : "running";
 }
 
 /** How a call stands, by its result's status. */

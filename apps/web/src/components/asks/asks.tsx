@@ -1,12 +1,12 @@
 /**
- * What waits for the person's answer, as a card where it is asked in the timeline, the composer free beside it: trust
- * in what a folder's configuration would run, with the servers it names; a call's permission, with what it does — once,
- * always, or not, with words for the model; a model's questions, one at a time, each with its choices and the person's
- * own words, or dismissed all at once; one of some answers, with the fields each takes; an object's own fields; or
- * what this page cannot ask, shown as it came. While an answer goes to the node nothing more is answered on its card;
- * what the node refused is said.
+ * What waits for the person's answer, docked in the composer's place while it waits, one at a time, the oldest first:
+ * trust in what a folder's configuration would run, with the servers it names; a call's permission, with what it does —
+ * allowed once or always, or denied, with what the person writes for the model where they write any; a model's
+ * questions, one at a time, each with its choices and the person's own words, or dismissed all at once; one of some
+ * answers, with the fields each takes; an object's own fields; or what this page cannot ask, shown as it came. While an
+ * answer goes to the node nothing more is answered; what the node refused is said.
  */
-import { type FormEvent, type KeyboardEvent, type ReactNode, useState, useTransition } from "react";
+import { type KeyboardEvent, type ReactNode, useState, useTransition } from "react";
 import type { Ask } from "@octoii-works/octoii-client";
 import { useClient, useThreads } from "@octoii-works/octoii-client/react";
 import { FilePen, MessageCircleQuestion, ShieldAlert, ShieldQuestion, SquareTerminal, Wrench, X } from "lucide-react";
@@ -30,11 +30,12 @@ import {
 	type Question,
 	questionsAnswer,
 	type ServerShown,
+	trustTitle,
 	UNANSWERED,
 	write,
 } from "../../core/asks.ts";
 import { folderName } from "../../core/threads.ts";
-import { useShortcuts } from "../effects/shortcut.ts";
+import { useShortcut, useShortcuts } from "../effects/shortcut.ts";
 import { Button, IconButton } from "../ui/button.tsx";
 import { CheckboxBox, CheckboxChoice, CheckboxGroup, RadioChoice, RadioDot, RadioGroup } from "../ui/choices.tsx";
 import { IconTile } from "../ui/icon-tile.tsx";
@@ -45,15 +46,21 @@ import { Segmented } from "../ui/segmented.tsx";
 import { Switch } from "../ui/switch.tsx";
 
 /**
- * What waits on the person in `thread`, as a card where it is asked in the timeline — at the call it is made for, or
- * at the thread's last turn where no call made it — the folder the thread works in and its project's read from its row.
+ * What waits on the person in `thread`, docked in the composer's place while it waits: the oldest of `asks`, in the
+ * composer's frame, how many wait over it where more than one does — each docking as the one before is answered; the
+ * folder the thread works in and its project's read from its row.
  */
-export function AskInline(props: { readonly thread: string; readonly ask: Ask }): ReactNode {
+export function AskDock(props: { readonly thread: string; readonly asks: readonly Ask[] }): ReactNode {
 	const manifest = useThreads()?.find((row) => row.id === props.thread)?.manifest;
+	const [first] = props.asks.toSorted((a, b) => (a.request.key < b.request.key ? -1 : 1));
+	if (first === undefined) return null;
 	return (
-		<div className="card flex w-full flex-col p-4">
-			<AskForm thread={props.thread} workspace={manifest?.workspace} project={manifest?.project} ask={props.ask} />
-		</div>
+		<section aria-label="Waiting for you">
+			{props.asks.length > 1 ? <p className="mb-1.5 px-1 text-end text-xs text-muted-foreground tabular-nums">1 of {props.asks.length}</p> : null}
+			<div className="max-h-[70dvh] overflow-y-auto rounded-lg border border-border bg-card p-4 shadow-raised">
+				<AskForm key={first.request.key} thread={props.thread} workspace={manifest?.workspace} project={manifest?.project} ask={first} />
+			</div>
+		</section>
 	);
 }
 
@@ -117,7 +124,7 @@ function Asked(props: { readonly icon: ReactNode; readonly title: string; readon
 /** Trust in what a folder's configuration names to run: each server as it would be run, then trust or not. */
 function Trust(props: { readonly folder: string; readonly servers: readonly ServerShown[]; readonly onAnswer: (value: Json) => void }): ReactNode {
 	return (
-		<Asked icon={<ShieldQuestion className="size-4 text-warning-foreground" />} title={`Trust what ${folderName(props.folder)} runs?`}>
+		<Asked icon={<ShieldQuestion className="size-4 text-warning-foreground" />} title={trustTitle(props.folder)}>
 			<p className="text-ui text-muted-foreground">Its configuration names servers Octoii would run on this computer, as you:</p>
 			<ul className="mt-2 flex max-h-40 flex-col gap-1 overflow-auto rounded-md border border-border px-3 py-2 font-mono text-xs">
 				{props.servers.map((server) => (
@@ -146,7 +153,8 @@ const ACTION_ICONS: Readonly<Record<Access["action"], typeof Wrench>> = { comman
  * A call's permission, as a request to the person: what it asks to do, and a mark where it must go beyond the sandbox
  * or the model that judged it doubted it; what will happen, line by line; why it must go further, and what the judge
  * doubted. Then how long the person lets it — just once, or always in the thread's project as its patterns say — and
- * allowed, ⌘↵, or denied: Esc at once, or with words for the model of what to do instead.
+ * allowed, ⌘↵ wherever the focus is, or denied, Esc within it — with what they write for the model of what to do
+ * instead, where they write any, which Enter denies with.
  */
 function Permission(props: {
 	readonly tool: string;
@@ -158,22 +166,16 @@ function Permission(props: {
 	readonly onAnswer: (value: Json) => void;
 }): ReactNode {
 	const [scope, setScope] = useState<"once" | "always">("once");
-	const [denying, setDenying] = useState(false);
 	const [message, setMessage] = useState("");
 	const Icon = ACTION_ICONS[props.access.action];
 	const always = alwaysText(props.access, props.project);
 	const allow = (): void => props.onAnswer({ reply: always !== undefined && scope === "always" ? "always" : "once" });
-	const deny = (words: string): void => props.onAnswer(words.trim() === "" ? { reply: "reject" } : { reply: "reject", message: words.trim() });
+	const deny = (): void => props.onAnswer(message.trim() === "" ? { reply: "reject" } : { reply: "reject", message: message.trim() });
+	useShortcut("mod+Enter", allow);
 	const keys = (event: KeyboardEvent): void => {
-		// The words for the model are a form of their own, which Enter sends and Esc leaves.
-		if (denying) return;
-		if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-			event.preventDefault();
-			allow();
-		} else if (event.key === "Escape") {
-			event.preventDefault();
-			deny("");
-		}
+		if (event.key !== "Escape") return;
+		event.preventDefault();
+		deny();
 	};
 	return (
 		<div onKeyDown={keys} className="outline-none">
@@ -197,58 +199,43 @@ function Permission(props: {
 			<Detail lines={permissionDetail(props.tool, props.arguments, props.access, props.workspace)} />
 			{props.access.justification === undefined ? null : <p className="mt-2 text-ui text-muted-foreground">{props.access.justification}</p>}
 			{props.doubt === undefined ? null : <p className="mt-2 text-ui text-warning-foreground">{props.doubt}</p>}
-			{denying ? (
-				<form
-					onSubmit={(event: FormEvent) => {
-						event.preventDefault();
-						deny(message);
-					}}
-					onKeyDown={(event) => {
-						if (event.key === "Escape") setDenying(false);
-					}}
-					className="mt-3 flex items-center gap-2"
-				>
-					<Field
-						label="What to do instead"
-						placeholder="What to do instead (optional)"
-						value={message}
-						onValueChange={setMessage}
-						className="flex-1"
-						autoFocus
+			{always === undefined ? null : (
+				<div className="mt-3 flex flex-col gap-1">
+					<Segmented
+						label="How long to allow it"
+						value={scope}
+						onValueChange={setScope}
+						items={[
+							{ value: "once", label: "Just once" },
+							{ value: "always", label: `Always in ${props.project === undefined ? "the project" : folderName(props.project)}` },
+						]}
 					/>
-					<Button size="sm" variant="outline" onClick={() => setDenying(false)}>
-						Back
-					</Button>
-					<Button type="submit" size="sm" variant="default">
-						Deny
-					</Button>
-				</form>
-			) : (
-				<div className="mt-3 flex flex-col gap-2">
-					{always === undefined ? null : (
-						<div className="flex flex-col gap-1">
-							<Segmented
-								label="How long to allow it"
-								value={scope}
-								onValueChange={setScope}
-								items={[
-									{ value: "once", label: "Just once" },
-									{ value: "always", label: `Always in ${props.project === undefined ? "the project" : folderName(props.project)}` },
-								]}
-							/>
-							{scope === "always" ? <p className="truncate px-0.5 text-xs text-muted-foreground">{always}</p> : null}
-						</div>
-					)}
-					<div className="flex items-center justify-end gap-2">
-						<Button size="sm" variant="outline" onClick={() => setDenying(true)}>
-							Deny <Kbd className="pointer-coarse:hidden">Esc</Kbd>
-						</Button>
-						<Button size="sm" variant="default" onClick={allow}>
-							Allow <Kbd className="bg-transparent text-primary-foreground opacity-75 pointer-coarse:hidden">⌘↵</Kbd>
-						</Button>
-					</div>
+					{scope === "always" ? <p className="truncate px-0.5 text-xs text-muted-foreground">{always}</p> : null}
 				</div>
 			)}
+			<form
+				onSubmit={(event) => {
+					event.preventDefault();
+					if (message.trim() !== "") deny();
+				}}
+				className="mt-3 flex flex-wrap items-center gap-2"
+			>
+				<Field
+					label="What to do instead"
+					placeholder="Deny, telling the model what to do instead"
+					value={message}
+					onValueChange={setMessage}
+					className="min-w-48 flex-1"
+				/>
+				<span className="flex shrink-0 items-center gap-2 max-sm:ms-auto">
+					<Button size="sm" variant="outline" onClick={deny}>
+						Deny <Kbd className="pointer-coarse:hidden">Esc</Kbd>
+					</Button>
+					<Button size="sm" variant="default" onClick={allow}>
+						Allow <Kbd className="bg-transparent text-primary-foreground opacity-75 pointer-coarse:hidden">⌘↵</Kbd>
+					</Button>
+				</span>
+			</form>
 		</div>
 	);
 }
@@ -345,7 +332,7 @@ function Questions(props: { readonly questions: readonly Question[]; readonly on
 					className="mt-2"
 				/>
 				<div className="mt-3 flex items-center gap-2">
-					<Button size="sm" variant="ghost-muted" onClick={() => forward(given(UNANSWERED))}>
+					<Button size="sm" variant="ghost-muted" onClick={() => forward(given(UNANSWERED))} className="-ms-2.5">
 						Skip
 					</Button>
 					<span className="flex-1" />
@@ -366,9 +353,9 @@ function Questions(props: { readonly questions: readonly Question[]; readonly on
 /** A choice a question offers: its label, and what it means. */
 type Option = NonNullable<Question["options"]>[number];
 
-/** How a question's choice reads: a row that shades as it is pointed at, its words clear once it is chosen. */
+/** How a question's choice reads: a row that shades as it is pointed at, past the edge its mark and words keep to, its words clear once it is chosen. */
 const OPTION_CLASS =
-	"flex w-full cursor-pointer items-start gap-2.5 rounded-md px-1.5 py-1.5 text-left text-foreground hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring data-checked:text-foreground";
+	"-mx-1.5 flex w-[calc(100%+0.75rem)] cursor-pointer items-start gap-2.5 rounded-md px-1.5 py-1.5 text-left text-foreground hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring data-checked:text-foreground";
 
 /**
  * A question's choices, each a row with its mark, its words and its key: of a question of one choice, a radio group the

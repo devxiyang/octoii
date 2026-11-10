@@ -216,6 +216,28 @@ export function permissionTitle(tool: string, access: Access): string {
 	}
 }
 
+/** What trust in what `folder` runs asks, in words. */
+export function trustTitle(folder: string): string {
+	return `Trust what ${folderName(folder)} runs?`;
+}
+
+/** What `ask` asks, in a line: trust in what a folder runs, a call's permission, a question's heading, else the request's name. */
+export function askTitle(ask: Ask): string {
+	const form = formOf(ask);
+	switch (form.kind) {
+		case "trust":
+			return trustTitle(form.folder);
+		case "permission":
+			return permissionTitle(form.tool, form.access);
+		case "question":
+			return form.questions[0]?.header ?? ask.request.name;
+		case "choices":
+		case "fields":
+		case "shown":
+			return ask.request.name;
+	}
+}
+
 /**
  * What a call asks to do, line by line: the command line it runs; the file it edits — as the model writes it, relative
  * within the thread's workspace — then its change, what it takes out and puts in, or what a write puts in whole; the

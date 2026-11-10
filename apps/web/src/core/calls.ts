@@ -59,6 +59,12 @@ export function toldOf(output: string): Told {
 	return { text: output.slice(0, end), notes };
 }
 
+/** What a command told, but the note that it exited with nought: a command that went well says nothing of how it exited. */
+export function commandToldOf(output: string): Told {
+	const told = toldOf(output);
+	return { text: told.text, notes: told.notes.filter((note) => note !== "exit 0") };
+}
+
 /** How a command exited: with its code, ended by a signal, or killed as its time ran out. */
 export type Exit = { readonly kind: "code"; readonly code: number } | { readonly kind: "signal"; readonly signal: number } | { readonly kind: "timed-out" };
 

@@ -2,7 +2,7 @@
  * A thread, in the page's frame: its column — its header, with the buttons of its details and the one that shows its
  * panel; its timeline in a column of the chat's width, each turn's words, its work and its answer, the reply being
  * written, kept at its end as it grows; docked at its foot, opaque, the messages waiting for the turn's end over the
- * composer; and its details on a card floating at the timeline's top right, where the column is wide enough, the chat's
+ * composer, or over what waits on the person, in the composer's place while it waits; and its details on a card floating at the timeline's top right, where the column is wide enough, the chat's
  * column centred under it — and after it its panel, where it is shown: its files and changes, its terminals and pages,
  * which a path a message names opens in. What the thread brought is seen as it is shown.
  */
@@ -13,6 +13,7 @@ import type { Device } from "../core/device.ts";
 import { projectOf, statusOf, titleOf } from "../core/threads.ts";
 import { contentOf } from "../core/attachments.ts";
 import { firstSaid, rowsOf, withLimited } from "../core/timeline.ts";
+import { AskDock } from "../components/asks/asks.tsx";
 import { Composer } from "../components/composer/composer.tsx";
 import { Queued } from "../components/composer/queued.tsx";
 import { Pane, PanelFrame, ShowPanel } from "../components/frame/frame.tsx";
@@ -84,7 +85,8 @@ export function ThreadScreen(props: ThreadScreenProps): ReactNode {
 
 /**
  * What docks at the column's foot, opaque, the turns fading out behind its upper edge: the messages waiting in the
- * thread's inbox over the composer, in the chat's column.
+ * thread's inbox over the composer, in the chat's column — or, while something waits on the person, over what waits,
+ * docked in the composer's place till it is answered.
  */
 function Dock(props: { readonly thread: string; readonly row: Listed | undefined; readonly conversation: Conversation; readonly device: Device }): ReactNode {
 	const { thread, row, conversation } = props;
@@ -98,23 +100,27 @@ function Dock(props: { readonly thread: string; readonly row: Listed | undefined
 				<div className="chat-column">
 					{/* What waits steers a turn that works, docked till its next step; sent to a thread at rest, it begins the next turn, shown in the timeline as it does. */}
 					<Queued thread={thread} inbox={conversation.status === "running" ? conversation.inbox : []} />
-					<Composer
-						model={row?.manifest.model}
-						onModel={(model) => void client.configure(thread, { model }).catch((error: unknown) => failed("The model could not be changed", error))}
-						mode={row?.manifest.mode}
-						onMode={(mode) => void client.configure(thread, { mode }).catch((error: unknown) => failed("The mode could not be changed", error))}
-						effort={row?.manifest.effort}
-						onEffort={(effort) => void client.configure(thread, { effort }).catch((error: unknown) => failed("The effort could not be changed", error))}
-						working={working}
-						sendShortcut={props.device.send_shortcut}
-						{...(working ? { placeholder: "Steer the work: your message joins at its next step" } : {})}
-						draft={{ thread }}
-						folder={row?.manifest.workspace}
-						onSend={async ({ text, attachments }) => {
-							await client.deliver(thread, { message: { role: "user", content: contentOf(text, attachments) } });
-						}}
-						onStop={() => void client.stop(thread).catch((error: unknown) => failed("The thread could not be stopped", error))}
-					/>
+					{conversation.asks.length > 0 ? (
+						<AskDock thread={thread} asks={conversation.asks} />
+					) : (
+						<Composer
+							model={row?.manifest.model}
+							onModel={(model) => void client.configure(thread, { model }).catch((error: unknown) => failed("The model could not be changed", error))}
+							mode={row?.manifest.mode}
+							onMode={(mode) => void client.configure(thread, { mode }).catch((error: unknown) => failed("The mode could not be changed", error))}
+							effort={row?.manifest.effort}
+							onEffort={(effort) => void client.configure(thread, { effort }).catch((error: unknown) => failed("The effort could not be changed", error))}
+							working={working}
+							sendShortcut={props.device.send_shortcut}
+							{...(working ? { placeholder: "Steer the work: your message joins at its next step" } : {})}
+							draft={{ thread }}
+							folder={row?.manifest.workspace}
+							onSend={async ({ text, attachments }) => {
+								await client.deliver(thread, { message: { role: "user", content: contentOf(text, attachments) } });
+							}}
+							onStop={() => void client.stop(thread).catch((error: unknown) => failed("The thread could not be stopped", error))}
+						/>
+					)}
 				</div>
 			</div>
 		</div>

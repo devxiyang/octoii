@@ -8,7 +8,21 @@
  */
 import { matches } from "@octoii-works/octoii-client";
 import { type Static, Type } from "typebox";
-import { type CallState, changeOf, exitOf, type Field, fieldsOf, type Found, foundOf, hunksOf, spanOf, type ToolCall, type Told, toldOf } from "./calls.ts";
+import {
+	type CallState,
+	changeOf,
+	commandToldOf,
+	exitOf,
+	type Field,
+	fieldsOf,
+	type Found,
+	foundOf,
+	hunksOf,
+	spanOf,
+	type ToolCall,
+	type Told,
+	toldOf,
+} from "./calls.ts";
 
 /** The kind of work a call does, by its tool: its mark, and how a stretch of calls says it. */
 export type WorkKind = "read" | "edit" | "search" | "command" | "script" | "browse" | "ask" | "delegate" | "other";
@@ -126,7 +140,11 @@ const TOOLS: Readonly<Partial<Record<string, ToolView>>> = {
 		subject: (given) => given.command,
 		code: true,
 		trouble: exitTrouble,
-		detail: (call, given) => ({ shape: "command", command: given.command ?? "", told: toldOfCall(call) ?? printedOfCall(call) }),
+		detail: (call, given) => ({
+			shape: "command",
+			command: given.command ?? "",
+			told: call.output === undefined ? printedOfCall(call) : commandToldOf(call.output),
+		}),
 	}),
 	execute: toolView({
 		work: "script",
@@ -168,13 +186,13 @@ export function toolOf(name: string): ToolView {
 	return TOOLS[name] ?? UNKNOWN;
 }
 
-/** A call's verb as it stands — as it is asked where it never went ahead, as it goes while it runs or waits, as it went once it ran; none for a tool the page has no verb for. */
+/** A call's verb as it stands — as it is asked while it waits on the person or where it never went ahead, as it goes while it runs, as it went once it ran; none for a tool the page has no verb for. */
 export function verbOf(call: { readonly tool: string; readonly state: CallState }): string | undefined {
 	const verbs = toolOf(call.tool).verbs;
 	if (verbs === undefined) return undefined;
 	const [asked, going, went] = verbs;
-	if (call.state === "running" || call.state === "waiting") return going;
-	return call.state === "rejected" || call.state === "stopped" ? asked : went;
+	if (call.state === "running") return going;
+	return call.state === "waiting" || call.state === "rejected" || call.state === "stopped" ? asked : went;
 }
 
 /** What a call did, or does, in words: its verb and what it works on — "Read a.md" — or, for a tool the page has no verb for, its name. */

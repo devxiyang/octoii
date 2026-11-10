@@ -19,7 +19,9 @@ const called = (tool: string, given: object, state: CallState = "done", output?:
 describe("what the page knows of each tool", () => {
 	it("says a call by its verb as it stands and what it works on, a tool it knows nothing of by its name", () => {
 		expect(callWords(called("read", { path: "a.md" }))).toBe("Read a.md");
-		expect(callWords(called("shell", { command: "ls" }, "waiting"))).toBe("Running ls");
+		// A call that waits on the person has not gone ahead: it is said as it is asked, as one they declined is.
+		expect(callWords(called("shell", { command: "ls" }, "waiting"))).toBe("Run ls");
+		expect(callWords(called("shell", { command: "ls" }, "running"))).toBe("Running ls");
 		expect(callWords(called("write", { path: "a.md" }, "rejected"))).toBe("Write a.md");
 		expect(callWords(called("grep", { pattern: "TODO" }))).toBe("Searched for TODO");
 		expect(callWords(called("execute", { code: "return 1" }))).toBe("Ran a script");
@@ -42,11 +44,13 @@ describe("what the page knows of each tool", () => {
 	});
 
 	it("opens a call by its tool's shape, and one that did not go through as what it was given and told", () => {
+		// A command that went well says nothing of how it exited; one that did not keeps its code among its notes.
 		expect(detailOf(called("shell", { command: "zig build" }, "done", "built\n[exit 0]"))).toEqual({
 			shape: "command",
 			command: "zig build",
-			told: { text: "built", notes: ["exit 0"] },
+			told: { text: "built", notes: [] },
 		});
+		expect(detailOf(called("shell", { command: "zig build" }, "done", "failed\n[exit 1]"))).toMatchObject({ told: { text: "failed", notes: ["exit 1"] } });
 		expect(detailOf(called("edit", { path: "a.md" }, "done", "--- a.md\n+++ a.md\n@@ -1 +1 @@\n-a\n+b"))).toEqual({
 			shape: "diff",
 			hunks: "@@ -1 +1 @@\n-a\n+b",

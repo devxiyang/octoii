@@ -22,14 +22,14 @@ import { Mark, MarkStack } from "./marks.tsx";
 
 /** Each way a sub-thread stands: its dot's colour, and its words. */
 const STANDINGS: Readonly<Record<Standing, { readonly dot: string; readonly label: string }>> = {
-	running: { dot: "bg-info", label: "Running" },
-	completed: { dot: "bg-success", label: "Completed" },
+	running: { dot: "bg-info", label: "Working" },
+	completed: { dot: "bg-success", label: "Done" },
 	failed: { dot: "bg-error", label: "Failed" },
 	stopped: { dot: "bg-faint-foreground", label: "Stopped" },
 };
 
 /** How a task given in the background ended, as its sub-thread told it, by how the sub-thread stands since. */
-const TOLD: Readonly<Record<Standing, string>> = { running: "Running", completed: "Finished", failed: "Failed", stopped: "Stopped" };
+const TOLD: Readonly<Record<Standing, string>> = { running: "Working", completed: "Done", failed: "Failed", stopped: "Stopped" };
 
 /** The delegations of one step, made by the thread `thread`: one a row, several gathered. */
 export function Delegations(props: { readonly thread: string; readonly calls: readonly CallLine[] }): ReactNode {

@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import type { Ask } from "@octoii-works/octoii-client";
 import {
 	alwaysText,
+	askTitle,
 	type Choice,
 	choiceAnswer,
 	choose,
@@ -29,10 +30,21 @@ const TRUSTED = { type: "object", properties: { trusted: { type: "boolean" } }, 
 
 describe("what a request asks", () => {
 	it("asks trust in a folder's configuration with the servers it would run", () => {
-		const form = formOf(
-			ask("trust", TRUSTED, { folder: "/w/app", path: "/w/app/.mcp.json", digest: "d", servers: [{ name: "docs", command: "node", args: ["s.js"] }] }),
-		);
-		expect(form).toEqual({ kind: "trust", folder: "/w/app", servers: [{ name: "docs", command: "node", args: ["s.js"] }] });
+		const trust = ask("trust", TRUSTED, {
+			folder: "/w/app",
+			path: "/w/app/.mcp.json",
+			digest: "d",
+			servers: [{ name: "docs", command: "node", args: ["s.js"] }],
+		});
+		expect(formOf(trust)).toEqual({ kind: "trust", folder: "/w/app", servers: [{ name: "docs", command: "node", args: ["s.js"] }] });
+		expect(askTitle(trust)).toBe("Trust what app runs?");
+	});
+
+	it("is told in a line by what it asks: a permission's title, a question's heading, else the request's name", () => {
+		const access = { action: "command" as const, resources: ["ls"], save: [] };
+		expect(askTitle(ask("permission", { type: "object" }, { tool: "shell", arguments: { command: "ls" }, access }))).toBe("Run this command?");
+		expect(askTitle(ask("question", { type: "object" }, { questions: [{ question: "Which one?", header: "Target" }] }))).toBe("Target");
+		expect(askTitle(ask("decide", { type: "object", properties: { note: { type: "string" } } }))).toBe("decide");
 	});
 
 	it("asks a union of objects, each named by one constant, as a choice of them with the fields each takes", () => {

@@ -1,19 +1,20 @@
 /**
  * A thread's timeline: its rows in a column of the chat's width — its turns, and what is the thread's own between them,
- * its window summed up or what waits on the person — in the order their ids give, on a list that draws the rows in view
- * alone, each as tall as it measures — so a long thread, its images among it, costs what is seen — followed at its end
- * at once as it grows while the reader is there, what comes fading in, and let be once they scroll up, a button bringing
- * them back down; its place kept as earlier turns are read in above it. Nothing of the thread stands till its latest
- * entries are read; then its turns fade in, as the page first shows them, so a thread opens rather than appears; and
- * each row that comes after fades in as it does, once. Above the turns, where the client holds the latest of the
- * log alone, a button that reads further back. The list takes the room between the page's header and what docks at
- * its foot, and keeps to its end as that room shrinks under a reader who is there.
+ * its window summed up or that something waits on the person, answered where the composer docks — in the order their
+ * ids give, on a list that draws the rows in view alone, each as tall as it measures — so a long thread, its images
+ * among it, costs what is seen — followed at its end at once as it grows while the reader is there, what comes fading
+ * in, and let be once they scroll up, a button bringing them back down; its place kept as earlier turns are read in
+ * above it. Nothing of the thread stands till its latest entries are read; then its turns fade in, as the page first
+ * shows them, so a thread opens rather than appears; and each row that comes after fades in as it does, once. Above
+ * the turns, where the client holds the latest of the log alone, a button that reads further back. The list takes the
+ * room between the page's header and what docks at its foot, and keeps to its end as that room shrinks under a reader
+ * who is there.
  */
 import { type AnimationEvent, type ComponentProps, type ReactNode, useRef, useState } from "react";
 import { ArrowDown, ShieldQuestion } from "lucide-react";
 import { type ContextProp, Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import type { TimelineRow } from "../../core/timeline.ts";
-import { AskInline } from "../composer/asks.tsx";
+import { AskLine } from "./ask-line.tsx";
 import { LimitedCard } from "./limited.tsx";
 import { useArrived } from "../effects/arrived.ts";
 import { cn } from "../ui/cn.ts";
@@ -30,7 +31,7 @@ export type TimelineProps = {
 	/** Whether the thread's latest entries were read: till they are, nothing of it stands. */
 	readonly read: boolean;
 	readonly complete: boolean;
-	/** How many requests wait on the person, whose cards stand in the turns. */
+	/** How many requests wait on the person, whose lines stand in the turns. */
 	readonly waiting: number;
 	readonly onEarlier: () => void;
 };
@@ -89,7 +90,7 @@ export function Timeline(props: TimelineProps): ReactNode {
 	);
 }
 
-/** A row: a turn, or the thread's own between turns — its window summed up, or what waits on the person, set apart as a turn is. */
+/** A row: a turn, or the thread's own between turns — its window summed up, or that something waits on the person, set apart as a turn is. */
 function Row(props: { readonly thread: string; readonly parent: string | undefined; readonly row: TimelineRow }): ReactNode {
 	const { row } = props;
 	switch (row.kind) {
@@ -104,7 +105,7 @@ function Row(props: { readonly thread: string; readonly parent: string | undefin
 		case "ask":
 			return (
 				<div className="pb-8">
-					<AskInline thread={props.thread} ask={row.ask} />
+					<AskLine ask={row.ask} />
 				</div>
 			);
 		case "limited":

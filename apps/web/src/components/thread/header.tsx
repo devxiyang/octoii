@@ -46,13 +46,13 @@ function StatusPill(props: { readonly status: ThreadStatus }): ReactNode {
 		case "asks":
 			return (
 				<Pill tone="waiting" icon={<StatusMark status="asks" />}>
-					Needs you
+					Waiting for you
 				</Pill>
 			);
 		case "working":
 			return (
 				<Pill tone="running" icon={<StatusMark status="working" />}>
-					Running
+					Working
 				</Pill>
 			);
 		case "failed":

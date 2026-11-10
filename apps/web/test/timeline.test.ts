@@ -6,7 +6,19 @@
  */
 import { describe, expect, it } from "bun:test";
 import { conversationOf, type Entry, type Process, type ThreadView } from "@octoii-works/octoii-client";
-import { type CallLine, callsIn, declinedText, firstSaid, laidOut, replyOf, rowsOf, type TimelineTurn, type Work } from "../src/core/timeline.ts";
+import {
+	type CallLine,
+	declinedText,
+	doingOf,
+	firstSaid,
+	laidOut,
+	replyOf,
+	rowsOf,
+	type TimelineTurn,
+	waitsOnPerson,
+	type Work,
+	workedText,
+} from "../src/core/timeline.ts";
 
 /** The turns among the rows of `conversation`, in their order. */
 const turnsOf = (conversation: Parameters<typeof rowsOf>[0]): readonly TimelineTurn[] =>
@@ -142,13 +154,13 @@ describe("a thread's timeline", () => {
 		expect(turn?.answer?.text).toBe("Fixed it.");
 		expect(turn?.ending).toEqual({ state: "replied" });
 		expect([turn?.startedAt, turn?.endedAt]).toEqual([START, START + 12_000]);
+		expect(turn === undefined ? undefined : workedText(turn)).toBe("Worked for 12s");
 		// Each call keeps its step, its arguments and what the model was told, the calls of one reply sharing the step.
 		expect(turn?.work).toMatchObject([
 			{ kind: "words" },
 			{ step: "q1", arguments: JSON.stringify({ path: "build.zig" }), output: "…", ended: START + 3_000 },
 			{ step: "q1", output: "…", ended: START + 4_000 },
 		]);
-		expect(callsIn(turn?.work ?? [])).toBe(2);
 	});
 
 	it("gives a working turn's calls as they run, the calls a script made under its own, and the reply being written", () => {
@@ -218,6 +230,7 @@ describe("a thread's timeline", () => {
 		);
 		expect(stopped?.work).toMatchObject([{ kind: "call", subject: "TODO", state: "stopped" }]);
 		expect(stopped?.ending).toEqual({ state: "stopped" });
+		expect(stopped === undefined ? undefined : workedText(stopped)).toBe("Stopped after 2s");
 		expect(failed?.work).toMatchObject([{ kind: "failure", text: "The provider is down." }]);
 		expect(failed?.ending).toEqual({ state: "failed", why: "The model could not be asked." });
 	});
@@ -251,6 +264,8 @@ describe("a thread's timeline", () => {
 			{ kind: "call", tool: "question", work: "ask", subject: "Target", state: "running" },
 			{ kind: "call", tool: "write", state: "waiting" },
 		]);
+		// A turn whose call waits on the person says so, rather than that it works.
+		expect(turn === undefined ? undefined : [waitsOnPerson(turn), doingOf(turn)]).toEqual([true, "Waiting for you"]);
 	});
 
 	it("shows a turn the person steered as one from each of their words on, each where it was said", () => {

@@ -9,7 +9,7 @@
  * one height as calls join it — each pushed into the marks — so the work grows by whole lines alone.
  */
 import { memo, type ReactNode } from "react";
-import { Ban, Brain, ShieldQuestion } from "lucide-react";
+import { Ban, Brain } from "lucide-react";
 import { callDuration, duration } from "../../core/time.ts";
 import { type CallLine, declinedText, type Work } from "../../core/timeline.ts";
 import { summaryOf } from "../../core/tools.ts";
@@ -17,7 +17,7 @@ import { useArrived } from "../effects/arrived.ts";
 import { Counting } from "../effects/now.ts";
 import { cn } from "../ui/cn.ts";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger, FoldChevron } from "../ui/collapsible.tsx";
-import { AskInline } from "../composer/asks.tsx";
+import { Waiting } from "./ask-line.tsx";
 import { CallDetail } from "./call-detail.tsx";
 import { ChangeCount } from "./changes.tsx";
 import { Prose } from "./markdown.tsx";
@@ -36,10 +36,9 @@ function sameItems<Item>(a: readonly Item[], b: readonly Item[]): boolean {
 	return a.length === b.length && a.every((item, index) => item === b[index]);
 }
 
-/** The line of a stretch of calls: one call's own, or several gathered — a call that waits on the person as what it asks them. */
+/** The line of a stretch of calls: one call's own, or several gathered. */
 export const Calls = memo(function Calls(props: StretchProps): ReactNode {
 	const [only] = props.calls;
-	if (only !== undefined && props.calls.length === 1 && only.ask !== undefined) return <AskInline thread={props.thread} ask={only.ask} />;
 	const one = props.calls.length === 1 ? only : undefined;
 	const marked = one === undefined ? props.calls : [one, ...one.calls];
 	return <StretchLine thread={props.thread} steps={props.steps} calls={props.calls} one={one} marked={marked} />;
@@ -141,19 +140,14 @@ function Failed(props: { readonly calls: readonly CallLine[] }): ReactNode {
 	return failed === 0 ? null : <span className="shrink-0 text-xs text-error-foreground">{failed} failed</span>;
 }
 
-/** What a call's line says at its end of how it stands: failed, how it went wrong though it ran, waiting for approval, declined, or stopped; nothing while it runs or once it went well. */
+/** What a call's line says at its end of how it stands: failed, how it went wrong though it ran, waiting for the person, declined, or stopped; nothing while it runs or once it went well. */
 function CallEnd(props: { readonly call: CallLine }): ReactNode {
 	const { call } = props;
 	switch (call.state) {
 		case "failed":
 			return <span className="shrink-0 text-xs text-error-foreground">Failed</span>;
 		case "waiting":
-			return (
-				<span className="flex shrink-0 items-center gap-1 text-xs text-warning-foreground">
-					<ShieldQuestion className="size-3.5" />
-					Waiting for approval
-				</span>
-			);
+			return <Waiting />;
 		case "rejected":
 			return (
 				<span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
