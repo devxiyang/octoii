@@ -22,7 +22,7 @@ import { LimitedCard } from "./limited.tsx";
 import { Reply } from "./reply.tsx";
 import { useArrived } from "../effects/arrived.ts";
 import { useDebounced } from "../effects/debounced.ts";
-import { useListEnd } from "../effects/list-end.ts";
+import { useListPlace } from "../effects/list-place.ts";
 import { REDUCED_MOTION, useMedia } from "../effects/media.ts";
 import { cn } from "../ui/cn.ts";
 import { SummedUp, TurnEndPart, Words, WORDS, WorkPart } from "./turn.tsx";
@@ -74,7 +74,7 @@ type Shown = {
 const ShownContext = createContext<Shown | undefined>(undefined);
 
 export function Timeline({ ref, ...props }: TimelineProps): ReactNode {
-	const { attach, atEnd, onScroll, toEnd } = useListEnd();
+	const { attach, atEnd, onScroll, toEnd, left } = useListPlace(props.thread);
 	const rows = useSteadyRows(props.items);
 	// What came after the thread's latest entries were read fades in as it comes, once: a row the list draws again as it
 	// is scrolled back to stands as it was.
@@ -87,6 +87,8 @@ export function Timeline({ ref, ...props }: TimelineProps): ReactNode {
 	// and settles; it goes as they come back.
 	const awhile = useDebounced(!atEnd, AWAY_AFTER);
 	const sent = props.sent === undefined ? -1 : rows.findIndex((row) => row.kind === "said" && row.said.delivery === props.sent);
+	// Where the reader left the thread, where its row is still held: else its end.
+	const leftAt = left === undefined ? -1 : rows.findIndex((row) => row.key === left.key);
 	useImperativeHandle(ref, () => ({ toEnd: () => toEnd(false) }), [toEnd]);
 	return (
 		<div
@@ -95,24 +97,27 @@ export function Timeline({ ref, ...props }: TimelineProps): ReactNode {
 				!props.read && "opacity-0",
 			)}
 		>
-			<ShownContext value={shown}>
-				<LegendList<TimelineRow>
-					ref={attach}
-					className="min-h-0 flex-1 overscroll-y-contain scrollbar-even [overflow-anchor:none]"
-					data={rows}
-					keyExtractor={keyOf}
-					getItemType={kindOf}
-					renderItem={drawRow}
-					estimatedItemSize={40}
-					initialScrollAtEnd
-					maintainScrollAtEnd={props.working && !lessMotion ? FOLLOW_GLIDING : FOLLOW}
-					maintainVisibleContentPosition={KEEP_READ}
-					{...(sent < 0 ? {} : { anchoredEndSpace: { anchorIndex: sent, anchorOffset: SENT_OFFSET } })}
-					onScroll={onScroll}
-					ListHeaderComponent={<Head read={props.read} complete={props.complete} empty={rows.length === 0} onEarlier={props.onEarlier} />}
-					ListFooterComponent={FOOT}
-				/>
-			</ShownContext>
+			{/* The list is made once the thread's latest entries are read, so it opens where its rows put it. */}
+			{props.read ? (
+				<ShownContext value={shown}>
+					<LegendList<TimelineRow>
+						ref={attach}
+						className="min-h-0 flex-1 overscroll-y-contain scrollbar-even [overflow-anchor:none]"
+						data={rows}
+						keyExtractor={keyOf}
+						getItemType={kindOf}
+						renderItem={drawRow}
+						estimatedItemSize={40}
+						{...(leftAt < 0 || left === undefined ? { initialScrollAtEnd: true } : { initialScrollIndex: { index: leftAt, viewOffset: left.viewOffset } })}
+						maintainScrollAtEnd={props.working && !lessMotion ? FOLLOW_GLIDING : FOLLOW}
+						maintainVisibleContentPosition={KEEP_READ}
+						{...(sent < 0 ? {} : { anchoredEndSpace: { anchorIndex: sent, anchorOffset: SENT_OFFSET } })}
+						onScroll={onScroll}
+						ListHeaderComponent={<Head complete={props.complete} empty={rows.length === 0} onEarlier={props.onEarlier} />}
+						ListFooterComponent={FOOT}
+					/>
+				</ShownContext>
+			) : null}
 			{!atEnd && awhile ? <Latest waiting={props.waiting} onLatest={() => toEnd(!lessMotion)} /> : null}
 		</div>
 	);
@@ -193,9 +198,8 @@ function Row(props: { readonly thread: string; readonly parent: string | undefin
 /** The room under the last row, as a turn leaves above the next. */
 const FOOT = <div aria-hidden className="h-8" />;
 
-/** The list's head: what reads further back, where the client holds the latest of the log alone; or that nothing was said yet; nothing till the thread's latest entries are read. */
-function Head(props: { readonly read: boolean; readonly complete: boolean; readonly empty: boolean; readonly onEarlier: () => void }): ReactNode {
-	if (!props.read) return null;
+/** The list's head: what reads further back, where the client holds the latest of the log alone; or that nothing was said yet. */
+function Head(props: { readonly complete: boolean; readonly empty: boolean; readonly onEarlier: () => void }): ReactNode {
 	if (props.complete && props.empty) {
 		return <p className="py-20 text-center text-ui text-muted-foreground">Send a message to start the conversation.</p>;
 	}

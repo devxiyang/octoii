@@ -143,7 +143,8 @@
 	--shadow-floating: var(--shadow-floating);
 	/* The decelerating curve of surfaces that slide or pop in. */
 	--ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
-	--animate-shimmer: shimmer 2.2s linear infinite;
+	/* In thirty steps a sweep rather than every frame: the mask is painted anew at each, a dozen times a second, not sixty. */
+	--animate-shimmer: shimmer 2.2s steps(30) infinite;
 	/*
 	 * What arrives while it is shown, moved by what the compositor moves alone — opacity and transform, never a box's
 	 * size or place: a mark that joins a stack pushed in from its end, growing to its own place; a block of a reply
