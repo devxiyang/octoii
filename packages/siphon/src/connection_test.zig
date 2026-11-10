@@ -938,6 +938,16 @@ const SigningIn = struct {
     }
 };
 
+/// A provider reached through an agent, as a test has it: its login, as the person answers it, prints what its
+/// environment holds for it, and ends as they answer it again.
+const LoggingIn = struct {
+    var driver: ai.driver.Driver = .{ .id = "agent", .name = "Agent", .login = tell };
+
+    fn tell(_: *ai.driver.Call) ai.failure.Error!ai.driver.Login {
+        return .{ .argv = &.{ "/bin/sh", "-c", "read go; echo signed-in-as-$ACCOUNT; read done" }, .environment = &.{.{ .name = "ACCOUNT", .value = "work" }} };
+    }
+};
+
 /// What a client was answered for the message `id`, pumped for as its job runs; the other messages it was sent kept.
 fn answerOf(siphon: *Siphon, client: Client, id: []const u8) !std.json.Value {
     const Waiting = struct {
@@ -1012,6 +1022,44 @@ test "a client asks how a provider stands, lists the models again, and signs in 
     try std.testing.expectEqualStrings("invalid", field(try answerOf(siphon, client, "9"), &.{ "error", "code" }).?.string);
     try client.close();
     try callback.close();
+}
+
+test "a provider reached through an agent is signed in to by its login, run in a terminal of no thread that ends with it" {
+    var arena_allocator: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_allocator.deinit();
+    const arena = arena_allocator.allocator();
+    const providers = [_]ai.driver.Provider{.{ .id = "agent", .name = "Agent", .driver = &LoggingIn.driver }};
+    const machine = try testing.openLocalMachine();
+    defer _ = @import("beak.zig").h.beak_close(machine);
+    var clock: testing.Clock = .{ .now_ms = 1_000 };
+    const siphon = try Siphon.open(std.testing.allocator, .{ .io = std.testing.io, .clock = clock.clock(), .machine = machine, .home = "/", .shell = "/bin/sh" }, .{ .providers = &providers });
+    defer siphon.close();
+    const client: Client = try .open(siphon, arena);
+    client.send("{\"id\":\"1\",\"method\":\"hello\",\"params\":{\"protocol\":1}}");
+    _ = try answerOf(siphon, client, "1");
+    var inbox: Inbox = .{ .client = client };
+
+    // The sign-in answers with a terminal running the login, its environment beside the terminal's own; followed, it
+    // shows what the login printed, and the login's end takes it away.
+    client.send("{\"id\":\"2\",\"method\":\"providers.sign-in\",\"params\":{\"provider\":\"agent\"}}");
+    const terminal = field(try inbox.answer(siphon, "2"), &.{ "result", "terminal" }).?.string;
+    try client.sendf("{{\"id\":\"3\",\"method\":\"terminals.follow\",\"params\":{{\"terminal\":\"{s}\",\"rows\":24,\"cols\":80}}}}", .{terminal});
+    _ = try inbox.until(siphon, Told{ .arena = arena, .event = "terminal-screen", .rows = 24 }, Told.matches);
+    try client.sendf("{{\"id\":\"4\",\"method\":\"terminals.write\",\"params\":{{\"terminal\":\"{s}\",\"data\":\"\\n\"}}}}", .{terminal});
+    _ = try inbox.until(siphon, Told{ .arena = arena, .event = "terminal-output", .holding = "signed-in-as-work" }, Told.matches);
+    try client.sendf("{{\"id\":\"5\",\"method\":\"terminals.write\",\"params\":{{\"terminal\":\"{s}\",\"data\":\"\\n\"}}}}", .{terminal});
+    const Gone = struct {
+        siphon: *Siphon,
+        terminal: []const u8,
+
+        fn ended(gone: *@This()) bool {
+            _ = gone.siphon.clients.terminals.get(gone.terminal) catch return true;
+            return false;
+        }
+    };
+    var gone: Gone = .{ .siphon = siphon, .terminal = terminal };
+    try testing.pumpUntil(siphon, &gone, Gone.ended);
+    try client.close();
 }
 
 /// Each name a folder was listed with, as `name kind`, and ` ignored` after one its repository's ignore files leave out.
