@@ -69,6 +69,10 @@ export const ManifestSchema = Type.Object({
 	snoozed_until: Type.Optional(Type.Number()),
 	/** Till when the person has seen what it brought them, in ms since the epoch by its own times; what came after is new. */
 	seen_until: Type.Optional(Type.Number()),
+	/** When the person settled it — put it with what is done — in ms since the epoch: settled till something comes of it after. */
+	settled_at: Type.Optional(Type.Number()),
+	/** When the person brought it back from what is done, in ms since the epoch: open from then. */
+	unsettled_at: Type.Optional(Type.Number()),
 	/** The thread that delegated it, and Siphon's id of the call that did, where it is a sub-thread. */
 	parent: Type.Optional(Type.Object({ thread: Type.String(), call: Type.String() })),
 });
@@ -86,6 +90,8 @@ export const ConfiguredSchema = Type.Object({
 	archived: Type.Optional(Type.Boolean()),
 	snoozed_until: Type.Optional(Type.Number()),
 	seen_until: Type.Optional(Type.Number()),
+	settled_at: Type.Optional(Type.Number()),
+	unsettled_at: Type.Optional(Type.Number()),
 });
 export type Configured = Static<typeof ConfiguredSchema>;
 

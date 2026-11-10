@@ -7,11 +7,11 @@ import {
 	arrivedAt,
 	canMarkUnread,
 	folderName,
-	isOpen,
+	isSettled,
 	isUnread,
 	lineOf,
 	matchingRows,
-	OPEN_FOR_MS,
+	SETTLES_AFTER_MS,
 	projectHues,
 	projectOf,
 	projectsOf,
@@ -95,12 +95,12 @@ describe("the threads", () => {
 		const rows = [row("2", "/w/octoii", { ...idle, ended_at: 900 }, "Fix the build"), row("1", undefined, { ...idle, status: "running" })];
 		expect(matchingRows(rows, "BUILD").map((each) => each.id)).toEqual(["2"]);
 		expect(matchingRows(rows, "octo").map((each) => each.id)).toEqual(["2"]);
-		const { open, working } = rowsBySection(rows, 1_000, standingsOf(rows));
-		expect([open.map((each) => each.id), working.map((each) => each.id)]).toEqual([["2"], ["1"]]);
+		const { active, working } = rowsBySection(rows, 1_000, standingsOf(rows));
+		expect([active.map((each) => each.id), working.map((each) => each.id)]).toEqual([["2"], ["1"]]);
 		expect([threadTitle(rows[0] ?? row("x", undefined)), threadTitle(rows[1] ?? row("x", undefined))]).toEqual(["Fix the build", "New thread"]);
 	});
 
-	it("stand open while they ask the person, or brought them something within a week; else among the earlier, by themselves", () => {
+	it("stand active while they ask the person, or something came of them within a week; else settle by themselves", () => {
 		const now = 30 * DAY;
 		const rows = [
 			row("never ran", undefined),
@@ -110,11 +110,11 @@ describe("the threads", () => {
 			row("a minute ago", undefined, { ...idle, status: "failed", ended_at: now - MINUTE }),
 			row("last month", undefined, { ...idle, ended_at: now - 25 * DAY }),
 		];
-		const { open, earlier } = rowsBySection(rows, now, standingsOf(rows));
+		const { active, settled } = rowsBySection(rows, now, standingsOf(rows));
 		// What asks the person stands first, however long it has waited; then what came, the latest first.
-		expect(open.map((each) => each.id)).toEqual(["asked long ago", "a minute ago", "this morning"]);
-		expect(earlier.map((each) => each.id)).toEqual(["last week", "last month", "never ran"]);
-		expect(isOpen(rows[2] ?? row("x", undefined), standingsOf(rows)(rows[2] ?? row("x", undefined)), now + OPEN_FOR_MS)).toBe(false);
+		expect(active.map((each) => each.id)).toEqual(["asked long ago", "a minute ago", "this morning"]);
+		expect(settled.map((each) => each.id)).toEqual(["last week", "last month", "never ran"]);
+		expect(isSettled(rows[2] ?? row("x", undefined), standingsOf(rows)(rows[2] ?? row("x", undefined)), now + SETTLES_AFTER_MS)).toBe(true);
 	});
 
 	it("pinned stand atop, snoozed apart till their time comes, and archived in no section", () => {
@@ -130,8 +130,28 @@ describe("the threads", () => {
 		const sections = rowsBySection(rows, now, standingsOf(rows));
 		expect(sections.pinned.map((each) => each.id)).toEqual(["5"]);
 		expect(sections.snoozed.map((each) => each.id)).toEqual(["4"]);
-		expect(sections.open.map((each) => each.id)).toEqual(["3", "1"]);
-		expect([sections.working, sections.earlier]).toEqual([[], []]);
+		expect(sections.active.map((each) => each.id)).toEqual(["3", "1"]);
+		expect([sections.working, sections.settled]).toEqual([[], []]);
+	});
+
+	it("settle as the person settles them, till something comes of them; back as they bring them back, settling by themselves a week on", () => {
+		const now = 30 * DAY;
+		const resting = row("1", undefined, { ...idle, began_at: now - HOUR - MINUTE, ended_at: now - HOUR });
+		const standingOf = standingsOf([resting]);
+		const settledBy = (settled_at?: number, unsettled_at?: number): Listed => ({
+			...resting,
+			manifest: { ...resting.manifest, ...(settled_at === undefined ? {} : { settled_at }), ...(unsettled_at === undefined ? {} : { unsettled_at }) },
+		});
+		expect(isSettled(settledBy(), standingOf(resting), now)).toBe(false);
+		expect(isSettled(settledBy(now - MINUTE), standingOf(resting), now)).toBe(true);
+		// A turn that ends after the person settled it brings it back by itself.
+		expect(isSettled(settledBy(now - 2 * HOUR), standingOf(resting), now)).toBe(false);
+		// Brought back, it is active, and settles by itself a week after.
+		expect(isSettled(settledBy(now - 2 * MINUTE, now - MINUTE), standingOf(resting), now)).toBe(false);
+		expect(isSettled(settledBy(now - 2 * MINUTE, now - MINUTE), standingOf(resting), now + SETTLES_AFTER_MS)).toBe(true);
+		// What works or asks the person is never settled.
+		const working = row("2", undefined, { ...idle, status: "running", began_at: now - 9 * DAY });
+		expect(isSettled({ ...working, manifest: { ...working.manifest, settled_at: now } }, standingsOf([working])(working), now)).toBe(false);
 	});
 
 	it("brought the person something as they asked, or as their last turn ended; unread till the person has seen it", () => {
@@ -166,7 +186,7 @@ describe("the threads", () => {
 		const sections = rowsBySection(rows, 100, standingsOf(rows));
 		// The parent works while its sub-thread does, though it is at rest itself.
 		expect(sections.working.map((each) => each.id)).toEqual(["2"]);
-		expect(sections.open.map((each) => each.id)).toEqual(["4"]);
+		expect(sections.active.map((each) => each.id)).toEqual(["4"]);
 		expect(subThreadsOf(rows, "2").map((each) => each.id)).toEqual(["3"]);
 		expect(
 			subThreadsBy(rows)

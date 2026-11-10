@@ -1,27 +1,29 @@
 /**
- * The sidebar: the brand, and on its right the frame's button that hides it; search, a project filter and a new thread, the project filtered
- * on named under them where one is; the threads of every project in one list, each card naming its project — those
- * pinned atop, then those open to the person, what asks them first, then those that work under their heading, and at
- * the foot, folded, those snoozed and the earlier, a line each, those archived not at all — a sub-thread on its
+ * The sidebar: the brand, and on its right the frame's button that hides it; search, a project filter and a new thread,
+ * the project filtered on named under them where one is; the threads of every project in one list, each card naming its
+ * project — those pinned atop, then the active, what asks the person first — and at its foot the shelves, each folding
+ * under its heading and its count: those that work, those snoozed, and the settled, a line each, a page of them at a
+ * time — a folded shelf still showing the thread that is shown — those archived not at all; a sub-thread on its
  * parent's card, by their count and how they stand; and settings at its foot.
  */
 import { type ReactNode, useRef, useState } from "react";
 import type { Listed } from "@octoii-works/octoii-client";
 import { useThreads } from "@octoii-works/octoii-client/react";
-import { Activity, AlarmClock, FolderOpen, History, ListFilter, Pin, Search, Settings, SquarePen, X } from "lucide-react";
+import { ChevronDown, FolderOpen, ListFilter, Search, Settings, SquarePen, X } from "lucide-react";
 import type { Overlay, Route } from "../../core/route.ts";
 import { lineOf, matchingRows, type Project, projectOf, projectsOf, rowsBySection, standingsOf, subThreadsBy } from "../../core/threads.ts";
+import { vendorOfReference } from "../../core/vendors.ts";
+import { useDirectory } from "../composer/directory.ts";
 import { useArrived } from "../effects/arrived.ts";
 import { useGlide } from "../effects/glide.ts";
 import { useNow } from "../effects/now.ts";
 import { HideSidebar } from "../frame/frame.tsx";
 import { go } from "../state/navigation.ts";
 import { IconButton } from "../ui/button.tsx";
-import { Collapsible, CollapsiblePanel, CollapsibleTrigger, FoldChevron } from "../ui/collapsible.tsx";
+import { FoldChevron } from "../ui/collapsible.tsx";
 import { Input } from "../ui/input.tsx";
 import { Menu, MenuItemLabel, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "../ui/menu.tsx";
 import { ProjectMark } from "../files/project-mark.tsx";
-import { cn } from "../ui/cn.ts";
 import { ThreadCard, ThreadLine } from "./thread-row.tsx";
 
 /** What the sidebar is given: the place shown, and how it opens settings over the page. */
@@ -102,9 +104,13 @@ function Filtered(props: { readonly project: Project; readonly onClear: () => vo
 	);
 }
 
+/** How many settled threads the list shows at first, and how many more each time the person asks for more. */
+const SETTLED_FIRST = 10;
+const SETTLED_PAGE = 25;
+
 /**
- * The threads pinned, then those open to the person under a hairline where some are pinned, those that work under
- * their heading, and at the foot, folded, those snoozed and the earlier.
+ * The threads pinned, then the active, with no heading; and at the foot the shelves of those that work, those snoozed
+ * — folded at first — and the settled.
  */
 function ThreadList(props: {
 	readonly rows: readonly Listed[];
@@ -117,8 +123,10 @@ function ThreadList(props: {
 	// hides nothing of how its parent stands.
 	const standingOf = standingsOf(props.all);
 	const delegated = subThreadsBy(props.all);
-	const { pinned, open, working, snoozed, earlier } = rowsBySection(props.rows, props.now, standingOf);
-	const sections = { pinned, open, working, snoozed, earlier };
+	const directory = useDirectory();
+	const { pinned, active, working, snoozed, settled } = rowsBySection(props.rows, props.now, standingOf);
+	const sections = { pinned, active, working, snoozed, settled };
+	const [settledShown, setSettledShown] = useState(SETTLED_FIRST);
 	// A thread that comes into the list after it was first drawn — made, or back from the archive — fades in; one that
 	// moves, to another section as it goes on to work or within its own, glides there from where it stood.
 	const arrived = useArrived(props.rows.map((row) => row.id));
@@ -133,55 +141,90 @@ function ThreadList(props: {
 		row,
 		standing: standingOf(row),
 		subThreads: delegated.get(row.id)?.length ?? 0,
+		vendor: row.manifest.model === undefined ? undefined : vendorOfReference(directory, row.manifest.model),
 		current: props.current.includes(row.id),
 		now: props.now,
 		onFilter: props.onFilter,
 		fades: arrived(row.id),
 	});
+	const isCurrent = (row: Listed): boolean => props.current.includes(row.id);
 	const card = (row: Listed): ReactNode => <ThreadCard key={row.id} {...rowProps(row)} />;
+	const line = (row: Listed): ReactNode => <ThreadLine key={row.id} {...rowProps(row)} />;
+	const more = settled.length - settledShown;
 	return (
 		<div ref={list} className="relative flex min-h-full flex-col">
-			<Shelf title="Pinned" count={pinned.length} icon={<Pin className="size-3.5" />}>
+			<ul className="flex flex-col">
 				{pinned.map(card)}
-			</Shelf>
-			{open.length === 0 ? null : <ul className={cn("flex flex-col pb-1", pinned.length > 0 && "mt-1 border-t border-border pt-1")}>{open.map(card)}</ul>}
-			<Shelf title="Working" count={working.length} icon={<Activity className="size-3.5" />}>
-				{working.map(card)}
-			</Shelf>
-			<div className="mt-auto pt-3">
-				<Shelf title="Snoozed" count={snoozed.length} icon={<AlarmClock className="size-3.5" />} folded>
-					{snoozed.map(card)}
-				</Shelf>
-				<Shelf title="Earlier" count={earlier.length} icon={<History className="size-3.5" />} folded>
-					{earlier.map((row) => (
-						<ThreadLine key={row.id} {...rowProps(row)} />
-					))}
-				</Shelf>
+				{active.map(card)}
+			</ul>
+			<div className="mt-auto flex flex-col pt-3">
+				<Shelf title="Working" rows={working} isCurrent={isCurrent} draw={card} />
+				<Shelf title="Snoozed" rows={snoozed} isCurrent={isCurrent} draw={card} folded />
+				<Shelf
+					title="Settled"
+					rows={settled.slice(0, settledShown)}
+					count={settled.length}
+					isCurrent={isCurrent}
+					draw={line}
+					more={more > 0 ? <ShowMore count={Math.min(more, SETTLED_PAGE)} onMore={() => setSettledShown(settledShown + SETTLED_PAGE)} /> : null}
+				/>
 			</div>
 		</div>
 	);
 }
 
-/** A section: its heading, its count and a chevron that folds it, folded at first where `folded` says; nothing where it holds no rows. */
+/**
+ * A shelf: its heading, the count of its rows and a chevron that folds it, folded at first where `folded` says; folded,
+ * still the row of the thread shown, where it is one of them; nothing where it holds no rows.
+ */
 function Shelf(props: {
 	readonly title: string;
-	readonly count: number;
-	readonly icon?: ReactNode;
+	readonly rows: readonly Listed[];
+	/** How many rows it holds in all, where it shows a page of them. */
+	readonly count?: number;
+	readonly isCurrent: (row: Listed) => boolean;
+	readonly draw: (row: Listed) => ReactNode;
 	readonly folded?: boolean;
-	readonly children: ReactNode;
+	readonly more?: ReactNode;
 }): ReactNode {
-	if (props.count === 0) return null;
+	const [open, setOpen] = useState(props.folded !== true);
+	const count = props.count ?? props.rows.length;
+	if (count === 0) return null;
 	return (
-		<Collapsible defaultOpen={props.folded !== true} render={<section className="pb-1" />}>
-			<CollapsibleTrigger className="flex h-control w-full cursor-default items-center gap-2 rounded-md px-2.5 text-ui text-muted-foreground hover:text-foreground">
-				{props.icon}
+		<section className="pb-1">
+			<button
+				type="button"
+				aria-expanded={open}
+				data-panel-open={open ? "" : undefined}
+				onClick={() => setOpen(!open)}
+				className="group/fold flex h-control w-full cursor-default items-center gap-2 rounded-md px-2.5 text-ui text-muted-foreground hover:text-foreground"
+			>
 				<span className="truncate">{props.title}</span>
 				<span className="flex-1" />
-				<span className="tabular-nums">{props.count}</span>
+				<span className="tabular-nums">{count}</span>
 				<FoldChevron />
-			</CollapsibleTrigger>
-			<CollapsiblePanel render={<ul className="flex flex-col" />}>{props.children}</CollapsiblePanel>
-		</Collapsible>
+			</button>
+			<ul className="flex flex-col">
+				{(open ? props.rows : props.rows.filter(props.isCurrent)).map(props.draw)}
+				{open ? props.more : null}
+			</ul>
+		</section>
+	);
+}
+
+/** What shows more of a shelf's rows: how many more. */
+function ShowMore(props: { readonly count: number; readonly onMore: () => void }): ReactNode {
+	return (
+		<li>
+			<button
+				type="button"
+				onClick={props.onMore}
+				className="flex h-control w-full cursor-pointer items-center gap-2 rounded-md px-2.5 text-ui text-muted-foreground hover:bg-accent hover:text-foreground"
+			>
+				<ChevronDown className="size-4 shrink-0" />
+				{`Show ${String(props.count)} more`}
+			</button>
+		</li>
 	);
 }
 

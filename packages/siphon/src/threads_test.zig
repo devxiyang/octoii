@@ -152,20 +152,25 @@ test "a thread's model, title, mode and how the person keeps it are changed as t
     try std.testing.expectEqualStrings("Named", manifest.title.?);
     try std.testing.expectEqualStrings("fake/other", manifest.model.?);
     try std.testing.expectEqualStrings("/w", manifest.workspace.?);
-    // How the person keeps it: pinned, archived, snoozed, seen — each changed alone, the rest kept.
+    // How the person keeps it: pinned, archived, snoozed, seen, settled and brought back — each changed alone, the rest kept.
     try threads.configure(siphon.runtime, arena, tid, .{ .pinned = true, .snoozed_until = 5_000 });
     try threads.configure(siphon.runtime, arena, tid, .{ .archived = true });
     try threads.configure(siphon.runtime, arena, tid, .{ .seen_until = 7_000 });
+    try threads.configure(siphon.runtime, arena, tid, .{ .settled_at = 8_000 });
+    try threads.configure(siphon.runtime, arena, tid, .{ .unsettled_at = 8_500 });
     const kept = try threads.manifestOf(siphon.runtime.volume, &arena, thread);
     try std.testing.expect(kept.pinned and kept.archived);
     try std.testing.expectEqual(@as(?i64, 5_000), kept.snoozed_until);
     try std.testing.expectEqual(@as(?i64, 7_000), kept.seen_until);
+    try std.testing.expectEqual(@as(?i64, 8_000), kept.settled_at);
+    try std.testing.expectEqual(@as(?i64, 8_500), kept.unsettled_at);
     // How the person keeps it is the directory's: the label index finds the archived threads, and thread.json holds none
     // of it.
     const archived = try siphon.runtime.volume.find(&arena, threads.kind, .{ .name = threads.archived_label, .value = "true" }, "");
     try std.testing.expectEqual(@as(usize, 1), archived.len);
     const settings = try siphon.runtime.volume.readAll(&arena, try @import("beak.zig").join(arena, thread, "thread.json"));
     try std.testing.expect(std.mem.indexOf(u8, settings, "\"pinned\":true") == null and std.mem.indexOf(u8, settings, "seen_until\":7") == null);
+    try std.testing.expect(std.mem.indexOf(u8, settings, "settled_at") == null);
     try std.testing.expectEqualStrings("Named", kept.title.?);
     // The snooze ends at its time, Beak taking it away as the volume steps then — told as any change is.
     clock.now_ms = 5_000;

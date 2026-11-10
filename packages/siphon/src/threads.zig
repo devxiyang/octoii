@@ -60,9 +60,14 @@ pub const Manifest = struct {
     /// comes, and the journal tells of it then, so whoever lists the threads hears the snooze end as it ends.
     snoozed_until: ?i64 = null,
     /// Till when the person has seen what it brought them — a turn's end, what it asks — in ms since the epoch, by
-    /// the thread's own times; what came after is new to them. None, nothing seen. The one thing of how they keep a
-    /// thread its log cannot tell: looking at a thread leaves nothing in it.
+    /// the thread's own times; what came after is new to them. None, nothing seen. Of how they keep a thread, what its
+    /// log cannot tell: looking at a thread leaves nothing in it.
     seen_until: ?i64 = null,
+    /// When the person settled it — put it with what is done — in ms since the epoch: settled till something comes of
+    /// it after; none, never. Its log cannot tell this either, nor `unsettled_at`.
+    settled_at: ?i64 = null,
+    /// When the person brought it back from what is done, in ms since the epoch: open from then; none, never.
+    unsettled_at: ?i64 = null,
     /// The thread, and its call, that delegated it, where it is a sub-thread; the thread also its label
     /// `siphon.parent`, which the label index finds its sub-threads by, the empty value where it has none.
     parent: ?Parent = null,
@@ -78,11 +83,12 @@ pub const parent_label = "siphon.parent";
 pub const project_label = "siphon.project";
 
 /// The labels a thread's directory carries of how the person keeps it — pinned, archived — `true`, or the empty value
-/// for not, so the label index finds the threads kept either way; and the annotation that holds till when they have
-/// seen what it brought them. Neither is in `thread.json`, which holds what the thread runs with.
+/// for not, so the label index finds the threads kept either way; and the annotations that hold the times of how they
+/// keep it, each by the manifest's field it is, as `siphon.<field>`. None of it is in `thread.json`, which holds what the
+/// thread runs with.
 pub const pinned_label = "siphon.pinned";
 pub const archived_label = "siphon.archived";
-const seen_annotation = "siphon.seen_until";
+const kept_times = [_][]const u8{ "seen_until", "settled_at", "unsettled_at" };
 
 /// The ids of the sub-threads of the thread `tid`, as the label index finds them, as a process's children are found
 /// by their parent's id.
@@ -354,6 +360,8 @@ pub const Configured = struct {
     archived: ?bool = null,
     snoozed_until: ?i64 = null,
     seen_until: ?i64 = null,
+    settled_at: ?i64 = null,
+    unsettled_at: ?i64 = null,
 };
 
 /// Changes the manifest of the thread `tid` as `configured` says, in one commit: a snooze till a time to come as the
@@ -371,7 +379,9 @@ pub fn configure(runtime: *Runtime, arena: Allocator, tid: []const u8, configure
     if (configured.model != null) try resumeEnded(&changes, runtime, arena, thread);
     if (configured.pinned) |pinned| try changes.label(thread, pinned_label, labelled(pinned));
     if (configured.archived) |archived| try changes.label(thread, archived_label, labelled(archived));
-    if (configured.seen_until) |seen| try changes.annotate(thread, &.{.{ .name = seen_annotation, .value = try arena.print("{d}", .{seen}) }});
+    inline for (kept_times) |name| {
+        if (@field(configured, name)) |time| try changes.annotate(thread, &.{.{ .name = "siphon." ++ name, .value = try arena.print("{d}", .{time}) }});
+    }
     if (configured.snoozed_until) |until| {
         const snooze = try beak.join(arena, thread, snooze_name);
         if (until > runtime.now()) {
@@ -787,7 +797,7 @@ pub fn manifestOf(volume: beak.Volume, arena: *const Allocator, thread: []const 
     const directory = entry.directory orelse return error.DamagedThread;
     manifest.pinned = isLabelled(beak.labelOf(directory.*.labels, directory.*.label_count, pinned_label));
     manifest.archived = isLabelled(beak.labelOf(directory.*.labels, directory.*.label_count, archived_label));
-    manifest.seen_until = try timeOf(entry, seen_annotation);
+    inline for (kept_times) |name| @field(manifest, name) = try timeOf(entry, "siphon." ++ name);
     const snooze = try volume.stat(arena, try beak.join(arena.*, thread, snooze_name));
     manifest.snoozed_until = if (snooze) |found| beak.get(found.expires) else null;
     return manifest;
@@ -799,7 +809,7 @@ fn settingsOf(manifest: Manifest) Manifest {
     var settings = manifest;
     settings.pinned = false;
     settings.archived = false;
-    settings.seen_until = null;
+    inline for (kept_times) |name| @field(settings, name) = null;
     settings.snoozed_until = null;
     return settings;
 }

@@ -2,9 +2,10 @@
  * The threads as the sidebar and the palette show them, read from their rows as the node lists them: each thread's
  * title, its project — the folder it works in, by its name — how it stands, as its status icon says, what it asks the
  * person, and when it began; how it stands with the sub-threads it delegated to; when it last brought the person
- * something, and whether they have seen it; the projects, the folders the threads work in, the latest used first; and
- * the sidebar's sections — those pinned atop, then those open to the person, those that work, those snoozed and the
- * earlier kept apart, those archived in none, a sub-thread in none — and the times one is snoozed till.
+ * something, and whether they have seen it; whether it is settled — put with what is done, by the person or by itself;
+ * the projects, the folders the threads work in, the latest used first; and the sidebar's sections — those pinned
+ * atop, then the active, those that work, those snoozed and the settled kept apart, those archived in none, a
+ * sub-thread in none — and the times one is snoozed till.
  */
 import type { Ask, Listed } from "@octoii-works/octoii-client";
 import { linksAsWords } from "./links.ts";
@@ -82,18 +83,24 @@ export function isUnread(row: Listed, standing: ThreadStanding): boolean {
 	return arrivedAt(row, standing) > (row.manifest.seen_until ?? 0);
 }
 
-/** How long what a thread brought keeps it among those open to the person, after which it rests among the earlier: a week. */
-export const OPEN_FOR_MS = 7 * 24 * 60 * 60 * 1000;
+/** How long a thread nothing came of stays among the active before it settles by itself: a week. */
+export const SETTLES_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** When something last came of a thread, standing as `standing` says: it set to work, it asked, or its turn ended. */
+export function lastActiveAt(row: Listed, standing: ThreadStanding): number {
+	return Math.max(activeAt(row), arrivedAt(row, standing));
+}
 
 /**
- * Whether a thread is open to the person at `now`: it asks them, or it brought them something within `OPEN_FOR_MS`.
- * Every other rests among the earlier by itself, the person never asked to say they are done with it; one they would
- * put away sooner they archive.
+ * Whether a thread is settled at `now` — put with what is done: never while it works or asks the person; where the
+ * person settled it and nothing came of it since; else by itself, once nothing came of it for `SETTLES_AFTER_MS` —
+ * counted from when the person brought it back, where that came later.
  */
-export function isOpen(row: Listed, standing: ThreadStanding, now: number): boolean {
-	if (standing.status === "asks") return true;
-	const arrived = arrivedAt(row, standing);
-	return arrived > 0 && now - arrived <= OPEN_FOR_MS;
+export function isSettled(row: Listed, standing: ThreadStanding, now: number): boolean {
+	if (standing.status === "asks" || standing.status === "working") return false;
+	const last = Math.max(lastActiveAt(row, standing), row.manifest.unsettled_at ?? 0);
+	if ((row.manifest.settled_at ?? 0) > last) return true;
+	return now - last > SETTLES_AFTER_MS;
 }
 
 /** Whether a thread may be marked unread: it brought something, and the person has seen it. */
@@ -226,14 +233,14 @@ export function isSnoozed(row: Listed, now: number): boolean {
 export type Sections = {
 	/** The threads the person pinned, atop, in the order the list gives them. */
 	readonly pinned: readonly Listed[];
-	/** The rest open to the person: those that ask them first, then by what they brought, the latest first. */
-	readonly open: readonly Listed[];
+	/** The rest that are active: those that ask the person first, then by what they brought, the latest first. */
+	readonly active: readonly Listed[];
 	/** Those that work, with their sub-threads, in the order the list gives them. */
 	readonly working: readonly Listed[];
 	/** Those snoozed till a time to come, kept apart till then. */
 	readonly snoozed: readonly Listed[];
-	/** Those that brought the person nothing within `OPEN_FOR_MS`, by what they last brought, the latest first. */
-	readonly earlier: readonly Listed[];
+	/** Those settled, by when something last came of them, the latest first. */
+	readonly settled: readonly Listed[];
 };
 
 /** The sub-threads of the thread `id` among `rows`, those it delegated to, newest first as the rows are. */
@@ -269,18 +276,19 @@ export function rowsBySection(rows: readonly Listed[], now: number, standingOf: 
 	const rest = awake.filter((row) => !isPinned(row));
 	const works = (row: Listed): boolean => standingOf(row).status === "working";
 	const resting = rest.filter((row) => !works(row));
-	const open = resting.filter((row) => isOpen(row, standingOf(row), now));
-	const earlier = resting.filter((row) => !isOpen(row, standingOf(row), now));
+	const active = resting.filter((row) => !isSettled(row, standingOf(row), now));
+	const settled = resting.filter((row) => isSettled(row, standingOf(row), now));
 	// What asks the person stands before what only brought them something; within each, the latest first.
 	const asks = (row: Listed): number => (standingOf(row).status === "asks" ? 1 : 0);
 	const arrived = (row: Listed): number => arrivedAt(row, standingOf(row));
 	const latestFirst = (left: Listed, right: Listed): number => arrived(right) - arrived(left);
+	const lastFirst = (left: Listed, right: Listed): number => lastActiveAt(right, standingOf(right)) - lastActiveAt(left, standingOf(left));
 	return {
 		pinned,
-		open: open.toSorted((left, right) => asks(right) - asks(left) || latestFirst(left, right)),
+		active: active.toSorted((left, right) => asks(right) - asks(left) || latestFirst(left, right)),
 		working: rest.filter(works),
 		snoozed,
-		earlier: earlier.toSorted(latestFirst),
+		settled: settled.toSorted(lastFirst),
 	};
 }
 
